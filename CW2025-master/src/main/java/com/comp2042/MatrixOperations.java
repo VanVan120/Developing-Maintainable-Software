@@ -15,11 +15,12 @@ public class MatrixOperations {
     }
 
     public static boolean intersect(final int[][] matrix, final int[][] brick, int x, int y) {
+        // brick is an array of rows (i) and columns (j). matrix is matrix[row][col].
         for (int i = 0; i < brick.length; i++) {
             for (int j = 0; j < brick[i].length; j++) {
-                int targetX = x + i;
-                int targetY = y + j;
-                if (brick[j][i] != 0 && (checkOutOfBound(matrix, targetX, targetY) || matrix[targetY][targetX] != 0)) {
+                int targetY = y + i; // row index
+                int targetX = x + j; // column index
+                if (brick[i][j] != 0 && (checkOutOfBound(matrix, targetX, targetY) || matrix[targetY][targetX] != 0)) {
                     return true;
                 }
             }
@@ -27,9 +28,31 @@ public class MatrixOperations {
         return false;
     }
 
+    /**
+     * Similar to intersect but used for ghost/landing calculation: allow brick cells that are above
+     * the top of the board (targetY < 0) while still detecting collisions with existing filled
+     * cells and collisions that would be out of horizontal bounds or below the board.
+     */
+    public static boolean intersectForGhost(final int[][] matrix, final int[][] brick, int x, int y) {
+        for (int i = 0; i < brick.length; i++) {
+            for (int j = 0; j < brick[i].length; j++) {
+                int targetY = y + i; // row index
+                int targetX = x + j; // column index
+                if (brick[i][j] == 0) continue;
+                // horizontal out-of-bounds is a collision
+                if (targetX < 0 || targetX >= matrix[0].length) return true;
+                // below the board is a collision
+                if (targetY >= matrix.length) return true;
+                // if within the visible matrix, check filled cells. If targetY < 0 (above top), ignore.
+                if (targetY >= 0 && matrix[targetY][targetX] != 0) return true;
+            }
+        }
+        return false;
+    }
+
     private static boolean checkOutOfBound(int[][] matrix, int targetX, int targetY) {
         boolean returnValue = true;
-        if (targetX >= 0 && targetY < matrix.length && targetX < matrix[targetY].length) {
+        if (targetX >= 0 && targetY >= 0 && targetY < matrix.length && targetX < matrix[targetY].length) {
             returnValue = false;
         }
         return returnValue;
@@ -50,10 +73,10 @@ public class MatrixOperations {
         int[][] copy = copy(filledFields);
         for (int i = 0; i < brick.length; i++) {
             for (int j = 0; j < brick[i].length; j++) {
-                int targetX = x + i;
-                int targetY = y + j;
-                if (brick[j][i] != 0) {
-                    copy[targetY][targetX] = brick[j][i];
+                int targetY = y + i; // row
+                int targetX = x + j; // column
+                if (brick[i][j] != 0) {
+                    copy[targetY][targetX] = brick[i][j];
                 }
             }
         }

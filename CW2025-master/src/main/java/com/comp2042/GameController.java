@@ -2,7 +2,8 @@ package com.comp2042;
 
 public class GameController implements InputEventListener {
 
-    private Board board = new SimpleBoard(25, 10);
+    // SimpleBoard(width, height) — we want a tall board: height=25 rows, width=10 columns
+    private Board board = new SimpleBoard(10, 25);
 
     private final GuiController viewGuiController;
 
@@ -16,7 +17,9 @@ public class GameController implements InputEventListener {
 
     @Override
     public DownData onDownEvent(MoveEvent event) {
+        System.out.println("onDownEvent source=" + event.getEventSource());
         boolean canMove = board.moveBrickDown();
+        System.out.println("moveDown result=" + canMove + " offset=" + board.getViewData().getxPosition() + "," + board.getViewData().getyPosition());
         ClearRow clearRow = null;
         if (!canMove) {
             board.mergeBrickToBackground();
@@ -40,19 +43,25 @@ public class GameController implements InputEventListener {
 
     @Override
     public ViewData onLeftEvent(MoveEvent event) {
-        board.moveBrickLeft();
+        System.out.println("onLeftEvent");
+        boolean moved = board.moveBrickLeft();
+        System.out.println("moveLeft result=" + moved + " offset=" + board.getViewData().getxPosition() + "," + board.getViewData().getyPosition());
         return board.getViewData();
     }
 
     @Override
     public ViewData onRightEvent(MoveEvent event) {
-        board.moveBrickRight();
+        System.out.println("onRightEvent");
+        boolean moved = board.moveBrickRight();
+        System.out.println("moveRight result=" + moved + " offset=" + board.getViewData().getxPosition() + "," + board.getViewData().getyPosition());
         return board.getViewData();
     }
 
     @Override
     public ViewData onRotateEvent(MoveEvent event) {
-        board.rotateLeftBrick();
+        System.out.println("onRotateEvent");
+        boolean rotated = board.rotateLeftBrick();
+        System.out.println("rotate result=" + rotated + " offset=" + board.getViewData().getxPosition() + "," + board.getViewData().getyPosition());
         return board.getViewData();
     }
 

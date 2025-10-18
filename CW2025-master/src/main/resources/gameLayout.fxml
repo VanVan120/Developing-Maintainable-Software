@@ -8,12 +8,23 @@
 <?import java.net.URL?>
 <Pane fx:controller="com.comp2042.GuiController"
       xmlns:fx="http://javafx.com/fxml">
-    <GridPane fx:id="brickPanel" vgap="1" hgap="1"/>
     <BorderPane styleClass="gameBoard" fx:id="gameBoard">
         <center>
-            <GridPane fx:id="gamePanel" hgap="1" vgap="1" layoutY="30" layoutX="40"/>
+            <StackPane alignment="TOP_LEFT">
+                <GridPane fx:id="gamePanel" hgap="1" vgap="1"/>
+                <!-- ghostPanel shows translucent preview of landing position -->
+                <Pane fx:id="ghostPanel" pickOnBounds="false"/>
+                <!-- brickPanel overlays on top of ghostPanel (absolute positioning) -->
+                <Pane fx:id="brickPanel" pickOnBounds="false"/>
+            </StackPane>
         </center>
     </BorderPane>
+
+    <!-- Score display: keep legacy scoreValue and add highScoreValue above it in bottom-left -->
+    <VBox fx:id="scoreBox" layoutX="12" layoutY="520" alignment="BOTTOM_LEFT" spacing="6" pickOnBounds="false">
+        <Text fx:id="highScoreValue" styleClass="highScoreClass">Highest: 0</Text>
+        <Text fx:id="scoreValue" styleClass="scoreClass">0</Text>
+    </VBox>
 
     <Group fx:id="groupNotification" layoutX="14" layoutY="203">
         <VBox alignment="CENTER">

@@ -19,7 +19,8 @@ public class SimpleBoard implements Board {
     public SimpleBoard(int width, int height) {
         this.width = width;
         this.height = height;
-        currentGameMatrix = new int[width][height];
+        // matrix is rows (height) by columns (width)
+        currentGameMatrix = new int[height][width];
         brickGenerator = new RandomBrickGenerator();
         brickRotator = new BrickRotator();
         score = new Score();
@@ -85,7 +86,13 @@ public class SimpleBoard implements Board {
     public boolean createNewBrick() {
         Brick currentBrick = brickGenerator.getBrick();
         brickRotator.setBrick(currentBrick);
-        currentOffset = new Point(4, 10);
+        // spawn near the top and centered horizontally
+        int[][] shape = brickRotator.getCurrentShape();
+        int shapeWidth = shape[0].length;
+        int boardWidth = currentGameMatrix[0].length;
+        int startX = Math.max(0, (boardWidth - shapeWidth) / 2);
+        int startY = 2; // keep 2 rows as hidden buffer
+        currentOffset = new Point(startX, startY);
         return MatrixOperations.intersect(currentGameMatrix, brickRotator.getCurrentShape(), (int) currentOffset.getX(), (int) currentOffset.getY());
     }
 
@@ -120,7 +127,7 @@ public class SimpleBoard implements Board {
 
     @Override
     public void newGame() {
-        currentGameMatrix = new int[width][height];
+        currentGameMatrix = new int[height][width];
         score.reset();
         createNewBrick();
     }
