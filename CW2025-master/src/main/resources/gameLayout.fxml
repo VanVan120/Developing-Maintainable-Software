@@ -2,6 +2,7 @@
 <?import javafx.scene.control.Button?>
 <?import javafx.scene.control.Label?>
 <?import javafx.scene.control.ToggleButton?>
+<?import javafx.scene.canvas.Canvas?>
 <?import javafx.scene.Group?>
 <?import javafx.scene.layout.*?>
 <?import javafx.scene.text.Text?>
@@ -11,9 +12,12 @@
     <BorderPane styleClass="gameBoard" fx:id="gameBoard">
         <center>
             <StackPane alignment="TOP_LEFT">
-                <GridPane fx:id="gamePanel" hgap="1" vgap="1"/>
-                <!-- ghostPanel shows translucent preview of landing position -->
-                <Pane fx:id="ghostPanel" pickOnBounds="false"/>
+                <!-- procedural background canvas: drawn programmatically to guarantee pixel-perfect alignment -->
+                <Canvas fx:id="bgCanvas" pickOnBounds="false" />
+             <!-- ghostPanel shows translucent preview of landing position (placed behind the GridPane
+                 so it is visible only where cells are empty) -->
+             <Pane fx:id="ghostPanel" pickOnBounds="false"/>
+             <GridPane fx:id="gamePanel" hgap="1" vgap="1"/>
                 <!-- brickPanel overlays on top of ghostPanel (absolute positioning) -->
                 <Pane fx:id="brickPanel" pickOnBounds="false"/>
             </StackPane>

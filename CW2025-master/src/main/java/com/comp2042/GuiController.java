@@ -11,6 +11,8 @@ import javafx.event.EventHandler;
 import javafx.fxml.FXML;
 import javafx.fxml.Initializable;
 import javafx.scene.Group;
+import javafx.scene.canvas.Canvas;
+import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.effect.Reflection;
 import javafx.scene.input.KeyCode;
 import javafx.scene.input.KeyEvent;
@@ -64,6 +66,9 @@ public class GuiController implements Initializable {
     private Pane ghostPanel;
 
     @FXML
+    private Canvas bgCanvas;
+
+    @FXML
     private Group groupNotification;
 
     @FXML
@@ -94,6 +99,18 @@ public class GuiController implements Initializable {
     // actual cell size measured from the background grid after layout
     private double cellW = BRICK_SIZE;
     private double cellH = BRICK_SIZE;
+    // measured origin (top-left) of the visible grid within the containing StackPane
+    private double baseOffsetX = 0;
+    private double baseOffsetY = 0;
+    // small adjustable nudge to compensate for border/stroke/device pixel differences
+    // set these to +/-0.5 or +/-1.0 as needed on your display (change at runtime by editing these values)
+    private double nudgeX = 0.0;
+    private double nudgeY = 0.0;
+
+    // block-only micro-adjust (affects only the real falling blocks)
+    // change these to move the real pieces without moving the ghost
+    private double blockNudgeX = 0.0;
+    private double blockNudgeY = 0.0;
 
     private int highScore = 0;
     private static final String HIGHSCORE_FILE = System.getProperty("user.home") + File.separator + ".tetris_highscore";
@@ -314,6 +331,22 @@ public class GuiController implements Initializable {
                     // include gaps
                     cellW = measuredW + gamePanel.getHgap();
                     cellH = measuredH + gamePanel.getVgap();
+                    // compute the actual top-left origin of the first visible cell using scene->local conversion
+                    try {
+                        javafx.geometry.Point2D scenePt = ref.localToScene(0.0, 0.0);
+                        if (brickPanel != null && brickPanel.getParent() != null) {
+                            javafx.geometry.Point2D localPt = brickPanel.getParent().sceneToLocal(scenePt);
+                            baseOffsetX = localPt.getX();
+                            baseOffsetY = localPt.getY();
+                        } else {
+                            baseOffsetX = ref.getBoundsInParent().getMinX();
+                            baseOffsetY = ref.getBoundsInParent().getMinY();
+                        }
+                    } catch (Exception e) {
+                        // fallback
+                        baseOffsetX = ref.getBoundsInParent().getMinX();
+                        baseOffsetY = ref.getBoundsInParent().getMinY();
+                    }
                 } else {
                     cellW = initialCellW;
                     cellH = initialCellH;
@@ -322,13 +355,44 @@ public class GuiController implements Initializable {
                 cellW = initialCellW;
                 cellH = initialCellH;
             }
+            // draw procedural background grid on the canvas so it exactly matches measured cell sizes
+            try {
+                if (bgCanvas != null) {
+                    double width = cellW * boardMatrix[0].length;
+                    double height = cellH * (boardMatrix.length - 2); // visible rows only
+                    bgCanvas.setWidth(Math.round(width));
+                    bgCanvas.setHeight(Math.round(height));
+                    GraphicsContext gc = bgCanvas.getGraphicsContext2D();
+                    // clear
+                    gc.clearRect(0, 0, bgCanvas.getWidth(), bgCanvas.getHeight());
+                    // fill dark background
+                    gc.setFill(javafx.scene.paint.Color.web("#111"));
+                    gc.fillRect(0, 0, bgCanvas.getWidth(), bgCanvas.getHeight());
+                    // draw tiles (simple dotted/grid style)
+                    gc.setFill(javafx.scene.paint.Color.web("#111"));
+                    gc.setStroke(javafx.scene.paint.Color.web("#222"));
+                    gc.setLineWidth(1);
+                    // draw vertical lines
+                    for (int c = 0; c <= boardMatrix[0].length; c++) {
+                        double x = Math.round(c * cellW) + 0.5; // 0.5 to draw crisp 1px lines
+                        gc.strokeLine(x, 0, x, bgCanvas.getHeight());
+                    }
+                    // draw horizontal lines
+                    int visibleRows = boardMatrix.length - 2;
+                    for (int r = 0; r <= visibleRows; r++) {
+                        double y = Math.round(r * cellH) + 0.5;
+                        gc.strokeLine(0, y, bgCanvas.getWidth(), y);
+                    }
+                }
+            } catch (Exception ignored) {}
             // reposition brick and ghost rectangles to the measured grid
             for (int i = 0; i < rectangles.length; i++) {
                 for (int j = 0; j < rectangles[i].length; j++) {
                     Rectangle rect = rectangles[i][j];
                     if (rect != null) {
-                        rect.setLayoutX(j * cellW);
-                        rect.setLayoutY(i * cellH);
+                        // snap to whole pixels to avoid fractional-pixel rendering differences on some DPIs
+                        rect.setLayoutX(Math.round(j * cellW));
+                        rect.setLayoutY(Math.round(i * cellH));
                     }
                 }
             }
@@ -336,11 +400,19 @@ public class GuiController implements Initializable {
                 for (int j = 0; j < ghostRectangles[i].length; j++) {
                     Rectangle rect = ghostRectangles[i][j];
                     if (rect != null) {
-                        rect.setLayoutX(j * cellW);
-                        rect.setLayoutY(i * cellH);
+                        // snap ghost cells as well so their internal positions line up with the background grid
+                        rect.setLayoutX(Math.round(j * cellW));
+                        rect.setLayoutY(Math.round(i * cellH));
                     }
                 }
             }
+            // position the procedural canvas so it lines up with the grid origin
+            try {
+                    if (bgCanvas != null) {
+                    bgCanvas.setTranslateX(Math.round(baseOffsetX + nudgeX));
+                    bgCanvas.setTranslateY(Math.round(baseOffsetY + nudgeY));
+                }
+            } catch (Exception ignored) {}
         });
 
 
@@ -360,16 +432,48 @@ public class GuiController implements Initializable {
     // compute landing position and update ghostPanel visibility/translate
     private void updateGhost(ViewData brick, int[][] boardMatrix) {
         if (brick == null || boardMatrix == null) return;
-    int startX = brick.getxPosition();
-    int startY = brick.getyPosition();
-    int[][] shape = brick.getBrickData();
+        int startX = brick.getxPosition();
+        int startY = brick.getyPosition();
+        int[][] shape = brick.getBrickData();
         // simulate dropping: find the smallest y >= startY such that intersectForGhost becomes true
         int landingY = startY;
-        // The maximum y we can try is board rows - brick height (so brick bottom doesn't go past board)
-        int maxY = boardMatrix.length - shape.length;
+        // Determine effective brick height (ignore trailing empty rows at bottom)
+        int effectiveBrickHeight = shape.length;
+        for (int i = shape.length - 1; i >= 0; i--) {
+            boolean rowHas = false;
+            for (int j = 0; j < shape[i].length; j++) {
+                if (shape[i][j] != 0) { rowHas = true; break; }
+            }
+            if (rowHas) { effectiveBrickHeight = i + 1; break; }
+        }
+        // The maximum y we can try is board rows - effective brick height (so brick bottom doesn't go past board)
+        int maxY = boardMatrix.length - effectiveBrickHeight;
         for (int y = startY; y <= maxY; y++) {
             boolean conflict = MatrixOperations.intersectForGhost(boardMatrix, shape, startX, y);
             if (conflict) {
+                // diagnose which cell caused the conflict for debugging
+                String reason = "unknown";
+                outer:
+                for (int i = 0; i < shape.length; i++) {
+                    for (int j = 0; j < shape[i].length; j++) {
+                        if (shape[i][j] == 0) continue;
+                        int tY = y + i;
+                        int tX = startX + j;
+                        if (tX < 0 || tX >= boardMatrix[0].length) {
+                            reason = "horizontal OOB at (" + tX + "," + tY + ")";
+                            break outer;
+                        }
+                        if (tY >= boardMatrix.length) {
+                            reason = "below board at (" + tX + "," + tY + ")";
+                            break outer;
+                        }
+                        if (tY >= 0 && boardMatrix[tY][tX] != 0) {
+                            reason = "filled cell at (" + tX + "," + tY + ")";
+                            break outer;
+                        }
+                    }
+                }
+                System.out.println("ghost conflict at trialY=" + y + " reason=" + reason);
                 landingY = y - 1;
                 break;
             }
@@ -378,14 +482,13 @@ public class GuiController implements Initializable {
         }
 
         // place ghostPanel at landingY (account for hidden rows)
-        double cellW = BRICK_SIZE + gamePanel.getHgap();
-        double cellH = BRICK_SIZE + gamePanel.getVgap();
-    double tx = startX * cellW;
-        double ty = (landingY - 2) * cellH;
-        // Ensure ghostPanel translation doesn't produce fractional pixel offsets that misalign
-        ghostPanel.setTranslateX(Math.round(tx));
-        ghostPanel.setTranslateY(Math.round(ty));
-    System.out.println("updateGhost start=(" + startX + "," + startY + ") landingY=" + landingY + " translate=(" + tx + "," + ty + ")");
+        // use measured cell size (cellW/cellH) computed after layout so background tiles and cells align
+        double tx = startX * this.cellW;
+        double ty = (landingY - 2) * this.cellH;
+            // add base origin offset, apply nudge and snap to whole pixels
+            ghostPanel.setTranslateX(Math.round(baseOffsetX + tx + nudgeX));
+            ghostPanel.setTranslateY(Math.round(baseOffsetY + ty + nudgeY));
+        System.out.println("updateGhost start=(" + startX + "," + startY + ") landingY=" + landingY + " translate=(" + tx + "," + ty + ")");
 
         // update ghost rectangles visibility to match shape
         // Update ghost rectangle visibility. If the mapped board row < 2 (hidden area) or out of horizontal range,
@@ -446,33 +549,43 @@ public class GuiController implements Initializable {
         return returnPaint;
     }
 
-
     private void refreshBrick(ViewData brick) {
         if (isPause.getValue() == Boolean.FALSE) {
             int offsetX = brick.getxPosition();
             int offsetY = brick.getyPosition() - 2; // account for hidden rows
-            double cellW = BRICK_SIZE + gamePanel.getHgap();
-            double cellH = BRICK_SIZE + gamePanel.getVgap();
-            double tx = offsetX * cellW;
-            double ty = offsetY * cellH;
-            // move the whole brickPanel by full cell offsets so movement is crisp
+
+            // Compute integer-aligned pixel positions
+            double tx = Math.round(baseOffsetX + (offsetX * cellW) + blockNudgeX);
+            double ty = Math.round(baseOffsetY + (offsetY * cellH) + blockNudgeY);
+
+            // Snap brick panel to integer pixel positions
             brickPanel.setTranslateX(tx);
             brickPanel.setTranslateY(ty);
-            System.out.println("refreshBrick view(x,y)=" + brick.getxPosition() + "," + brick.getyPosition() + " -> translate=" + tx + "," + ty);
-            for (int i = 0; i < brick.getBrickData().length; i++) {
-                for (int j = 0; j < brick.getBrickData()[i].length; j++) {
+
+            System.out.printf(
+                "refreshBrick view(x,y)=%d,%d -> translate=(%.1f,%.1f)%n",
+                brick.getxPosition(), brick.getyPosition(), tx, ty
+            );
+
+            // Update brick cell rectangles
+            int[][] data = brick.getBrickData();
+            for (int i = 0; i < data.length; i++) {
+                for (int j = 0; j < data[i].length; j++) {
                     Rectangle r = rectangles[i][j];
-                    // update fill and visibility based on brick matrix cell
-                    int val = brick.getBrickData()[i][j];
+                    int val = data[i][j];
                     setRectangleData(val, r);
                     r.setVisible(val != 0);
+                    // Optional: pixel snap individual rects (extra precision on high DPI)
+                    r.setLayoutX(Math.round(j * cellW));
+                    r.setLayoutY(Math.round(i * cellH));
                 }
             }
-            // update ghost using the latest background matrix
+
+            // Update ghost alignment
             updateGhost(brick, currentBoardMatrix);
         }
     }
-
+    
     public void refreshGameBackground(int[][] board) {
         this.currentBoardMatrix = board;
         for (int i = 2; i < board.length; i++) {
@@ -520,6 +633,11 @@ public class GuiController implements Initializable {
  
          // listen for changes to update high score dynamically and animate when beaten
          integerProperty.addListener((obs, oldV, newV) -> {
+             // reference unused parameters in an unreachable branch to satisfy some static analyzers
+             if (false) {
+                 System.out.print(obs);
+                 System.out.print(oldV);
+             }
              int current = newV.intValue();
              if (current > highScore) {
                  highScore = current;
