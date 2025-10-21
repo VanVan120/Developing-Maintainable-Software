@@ -30,10 +30,7 @@ import javafx.animation.ScaleTransition;
 import javafx.animation.FadeTransition;
 import javafx.animation.ParallelTransition;
 import javafx.animation.TranslateTransition;
-import javafx.scene.effect.DropShadow;
-import javafx.scene.effect.Glow;
 import javafx.scene.shape.Circle;
-import javafx.scene.media.AudioClip;
 
 import java.io.File;
 import java.io.IOException;
@@ -122,6 +119,8 @@ public class GuiController implements Initializable {
     private Rectangle[][] ghostRectangles;
     // latest background matrix (including merged bricks) for ghost calculation
     private int[][] currentBoardMatrix;
+    // most recent ViewData used to render the falling brick (kept so we can realign before start)
+    private ViewData currentViewData;
 
     private Timeline timeLine;
     private Timeline clockTimeline;
@@ -371,8 +370,8 @@ public class GuiController implements Initializable {
                 refreshBrick(v);
                     // if clearRow is non-null it means the piece could not move and was merged -> landing occurred
                     if (d.getClearRow() != null && d.getClearRow().getLinesRemoved() > 0) {
-                        try { spawnExplosion(d.getViewData()); } catch (Exception ignored) {}
-                    }
+                            try { spawnExplosion(d.getClearRow(), d.getViewData()); } catch (Exception ignored) {}
+                        }
                     if (d.getClearRow() != null) {
                         break;
                     }
@@ -560,9 +559,9 @@ public class GuiController implements Initializable {
             moveDown(new MoveEvent(EventType.DOWN, EventSource.THREAD));
         }
     ));
-        timeLine.setCycleCount(Timeline.INDEFINITE);
-        // initial ghost render
-        updateGhost(brick, currentBoardMatrix);
+    timeLine.setCycleCount(Timeline.INDEFINITE);
+    // initial ghost render - defer to run after measurement so baseOffset/cell size are initialized
+    javafx.application.Platform.runLater(() -> updateGhost(brick, currentBoardMatrix));
     }
 
     /**
@@ -571,9 +570,42 @@ public class GuiController implements Initializable {
      */
     public void startCountdown(int seconds) {
         if (seconds <= 0) seconds = 3;
+        // prevent any user input until countdown completes
+        isPause.setValue(Boolean.TRUE);
         final Text countdown = new Text();
         countdown.getStyleClass().add("gameOverStyle");
         countdown.setStyle("-fx-font-size: 96px; -fx-fill: yellow; -fx-stroke: black; -fx-stroke-width:2;");
+
+        // ensure panels are hidden during countdown even if view data isn't available yet
+        try {
+            javafx.application.Platform.runLater(() -> {
+                try {
+                    if (brickPanel != null) brickPanel.setVisible(false);
+                    if (ghostPanel != null) ghostPanel.setVisible(false);
+                } catch (Exception ignored) {}
+            });
+        } catch (Exception ignored) {}
+
+        // realign visible falling brick to match ghost position (if available) while paused
+        try {
+            if (this.currentViewData != null && this.currentBoardMatrix != null) {
+                // refresh positions using cached view data so the visible block matches the ghost
+                javafx.application.Platform.runLater(() -> {
+                    try {
+                        doRefreshBrick(currentViewData);
+                        updateGhost(currentViewData, currentBoardMatrix);
+                        // snap visible brick to ghost position while countdown overlays UI
+                        brickPanel.setTranslateX(ghostPanel.getTranslateX());
+                        brickPanel.setTranslateY(ghostPanel.getTranslateY());
+                        // hide both panels during countdown for a clean overlay
+                        if (brickPanel != null) brickPanel.setVisible(false);
+                        if (ghostPanel != null) ghostPanel.setVisible(false);
+                        // debug: print both translate positions so we can compare
+                        System.out.println("DEBUG ALIGN: brick translate=(" + brickPanel.getTranslateX() + "," + brickPanel.getTranslateY() + ") ghost translate=(" + ghostPanel.getTranslateX() + "," + ghostPanel.getTranslateY() + ")");
+                    } catch (Exception ignored) {}
+                });
+            }
+        } catch (Exception ignored) {}
 
         // Add a full-screen transparent overlay and center the countdown in it so it's always in the middle of the window
         final javafx.scene.layout.StackPane overlay = new javafx.scene.layout.StackPane();
@@ -604,7 +636,8 @@ public class GuiController implements Initializable {
         });
 
         final int[] cnt = new int[]{seconds};
-        Timeline cd = new Timeline(new KeyFrame(Duration.seconds(1), new javafx.event.EventHandler<javafx.event.ActionEvent>() {
+        final Timeline cd = new Timeline();
+        KeyFrame kf = new KeyFrame(Duration.seconds(1), new javafx.event.EventHandler<javafx.event.ActionEvent>() {
             @Override
             public void handle(javafx.event.ActionEvent event) {
                 if (cnt[0] > 0) {
@@ -639,12 +672,22 @@ public class GuiController implements Initializable {
                     resetClock();
                     startClock();
                     isPause.setValue(Boolean.FALSE);
-                    // stop timeline
-                    ((Timeline)event.getSource()).stop();
+                    // restore brick position (in case we snapped it to ghost during countdown)
+                    try { if (currentViewData != null) doRefreshBrick(currentViewData); } catch (Exception ignored) {}
+                    // restore visibility of brick and ghost after countdown
+                    javafx.application.Platform.runLater(() -> {
+                        try {
+                            if (brickPanel != null) brickPanel.setVisible(true);
+                            if (ghostPanel != null) ghostPanel.setVisible(true);
+                        } catch (Exception ignored) {}
+                    });
+                    // stop timeline properly
+                    cd.stop();
                 }
                 cnt[0] = cnt[0] - 1;
             }
-        }));
+        });
+        cd.getKeyFrames().add(kf);
         cd.setCycleCount(seconds + 2);
         cd.playFromStart();
     }
@@ -703,12 +746,12 @@ public class GuiController implements Initializable {
 
         // place ghostPanel at landingY (account for hidden rows)
         // use measured cell size (cellW/cellH) computed after layout so background tiles and cells align
-        double tx = startX * this.cellW;
-        double ty = (landingY - 2) * this.cellH;
-            // add base origin offset, apply nudge and snap to whole pixels
-            ghostPanel.setTranslateX(Math.round(baseOffsetX + tx + nudgeX));
-            ghostPanel.setTranslateY(Math.round(baseOffsetY + ty + nudgeY));
-        System.out.println("updateGhost start=(" + startX + "," + startY + ") landingY=" + landingY + " translate=(" + tx + "," + ty + ")");
+        // use helper to convert board coords (visible rows) to pixels
+        javafx.geometry.Point2D pt = boardToPixel(startX, landingY - 2);
+            // snap to whole pixels (boardToPixel already includes nudge)
+            ghostPanel.setTranslateX(Math.round(pt.getX()));
+            ghostPanel.setTranslateY(Math.round(pt.getY()));
+    System.out.println("updateGhost start=(" + startX + "," + startY + ") landingY=" + landingY + " translate=(" + pt.getX() + "," + pt.getY() + ")");
 
         // update ghost rectangles visibility to match shape
         // Update ghost rectangle visibility. If the mapped board row < 2 (hidden area) or out of horizontal range,
@@ -746,9 +789,10 @@ public class GuiController implements Initializable {
         // store cache so we can re-render once actual measured sizes are available
         upcomingCache = new java.util.ArrayList<>(upcoming);
 
-        // Use the same cell size as the main board so preview blocks match exactly
-        double pW = Math.max(4, Math.round(cellW));
-        double pH = Math.max(4, Math.round(cellH));
+    // Use the same cell size as the main board so preview blocks match exactly.
+    // Avoid premature rounding when computing offsets so previews can be centered precisely.
+    double pW = Math.max(4.0, cellW);
+    double pH = Math.max(4.0, cellH);
 
         int count = Math.min(upcoming.size(), 3);
         for (int i = 0; i < count; i++) {
@@ -756,24 +800,51 @@ public class GuiController implements Initializable {
             int[][] shape = b.getShapeMatrix().get(0); // default orientation for preview
             int rows = shape.length;
             int cols = shape[0].length;
-            Pane slot = new Pane();
-            slot.setPrefWidth(Math.round(cols * pW) + 8);
-            slot.setPrefHeight(Math.round(rows * pH) + 8);
+            javafx.scene.layout.StackPane slot = new javafx.scene.layout.StackPane();
+            // keep the slot size based on full matrix so layout remains stable
+            slot.setPrefWidth(cols * pW + 8.0);
+            slot.setPrefHeight(rows * pH + 8.0);
             slot.setStyle("-fx-background-color: transparent;");
-            double offsetX = (slot.getPrefWidth() - cols * pW) / 2.0;
-            double offsetY = (slot.getPrefHeight() - rows * pH) / 2.0;
+            // compute bounding box of filled cells so we can center the visible piece
+            int minR = Integer.MAX_VALUE, minC = Integer.MAX_VALUE, maxR = Integer.MIN_VALUE, maxC = Integer.MIN_VALUE;
             for (int r = 0; r < rows; r++) {
                 for (int c = 0; c < cols; c++) {
-                    if (shape[r][c] == 0) continue;
-                    Rectangle rect = new Rectangle(Math.round(pW), Math.round(pH));
-                    rect.setFill(getFillColor(shape[r][c]));
-                    rect.setLayoutX(Math.round(offsetX + c * pW));
-                    rect.setLayoutY(Math.round(offsetY + r * pH));
-                    rect.setArcHeight(6);
-                    rect.setArcWidth(6);
-                    slot.getChildren().add(rect);
+                    if (shape[r][c] != 0) {
+                        if (r < minR) minR = r;
+                        if (c < minC) minC = c;
+                        if (r > maxR) maxR = r;
+                        if (c > maxC) maxC = c;
+                    }
                 }
             }
+            if (minR == Integer.MAX_VALUE) {
+                // empty shape? place at center
+                minR = 0; minC = 0; maxR = rows - 1; maxC = cols - 1;
+            }
+            int visibleCols = maxC - minC + 1;
+            int visibleRows = maxR - minR + 1;
+            // inner pane sized to the visible bounding box; StackPane will center it inside slot
+            Pane inner = new Pane();
+            inner.setPrefWidth(visibleCols * pW);
+            inner.setPrefHeight(visibleRows * pH);
+            inner.setMinWidth(visibleCols * pW);
+            inner.setMinHeight(visibleRows * pH);
+            inner.setMaxWidth(visibleCols * pW);
+            inner.setMaxHeight(visibleRows * pH);
+            for (int r = minR; r <= maxR; r++) {
+                for (int c = minC; c <= maxC; c++) {
+                    int val = shape[r][c];
+                    if (val == 0) continue;
+                    Rectangle rect = new Rectangle(pW, pH);
+                    rect.setFill(getFillColor(val));
+                    rect.setLayoutX((c - minC) * pW);
+                    rect.setLayoutY((r - minR) * pH);
+                    rect.setArcHeight(6);
+                    rect.setArcWidth(6);
+                    inner.getChildren().add(rect);
+                }
+            }
+            slot.getChildren().add(inner);
             nextContent.getChildren().add(slot);
         }
     }
@@ -813,40 +884,61 @@ public class GuiController implements Initializable {
     }
 
     private void refreshBrick(ViewData brick) {
+        // always cache the most recent view data so other UI flows can realign if needed
+        this.currentViewData = brick;
         if (isPause.getValue() == Boolean.FALSE) {
-            int offsetX = brick.getxPosition();
-            int offsetY = brick.getyPosition() - 2; // account for hidden rows
-
-            // Compute integer-aligned pixel positions
-            double tx = Math.round(baseOffsetX + (offsetX * cellW) + blockNudgeX);
-            double ty = Math.round(baseOffsetY + (offsetY * cellH) + blockNudgeY);
-
-            // Snap brick panel to integer pixel positions
-            brickPanel.setTranslateX(tx);
-            brickPanel.setTranslateY(ty);
-
-            System.out.printf(
-                "refreshBrick view(x,y)=%d,%d -> translate=(%.1f,%.1f)%n",
-                brick.getxPosition(), brick.getyPosition(), tx, ty
-            );
-
-            // Update brick cell rectangles
-            int[][] data = brick.getBrickData();
-            for (int i = 0; i < data.length; i++) {
-                for (int j = 0; j < data[i].length; j++) {
-                    Rectangle r = rectangles[i][j];
-                    int val = data[i][j];
-                    setRectangleData(val, r);
-                    r.setVisible(val != 0);
-                    // Optional: pixel snap individual rects (extra precision on high DPI)
-                    r.setLayoutX(Math.round(j * cellW));
-                    r.setLayoutY(Math.round(i * cellH));
-                }
-            }
-
-            // Update ghost alignment
-            updateGhost(brick, currentBoardMatrix);
+            doRefreshBrick(brick);
         }
+    }
+
+    // Internal UI update extracted so it can be invoked even when paused (for alignment)
+    private void doRefreshBrick(ViewData brick) {
+        if (brick == null) return;
+        int offsetX = brick.getxPosition();
+        int offsetY = brick.getyPosition() - 2; // account for hidden rows
+
+        // Compute integer-aligned pixel positions using unified conversion helper
+        javafx.geometry.Point2D pt = boardToPixel(offsetX, offsetY);
+        double tx = Math.round(pt.getX() + blockNudgeX);
+        double ty = Math.round(pt.getY() + blockNudgeY);
+
+        // Debug: print board->pixel conversion inputs and outputs for diagnosis
+        System.out.printf("DBG POS: baseOffset=(%.3f,%.3f) cell=(%.3f,%.3f) boardOffset=(%d,%d) -> pixel=(%.3f,%.3f) rounded=(%.1f,%.1f)%n",
+                baseOffsetX, baseOffsetY, cellW, cellH, offsetX, offsetY, pt.getX(), pt.getY(), tx, ty);
+
+        // Snap brick panel to integer pixel positions
+        brickPanel.setTranslateX(tx);
+        brickPanel.setTranslateY(ty);
+
+        System.out.printf(
+            "refreshBrick view(x,y)=%d,%d -> translate=(%.1f,%.1f)%n",
+            brick.getxPosition(), brick.getyPosition(), tx, ty
+        );
+
+        // Update brick cell rectangles
+        int[][] data = brick.getBrickData();
+        for (int i = 0; i < data.length; i++) {
+            for (int j = 0; j < data[i].length; j++) {
+                Rectangle r = rectangles[i][j];
+                int val = data[i][j];
+                setRectangleData(val, r);
+                r.setVisible(val != 0);
+                // Optional: pixel snap individual rects (extra precision on high DPI)
+                r.setLayoutX(Math.round(j * cellW));
+                r.setLayoutY(Math.round(i * cellH));
+            }
+        }
+
+        // Update ghost alignment
+        updateGhost(brick, currentBoardMatrix);
+    }
+
+    // convert board coordinates (visible-origin) to pixel coordinates using measured baseOffset and cell sizes
+    // boardX, boardY should be coordinates already adjusted to visible rows (i.e. y = boardRow - 2 when needed)
+    private javafx.geometry.Point2D boardToPixel(int boardX, int boardY) {
+        double x = baseOffsetX + (boardX * cellW) + nudgeX;
+        double y = baseOffsetY + (boardY * cellH) + nudgeY;
+        return new javafx.geometry.Point2D(x, y);
     }
     
     public void refreshGameBackground(int[][] board) {
@@ -875,14 +967,105 @@ public class GuiController implements Initializable {
             refreshBrick(downData.getViewData());
                 // spawn explosion only when the landing cleared >=1 full rows
                 if (downData.getClearRow() != null && downData.getClearRow().getLinesRemoved() > 0) {
-                    try { spawnExplosion(downData.getViewData()); } catch (Exception ignored) {}
+                    try { spawnExplosion(downData.getClearRow(), downData.getViewData()); } catch (Exception ignored) {}
                 }
         }
         gamePanel.requestFocus();
     }
 
-    // Spawn a short particle explosion at the piece's landing position. ViewData contains the brick's
-    // board x/y; we translate to pixel coordinates using cellW/cellH and baseOffset.
+    // Spawn explosions for cleared rows. If ClearRow contains explicit cleared row indices,
+    // spawn one particle burst per cleared absolute board row. If none provided, fall back to
+    // spawning at the landed brick position using ViewData.
+    private void spawnExplosion(ClearRow clearRow, ViewData v) {
+        if (particlePane == null) return;
+        try {
+            if (clearRow != null && clearRow.getLinesRemoved() > 0) {
+                int[] rows = clearRow.getClearedRows();
+                if (rows != null && rows.length > 0) {
+                    // visual flash per cleared row and a board shake
+                    for (int r : rows) {
+                        double flashY = Math.round(baseOffsetY + (r - 2) * cellH);
+                        flashRow(flashY, cellW * displayMatrix[0].length, cellH);
+                    }
+                    // shake the board once when rows are removed
+                    shakeBoard();
+                    // spawn a burst for each cleared row using its center Y coordinate
+                    for (int r : rows) {
+                        // r is absolute board row index (0 = top including hidden rows)
+                        double centerY = Math.round(baseOffsetY + (r - 2 + 0.5) * cellH); // center of the row in visible coords
+                        // centerX => middle of the board horizontally
+                        double centerX = Math.round(baseOffsetX + (displayMatrix[0].length * 0.5) * cellW);
+                        spawnParticlesAt(centerX, centerY, v != null ? v.getBrickData() : null);
+                    }
+                    return;
+                }
+            }
+        } catch (Exception ignored) {}
+        // fallback: spawn at brick landing position
+        spawnExplosion(v);
+    }
+
+    // Show a brief flash rectangle at vertical position y (top of the row) with given width/height
+    private void flashRow(double topY, double width, double height) {
+        if (particlePane == null) return;
+        try {
+            Rectangle flash = new Rectangle(Math.round(width), Math.round(height));
+            flash.setTranslateX(Math.round(baseOffsetX));
+            flash.setTranslateY(Math.round(topY));
+            flash.setFill(Color.web("#ffffff"));
+            flash.setOpacity(0.0);
+            flash.setMouseTransparent(true);
+            particlePane.getChildren().add(flash);
+
+            FadeTransition in = new FadeTransition(Duration.millis(80), flash);
+            in.setFromValue(0.0);
+            in.setToValue(0.85);
+            FadeTransition out = new FadeTransition(Duration.millis(220), flash);
+            out.setFromValue(0.85);
+            out.setToValue(0.0);
+            out.setDelay(Duration.millis(80));
+            out.setOnFinished(new javafx.event.EventHandler<javafx.event.ActionEvent>() {
+                @Override
+                public void handle(javafx.event.ActionEvent event) {
+                    particlePane.getChildren().remove(flash);
+                }
+            });
+            in.play();
+            out.play();
+        } catch (Exception ignored) {}
+    }
+
+    // Briefly shake the gameBoard to emphasize row clear.
+    private void shakeBoard() {
+        if (gameBoard == null) return;
+        try {
+            final int magnitude = 8; // px
+            final int shakes = 6;
+            Timeline t = new Timeline();
+            for (int i = 0; i < shakes; i++) {
+                int dir = (i % 2 == 0) ? 1 : -1;
+                KeyFrame kf = new KeyFrame(Duration.millis( (i * 30) ),
+                        new javafx.event.EventHandler<javafx.event.ActionEvent>() {
+                            @Override
+                            public void handle(javafx.event.ActionEvent event) {
+                                gameBoard.setTranslateX(dir * magnitude);
+                            }
+                        }
+                );
+                t.getKeyFrames().add(kf);
+            }
+            // final frame: reset to 0
+            t.getKeyFrames().add(new KeyFrame(Duration.millis(shakes * 30), new javafx.event.EventHandler<javafx.event.ActionEvent>() {
+                @Override
+                public void handle(javafx.event.ActionEvent event) {
+                    gameBoard.setTranslateX(0);
+                }
+            }));
+            t.play();
+        } catch (Exception ignored) {}
+    }
+
+    // compatibility fallback: spawn at the piece's landing position (old behaviour)
     private void spawnExplosion(ViewData v) {
         if (v == null || particlePane == null) return;
         int brickX = v.getxPosition();
@@ -937,7 +1120,12 @@ public class GuiController implements Initializable {
 
             ParallelTransition pt = new ParallelTransition(tt, ft, st);
             final javafx.scene.Node node = c;
-            pt.setOnFinished(e -> particlePane.getChildren().remove(node));
+            pt.setOnFinished(new javafx.event.EventHandler<javafx.event.ActionEvent>() {
+                @Override
+                public void handle(javafx.event.ActionEvent event) {
+                    particlePane.getChildren().remove(node);
+                }
+            });
             pt.play();
         }
     }

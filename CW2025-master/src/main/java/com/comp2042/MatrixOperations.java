@@ -86,7 +86,7 @@ public class MatrixOperations {
     public static ClearRow checkRemoving(final int[][] matrix) {
         int[][] tmp = new int[matrix.length][matrix[0].length];
         Deque<int[]> newRows = new ArrayDeque<>();
-        List<Integer> clearedRows = new ArrayList<>();
+    List<Integer> clearedRows = new ArrayList<>();
 
         for (int i = 0; i < matrix.length; i++) {
             int[] tmpRow = new int[matrix[i].length];
@@ -112,7 +112,10 @@ public class MatrixOperations {
             }
         }
         int scoreBonus = 50 * clearedRows.size() * clearedRows.size();
-        return new ClearRow(clearedRows.size(), tmp, scoreBonus);
+        // convert clearedRows list to int[] of absolute row indices
+        int[] cleared = new int[clearedRows.size()];
+        for (int i = 0; i < clearedRows.size(); i++) cleared[i] = clearedRows.get(i);
+        return new ClearRow(clearedRows.size(), tmp, scoreBonus, cleared);
     }
 
     public static List<int[][]> deepCopyList(List<int[][]> list){
