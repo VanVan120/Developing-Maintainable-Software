@@ -13,6 +13,11 @@ public class GameController implements InputEventListener {
         viewGuiController.setEventListener(this);
         viewGuiController.initGameView(board.getBoardMatrix(), board.getViewData());
         viewGuiController.bindScore(board.getScore().scoreProperty());
+        // show upcoming bricks preview (up to 3)
+        try {
+            java.util.List<com.comp2042.logic.bricks.Brick> upcoming = board.getUpcomingBricks(3);
+            viewGuiController.showNextBricks(upcoming);
+        } catch (Exception ignored) {}
     }
 
     @Override
@@ -32,6 +37,11 @@ public class GameController implements InputEventListener {
             }
 
             viewGuiController.refreshGameBackground(board.getBoardMatrix());
+            // update upcoming preview after a brick is consumed and new one created
+            try {
+                java.util.List<com.comp2042.logic.bricks.Brick> upcoming = board.getUpcomingBricks(3);
+                viewGuiController.showNextBricks(upcoming);
+            } catch (Exception ignored) {}
 
         } else {
             if (event.getEventSource() == EventSource.USER) {

@@ -27,6 +27,13 @@ import javafx.scene.text.Text;
 import javafx.scene.text.Font;
 import javafx.util.Duration;
 import javafx.animation.ScaleTransition;
+import javafx.animation.FadeTransition;
+import javafx.animation.ParallelTransition;
+import javafx.animation.TranslateTransition;
+import javafx.scene.effect.DropShadow;
+import javafx.scene.effect.Glow;
+import javafx.scene.shape.Circle;
+import javafx.scene.media.AudioClip;
 
 import java.io.File;
 import java.io.IOException;
@@ -83,6 +90,28 @@ public class GuiController implements Initializable {
     @FXML
     private VBox scoreBox;
 
+    @FXML
+    private VBox nextBox; // right-hand preview container for upcoming bricks
+    @FXML
+    private VBox nextContent; // inner container that holds only the preview bricks
+    @FXML
+    private Rectangle gameBoardFrame;
+    @FXML
+    private Rectangle nextBoxFrame;
+    @FXML
+    private Pane particlePane;
+    @FXML
+    private VBox timeBox;
+    @FXML
+    private Text timeValue;
+    @FXML
+    private VBox levelBox;
+    @FXML
+    private Text levelValue;
+
+    // cache of upcoming bricks so we can re-render after grid measurement completes
+    private java.util.List<com.comp2042.logic.bricks.Brick> upcomingCache = null;
+
     private Rectangle[][] displayMatrix;
 
     private InputEventListener eventListener;
@@ -95,6 +124,8 @@ public class GuiController implements Initializable {
     private int[][] currentBoardMatrix;
 
     private Timeline timeLine;
+    private Timeline clockTimeline;
+    private long startTimeMs = 0;
 
     // actual cell size measured from the background grid after layout
     private double cellW = BRICK_SIZE;
@@ -118,6 +149,10 @@ public class GuiController implements Initializable {
     private final BooleanProperty isPause = new SimpleBooleanProperty();
 
     private final BooleanProperty isGameOver = new SimpleBooleanProperty();
+
+    // Configurable offsets for the timeBox relative to the game board
+    private final javafx.beans.property.DoubleProperty timeBoxOffsetX = new javafx.beans.property.SimpleDoubleProperty(-100.0);
+    private final javafx.beans.property.DoubleProperty timeBoxOffsetY = new javafx.beans.property.SimpleDoubleProperty(12.0);
 
     @Override
     public void initialize(URL location, ResourceBundle resources) {
@@ -178,6 +213,37 @@ public class GuiController implements Initializable {
                 scoreBox.layoutYProperty().bind(gameBoard.layoutYProperty().add(gameBoard.heightProperty().subtract(SCORE_BOX_OFFSET_FROM_BOTTOM)));
             }
 
+            // Bind the rectangle frames to the corresponding controls so they match size and position
+            try {
+                if (gameBoardFrame != null && gameBoard != null) {
+                    gameBoardFrame.widthProperty().bind(gameBoard.widthProperty());
+                    gameBoardFrame.heightProperty().bind(gameBoard.heightProperty());
+                    gameBoardFrame.layoutXProperty().bind(gameBoard.layoutXProperty());
+                    gameBoardFrame.layoutYProperty().bind(gameBoard.layoutYProperty());
+                    gameBoardFrame.setArcWidth(24);
+                    gameBoardFrame.setArcHeight(24);
+                    gameBoardFrame.setStrokeWidth(8);
+                    gameBoardFrame.setStroke(javafx.scene.paint.Color.web("#2A5058"));
+                    gameBoardFrame.setFill(javafx.scene.paint.Color.web("#111"));
+                }
+            } catch (Exception ignored) {}
+
+            // Position timeBox to the left of the gameBoard (above scoreBox)
+            if (timeBox != null && gameBoard != null) {
+                timeBox.layoutXProperty().bind(
+                    javafx.beans.binding.Bindings.createDoubleBinding(
+                        () -> gameBoard.getLayoutX() + timeBoxOffsetX.get() - timeBox.getWidth(),
+                        gameBoard.layoutXProperty(), gameBoard.widthProperty(), timeBox.widthProperty(), timeBoxOffsetX
+                    )
+                );
+                timeBox.layoutYProperty().bind(
+                    javafx.beans.binding.Bindings.createDoubleBinding(
+                        () -> gameBoard.getLayoutY() + timeBoxOffsetY.get(),
+                        gameBoard.layoutYProperty(), gameBoard.heightProperty(), timeBox.heightProperty(), timeBoxOffsetY
+                    )
+                );
+            }
+
             if (scoreValue != null) {
                 // remove the old smaller class and apply the high-score style class
                 scoreValue.getStyleClass().remove("scoreClass");
@@ -201,6 +267,55 @@ public class GuiController implements Initializable {
                 gameBoard.layoutYProperty(), gameBoard.heightProperty(), groupNotification.layoutBoundsProperty()
             )
         );
+            }
+            // Position the nextBox to the right outside the gameBoard frame
+            if (nextBox != null && gameBoard != null) {
+                // horizontal offset: small gap outside the frame
+                final double outsideGap = 70.0;
+                nextBox.layoutXProperty().bind(
+                    javafx.beans.binding.Bindings.createDoubleBinding(
+                        () -> gameBoard.getLayoutX() + gameBoard.getWidth() + outsideGap,
+                        gameBoard.layoutXProperty(), gameBoard.widthProperty()
+                    )
+                );
+
+                // vertically align top of nextBox slightly below the top of the gameBoard
+                nextBox.layoutYProperty().bind(
+                    javafx.beans.binding.Bindings.createDoubleBinding(
+                        () -> gameBoard.getLayoutY() + 8.0,
+                        gameBoard.layoutYProperty(), gameBoard.heightProperty()
+                    )
+                );
+                // bind nextBoxFrame to nextBox
+                try {
+                    if (nextBoxFrame != null && nextBox != null) {
+                        nextBoxFrame.widthProperty().bind(nextBox.widthProperty());
+                        nextBoxFrame.heightProperty().bind(nextBox.heightProperty());
+                        nextBoxFrame.layoutXProperty().bind(nextBox.layoutXProperty());
+                        nextBoxFrame.layoutYProperty().bind(nextBox.layoutYProperty());
+                        nextBoxFrame.setArcWidth(24);
+                        nextBoxFrame.setArcHeight(24);
+                        nextBoxFrame.setStrokeWidth(8);
+                        nextBoxFrame.setStroke(javafx.scene.paint.Color.web("#2A5058"));
+                        nextBoxFrame.setFill(javafx.scene.paint.Color.web("#111"));
+                    }
+                } catch (Exception ignored) {}
+            }
+            // Position the levelBox to the right bottom near nextBox
+            if (levelBox != null && gameBoard != null) {
+                final double outsideGap = 70.0;
+                levelBox.layoutXProperty().bind(
+                    javafx.beans.binding.Bindings.createDoubleBinding(
+                        () -> gameBoard.getLayoutX() + gameBoard.getWidth() + outsideGap,
+                        gameBoard.layoutXProperty(), gameBoard.widthProperty()
+                    )
+                );
+                levelBox.layoutYProperty().bind(
+                    javafx.beans.binding.Bindings.createDoubleBinding(
+                        () -> gameBoard.getLayoutY() + gameBoard.getHeight() - levelBox.getHeight() - 12.0,
+                        gameBoard.layoutYProperty(), gameBoard.heightProperty(), levelBox.heightProperty()
+                    )
+                );
             }
         });
     }
@@ -254,10 +369,13 @@ public class GuiController implements Initializable {
                 }
                 // update view
                 refreshBrick(v);
-                // if clearRow is non-null it means the piece could not move and was merged -> landing occurred
-                if (d.getClearRow() != null) {
-                    break;
-                }
+                    // if clearRow is non-null it means the piece could not move and was merged -> landing occurred
+                    if (d.getClearRow() != null && d.getClearRow().getLinesRemoved() > 0) {
+                        try { spawnExplosion(d.getViewData()); } catch (Exception ignored) {}
+                    }
+                    if (d.getClearRow() != null) {
+                        break;
+                    }
             }
             if (timeLine != null) timeLine.play();
         }
@@ -365,11 +483,8 @@ public class GuiController implements Initializable {
                     GraphicsContext gc = bgCanvas.getGraphicsContext2D();
                     // clear
                     gc.clearRect(0, 0, bgCanvas.getWidth(), bgCanvas.getHeight());
-                    // fill dark background
-                    gc.setFill(javafx.scene.paint.Color.web("#111"));
-                    gc.fillRect(0, 0, bgCanvas.getWidth(), bgCanvas.getHeight());
-                    // draw tiles (simple dotted/grid style)
-                    gc.setFill(javafx.scene.paint.Color.web("#111"));
+                    // draw tiles (simple dotted/grid style) on a transparent canvas so the playArea image shows through
+                    gc.setFill(javafx.scene.paint.Color.TRANSPARENT);
                     gc.setStroke(javafx.scene.paint.Color.web("#222"));
                     gc.setLineWidth(1);
                     // draw vertical lines
@@ -413,6 +528,28 @@ public class GuiController implements Initializable {
                     bgCanvas.setTranslateY(Math.round(baseOffsetY + nudgeY));
                 }
             } catch (Exception ignored) {}
+            // re-render nextBox using measured sizes so previews match the main board cells
+            try {
+                if (upcomingCache != null && !upcomingCache.isEmpty()) {
+                    showNextBricks(upcomingCache);
+                }
+            } catch (Exception ignored) {}
+            // ensure the falling brick is positioned correctly now that measurements are available
+            try {
+                if (brick != null) {
+                    refreshBrick(brick);
+                }
+            } catch (Exception ignored) {}
+            // ensure nextBox has a minimum size so the frame is visible. Visual styling is handled
+            // by CSS and the Rectangle frame nodes to avoid compositing artifacts.
+            try {
+                if (nextBox != null) {
+                    double minW = Math.round(cellW * 4) + 24; // 4 columns + padding
+                    double minH = Math.round(cellH * 3 * 1.2) + 24; // 3 previews stacked + spacing
+                    nextBox.setMinWidth(minW);
+                    nextBox.setMinHeight(minH);
+                }
+            } catch (Exception ignored) {}
         });
 
 
@@ -424,9 +561,92 @@ public class GuiController implements Initializable {
         }
     ));
         timeLine.setCycleCount(Timeline.INDEFINITE);
-        timeLine.play();
         // initial ghost render
         updateGhost(brick, currentBoardMatrix);
+    }
+
+    /**
+     * Start a countdown overlay (e.g. 3,2,1,Start) then begin the game timeline and clock.
+     * This leaves the board visible but frozen until the countdown completes.
+     */
+    public void startCountdown(int seconds) {
+        if (seconds <= 0) seconds = 3;
+        final Text countdown = new Text();
+        countdown.getStyleClass().add("gameOverStyle");
+        countdown.setStyle("-fx-font-size: 96px; -fx-fill: yellow; -fx-stroke: black; -fx-stroke-width:2;");
+
+        // Add a full-screen transparent overlay and center the countdown in it so it's always in the middle of the window
+        final javafx.scene.layout.StackPane overlay = new javafx.scene.layout.StackPane();
+        overlay.setPickOnBounds(false);
+        overlay.getChildren().add(countdown);
+        countdown.setTranslateY(-20); // slight visual offset if needed
+
+        javafx.application.Platform.runLater(() -> {
+            try {
+                if (gameBoard.getScene() != null) {
+                    javafx.scene.Scene s = gameBoard.getScene();
+                    // bind overlay to scene size and add to root
+                    overlay.prefWidthProperty().bind(s.widthProperty());
+                    overlay.prefHeightProperty().bind(s.heightProperty());
+                    overlay.setMouseTransparent(true);
+                    if (s.getRoot() instanceof javafx.scene.layout.Pane) {
+                        ((javafx.scene.layout.Pane) s.getRoot()).getChildren().add(overlay);
+                    } else {
+                        // fallback: add to groupNotification
+                        groupNotification.getChildren().add(countdown);
+                    }
+                } else {
+                    groupNotification.getChildren().add(countdown);
+                }
+            } catch (Exception ignored) {
+                groupNotification.getChildren().add(countdown);
+            }
+        });
+
+        final int[] cnt = new int[]{seconds};
+        Timeline cd = new Timeline(new KeyFrame(Duration.seconds(1), new javafx.event.EventHandler<javafx.event.ActionEvent>() {
+            @Override
+            public void handle(javafx.event.ActionEvent event) {
+                if (cnt[0] > 0) {
+                    countdown.setText(Integer.toString(cnt[0]));
+                    // animate scale+fade
+                    ScaleTransition st = new ScaleTransition(Duration.millis(600), countdown);
+                    st.setFromX(0.2); st.setFromY(0.2); st.setToX(1.0); st.setToY(1.0);
+                    FadeTransition ft = new FadeTransition(Duration.millis(600), countdown);
+                    ft.setFromValue(0.0); ft.setToValue(1.0);
+                    ParallelTransition pt = new ParallelTransition(st, ft);
+                    pt.play();
+                } else if (cnt[0] == 0) {
+                    countdown.setText("Start");
+                    ScaleTransition st = new ScaleTransition(Duration.millis(800), countdown);
+                    st.setFromX(0.5); st.setFromY(0.5); st.setToX(1.2); st.setToY(1.2);
+                    FadeTransition ft = new FadeTransition(Duration.millis(800), countdown);
+                    ft.setFromValue(0.0); ft.setToValue(1.0);
+                    ParallelTransition pt = new ParallelTransition(st, ft);
+                    pt.play();
+                } else {
+                    // finished: remove overlay and start game
+                    javafx.application.Platform.runLater(() -> {
+                        try {
+                            if (overlay.getParent() instanceof javafx.scene.layout.Pane) {
+                                ((javafx.scene.layout.Pane) overlay.getParent()).getChildren().remove(overlay);
+                            } else {
+                                groupNotification.getChildren().remove(countdown);
+                            }
+                        } catch (Exception ignored) {}
+                    });
+                    if (timeLine != null) timeLine.play();
+                    resetClock();
+                    startClock();
+                    isPause.setValue(Boolean.FALSE);
+                    // stop timeline
+                    ((Timeline)event.getSource()).stop();
+                }
+                cnt[0] = cnt[0] - 1;
+            }
+        }));
+        cd.setCycleCount(seconds + 2);
+        cd.playFromStart();
     }
 
     // compute landing position and update ghostPanel visibility/translate
@@ -512,6 +732,49 @@ public class GuiController implements Initializable {
                 if (boardY >= 0 && boardY < boardMatrix.length && boardMatrix[boardY][boardX] != 0) visible = false;
                 r.setVisible(visible);
             }
+        }
+    }
+
+    /**
+     * Render up to three upcoming bricks in the right-hand preview VBox.
+     * This uses a smaller preview cell size (half the normal cellW) so previews fit comfortably.
+     */
+    public void showNextBricks(java.util.List<com.comp2042.logic.bricks.Brick> upcoming) {
+    if (nextContent == null) return;
+    nextContent.getChildren().clear();
+        if (upcoming == null) return;
+        // store cache so we can re-render once actual measured sizes are available
+        upcomingCache = new java.util.ArrayList<>(upcoming);
+
+        // Use the same cell size as the main board so preview blocks match exactly
+        double pW = Math.max(4, Math.round(cellW));
+        double pH = Math.max(4, Math.round(cellH));
+
+        int count = Math.min(upcoming.size(), 3);
+        for (int i = 0; i < count; i++) {
+            com.comp2042.logic.bricks.Brick b = upcoming.get(i);
+            int[][] shape = b.getShapeMatrix().get(0); // default orientation for preview
+            int rows = shape.length;
+            int cols = shape[0].length;
+            Pane slot = new Pane();
+            slot.setPrefWidth(Math.round(cols * pW) + 8);
+            slot.setPrefHeight(Math.round(rows * pH) + 8);
+            slot.setStyle("-fx-background-color: transparent;");
+            double offsetX = (slot.getPrefWidth() - cols * pW) / 2.0;
+            double offsetY = (slot.getPrefHeight() - rows * pH) / 2.0;
+            for (int r = 0; r < rows; r++) {
+                for (int c = 0; c < cols; c++) {
+                    if (shape[r][c] == 0) continue;
+                    Rectangle rect = new Rectangle(Math.round(pW), Math.round(pH));
+                    rect.setFill(getFillColor(shape[r][c]));
+                    rect.setLayoutX(Math.round(offsetX + c * pW));
+                    rect.setLayoutY(Math.round(offsetY + r * pH));
+                    rect.setArcHeight(6);
+                    rect.setArcWidth(6);
+                    slot.getChildren().add(rect);
+                }
+            }
+            nextContent.getChildren().add(slot);
         }
     }
 
@@ -610,8 +873,73 @@ public class GuiController implements Initializable {
                 notificationPanel.showScore(groupNotification.getChildren());
             }
             refreshBrick(downData.getViewData());
+                // spawn explosion only when the landing cleared >=1 full rows
+                if (downData.getClearRow() != null && downData.getClearRow().getLinesRemoved() > 0) {
+                    try { spawnExplosion(downData.getViewData()); } catch (Exception ignored) {}
+                }
         }
         gamePanel.requestFocus();
+    }
+
+    // Spawn a short particle explosion at the piece's landing position. ViewData contains the brick's
+    // board x/y; we translate to pixel coordinates using cellW/cellH and baseOffset.
+    private void spawnExplosion(ViewData v) {
+        if (v == null || particlePane == null) return;
+        int brickX = v.getxPosition();
+        int brickY = v.getyPosition() - 2; // visible offset
+        double centerX = Math.round(baseOffsetX + brickX * cellW + (cellW * 2) );
+        double centerY = Math.round(baseOffsetY + brickY * cellH + (cellH * 2) );
+        spawnParticlesAt(centerX, centerY, v.getBrickData());
+    }
+
+    private void spawnParticlesAt(double centerX, double centerY, int[][] brickShape) {
+        final int PARTICLE_COUNT = 18;
+        final double MAX_SPEED = 220.0; // px/sec
+        final double DURATION_MS = 600.0;
+        java.util.List<javafx.scene.Node> particles = new java.util.ArrayList<>();
+
+        for (int i = 0; i < PARTICLE_COUNT; i++) {
+            Circle c = new Circle(4 + Math.random() * 4);
+            // random color sampled from brick colors (if available) or default gold
+            Paint p = Color.web("#ffd166");
+            if (brickShape != null) {
+                // pick a random filled cell color from the brick shape
+                java.util.List<Paint> fills = new java.util.ArrayList<>();
+                for (int r = 0; r < brickShape.length; r++) for (int col = 0; col < brickShape[r].length; col++) if (brickShape[r][col] != 0) fills.add(getFillColor(brickShape[r][col]));
+                if (!fills.isEmpty()) p = fills.get((int)(Math.random() * fills.size()));
+            }
+            c.setFill(p);
+            c.setOpacity(1.0);
+            c.setTranslateX(centerX + (Math.random() - 0.5) * 6);
+            c.setTranslateY(centerY + (Math.random() - 0.5) * 6);
+            particlePane.getChildren().add(c);
+            particles.add(c);
+
+            // random direction
+            double angle = Math.random() * Math.PI * 2.0;
+            double speed = 40 + Math.random() * MAX_SPEED; // px/sec
+            double dx = Math.cos(angle) * speed;
+            double dy = Math.sin(angle) * speed;
+
+            // animate translation and fade
+            TranslateTransition tt = new TranslateTransition(Duration.millis(DURATION_MS), c);
+            tt.setByX(dx);
+            tt.setByY(dy);
+            tt.setInterpolator(javafx.animation.Interpolator.EASE_OUT);
+
+            FadeTransition ft = new FadeTransition(Duration.millis(DURATION_MS), c);
+            ft.setFromValue(1.0);
+            ft.setToValue(0.0);
+
+            ScaleTransition st = new ScaleTransition(Duration.millis(DURATION_MS), c);
+            st.setToX(0.3);
+            st.setToY(0.3);
+
+            ParallelTransition pt = new ParallelTransition(tt, ft, st);
+            final javafx.scene.Node node = c;
+            pt.setOnFinished(e -> particlePane.getChildren().remove(node));
+            pt.play();
+        }
     }
 
     public void setEventListener(InputEventListener eventListener) {
@@ -632,12 +960,10 @@ public class GuiController implements Initializable {
          ));
  
          // listen for changes to update high score dynamically and animate when beaten
-         integerProperty.addListener((obs, oldV, newV) -> {
-             // reference unused parameters in an unreachable branch to satisfy some static analyzers
-             if (false) {
-                 System.out.print(obs);
-                 System.out.print(oldV);
-             }
+            integerProperty.addListener((obs, oldV, newV) -> {
+                // reference unused parameters weakly to satisfy static analyzers (no-op)
+                java.util.Objects.requireNonNull(obs);
+                java.util.Objects.requireNonNull(oldV);
              int current = newV.intValue();
              if (current > highScore) {
                  highScore = current;
@@ -685,6 +1011,7 @@ public class GuiController implements Initializable {
         timeLine.stop();
         gameOverPanel.setVisible(true);
         isGameOver.setValue(Boolean.TRUE);
+        stopClock();
     }
 
     public void newGame(ActionEvent actionEvent) {
@@ -695,9 +1022,53 @@ public class GuiController implements Initializable {
         timeLine.play();
         isPause.setValue(Boolean.FALSE);
         isGameOver.setValue(Boolean.FALSE);
+        resetClock();
+        startClock();
+    }
+
+    private void startClock() {
+        startTimeMs = System.currentTimeMillis();
+        if (clockTimeline != null) clockTimeline.stop();
+        clockTimeline = new Timeline(new KeyFrame(Duration.seconds(1), new javafx.event.EventHandler<javafx.event.ActionEvent>() {
+            @Override
+            public void handle(javafx.event.ActionEvent event) {
+                updateClock();
+            }
+        }));
+        clockTimeline.setCycleCount(Timeline.INDEFINITE);
+        clockTimeline.play();
+    }
+
+    private void stopClock() {
+        if (clockTimeline != null) clockTimeline.stop();
+    }
+
+    private void resetClock() {
+        startTimeMs = System.currentTimeMillis();
+        if (timeValue != null) timeValue.setText("00:00");
+    }
+
+    private void updateClock() {
+        if (startTimeMs == 0) return;
+        long elapsed = System.currentTimeMillis() - startTimeMs;
+        long seconds = elapsed / 1000;
+        long mins = seconds / 60;
+        long secs = seconds % 60;
+        if (timeValue != null) {
+            timeValue.setText(String.format("%02d:%02d", mins, secs));
+        }
     }
 
     public void pauseGame(ActionEvent actionEvent) {
         gamePanel.requestFocus();
+    }
+
+    /**
+     * Update the level text shown in the right-bottom levelBox (e.g. "Normal", "Hard").
+     */
+    public void setLevelText(String text) {
+        if (levelValue != null) {
+            javafx.application.Platform.runLater(() -> levelValue.setText(text));
+        }
     }
 }

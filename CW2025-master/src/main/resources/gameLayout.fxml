@@ -5,29 +5,55 @@
 <?import javafx.scene.canvas.Canvas?>
 <?import javafx.scene.Group?>
 <?import javafx.scene.layout.*?>
+<?import javafx.scene.shape.Rectangle?>
 <?import javafx.scene.text.Text?>
 <?import java.net.URL?>
 <Pane fx:controller="com.comp2042.GuiController"
       xmlns:fx="http://javafx.com/fxml">
+    <!-- Rounded frame rectangle behind the gameBoard to avoid hairline artifacts from CSS composition -->
+    <Rectangle fx:id="gameBoardFrame" arcWidth="24.0" arcHeight="24.0" strokeWidth="8.0" stroke="#2A5058" fill="#111" />
     <BorderPane styleClass="gameBoard" fx:id="gameBoard">
         <center>
-            <StackPane alignment="TOP_LEFT">
+            <StackPane alignment="TOP_LEFT" styleClass="playArea">
                 <!-- procedural background canvas: drawn programmatically to guarantee pixel-perfect alignment -->
                 <Canvas fx:id="bgCanvas" pickOnBounds="false" />
              <!-- ghostPanel shows translucent preview of landing position (placed behind the GridPane
                  so it is visible only where cells are empty) -->
              <Pane fx:id="ghostPanel" pickOnBounds="false"/>
-             <GridPane fx:id="gamePanel" hgap="1" vgap="1"/>
-                <!-- brickPanel overlays on top of ghostPanel (absolute positioning) -->
-                <Pane fx:id="brickPanel" pickOnBounds="false"/>
+                 <GridPane fx:id="gamePanel" hgap="1" vgap="1"/>
+                     <!-- brickPanel overlays on top of ghostPanel (absolute positioning) -->
+                     <Pane fx:id="brickPanel" pickOnBounds="false"/>
+                     <!-- particlePane sits above bricks to show explosion particles when pieces land -->
+                     <Pane fx:id="particlePane" pickOnBounds="false" mouseTransparent="true" />
             </StackPane>
         </center>
+        <!-- right placeholder intentionally left empty; nextBox will be placed outside the frame in the root Pane -->
     </BorderPane>
 
+    <!-- nextBox placed outside and to the right of the framed gameBoard so it appears as an external preview -->
+    <!-- Rounded frame rectangle behind the nextBox to ensure clean rounded corners -->
+    <Rectangle fx:id="nextBoxFrame" arcWidth="24.0" arcHeight="24.0" strokeWidth="8.0" stroke="#2A5058" fill="#111" />
+    <VBox fx:id="nextBox" spacing="12" alignment="TOP_CENTER" layoutX="0" layoutY="0" styleClass="gameBoard nextBox" pickOnBounds="false">
+        <Text text="Next:" styleClass="nextBrickLabel" />
+        <VBox fx:id="nextContent" spacing="8" alignment="TOP_CENTER" />
+    </VBox>
+
     <!-- Score display: keep legacy scoreValue and add highScoreValue above it in bottom-left -->
-    <VBox fx:id="scoreBox" layoutX="12" layoutY="520" alignment="BOTTOM_LEFT" spacing="6" pickOnBounds="false">
+    <VBox fx:id="scoreBox" layoutX="12" layoutY="520" alignment="BOTTOM_LEFT" spacing="6" pickOnBounds="false" styleClass="gameBoard">
         <Text fx:id="highScoreValue" styleClass="highScoreClass">Highest: 0</Text>
         <Text fx:id="scoreValue" styleClass="scoreClass">0</Text>
+    </VBox>
+
+    <!-- Time display on the left of the main board -->
+    <VBox fx:id="timeBox" spacing="6" prefWidth="140.0" prefHeight="64.0" alignment="CENTER" pickOnBounds="false" styleClass="gameBoard" style="-fx-padding:12px;">
+        <Text text="Time" styleClass="nextBrickLabel" />
+        <Text fx:id="timeValue" styleClass="scoreClass">00:00</Text>
+    </VBox>
+
+    <!-- Level box (right-bottom near nextBox) -->
+    <VBox fx:id="levelBox" spacing="6" prefWidth="160.0" prefHeight="64.0" alignment="CENTER" pickOnBounds="false" styleClass="gameBoard" style="-fx-padding:12px;">
+        <Text text="Level" styleClass="nextBrickLabel" />
+        <Text fx:id="levelValue" styleClass="scoreClass">Normal</Text>
     </VBox>
 
     <Group fx:id="groupNotification" layoutX="14" layoutY="203">

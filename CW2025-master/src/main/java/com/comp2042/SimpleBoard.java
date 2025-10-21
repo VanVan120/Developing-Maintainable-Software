@@ -131,4 +131,9 @@ public class SimpleBoard implements Board {
         score.reset();
         createNewBrick();
     }
+
+    @Override
+    public java.util.List<com.comp2042.logic.bricks.Brick> getUpcomingBricks(int count) {
+        return brickGenerator.getUpcomingBricks(count);
+    }
 }

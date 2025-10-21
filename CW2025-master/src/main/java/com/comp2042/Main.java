@@ -25,6 +25,8 @@ public class Main extends Application {
         primaryStage.setScene(scene);
         primaryStage.show();
         new GameController(c);
+        // start a short countdown then begin the game and timer automatically
+        c.startCountdown(3);
     }
 
 
