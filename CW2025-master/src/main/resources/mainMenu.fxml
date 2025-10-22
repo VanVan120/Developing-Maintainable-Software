@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?import javafx.geometry.*?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.image.*?>
+<?import javafx.scene.layout.*?>
+<?import javafx.scene.text.*?>
+<AnchorPane xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.comp2042.MainMenuController" styleClass="menu-root">
+    <children>
+    <!-- Background is applied via CSS to 'menu-root' so it scales responsively -->
+    <StackPane AnchorPane.leftAnchor="0" AnchorPane.rightAnchor="0" AnchorPane.topAnchor="0" AnchorPane.bottomAnchor="0">
+            <children>
+                <VBox alignment="CENTER" spacing="20">
+                    <children>
+                        <Text text="TetrisJFX" styleClass="menu-title" />
+                        <VBox fx:id="mainButtons" alignment="CENTER" spacing="12" styleClass="menu-buttons">
+                            <children>
+                                <Button fx:id="singlePlayerBtn" text="Single Player" prefWidth="260" styleClass="menu-button" />
+                                <Button fx:id="multiPlayerBtn" text="Multiplayer" prefWidth="260" styleClass="menu-button" />
+                                <Button fx:id="settingsBtn" text="Settings" prefWidth="260" styleClass="menu-button" />
+                            </children>
+                        </VBox>
+
+                        <!-- Sub-menu for Single Player difficulty choices with translucent panel behind -->
+                        <StackPane fx:id="singleOptions" visible="false">
+                            <children>
+                                <VBox alignment="CENTER" spacing="10" styleClass="menu-options-panel" pickOnBounds="false">
+                                    <children>
+                                        <Text text="Select Difficulty" styleClass="menu-subtitle" />
+                                        <Button fx:id="easyBtn" text="Easy" prefWidth="260" styleClass="menu-button" />
+                                        <Button fx:id="normalBtn" text="Normal" prefWidth="260" styleClass="menu-button" />
+                                        <Button fx:id="hardBtn" text="Hard" prefWidth="260" styleClass="menu-button" />
+                                        <Button fx:id="backBtn" text="Back" prefWidth="260" styleClass="menu-button" />
+                                    </children>
+                                </VBox>
+                            </children>
+                        </StackPane>
+                    </children>
+                </VBox>
+            </children>
+        </StackPane>
+    </children>
+</AnchorPane>

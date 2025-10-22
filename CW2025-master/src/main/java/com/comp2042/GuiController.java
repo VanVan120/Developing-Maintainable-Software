@@ -31,6 +31,14 @@ import javafx.animation.FadeTransition;
 import javafx.animation.ParallelTransition;
 import javafx.animation.TranslateTransition;
 import javafx.scene.shape.Circle;
+import javafx.scene.control.Button;
+import javafx.scene.control.Label;
+import javafx.geometry.Pos;
+import javafx.scene.layout.StackPane;
+import javafx.scene.layout.HBox;
+import javafx.fxml.FXMLLoader;
+import javafx.scene.Parent;
+import javafx.scene.Scene;
 
 import java.io.File;
 import java.io.IOException;
@@ -48,6 +56,8 @@ public class GuiController implements Initializable {
 
     // base drop interval (ms). Increase to make falling slower.
     private static final int DROP_INTERVAL_MS = 1000;
+    // Mode-adjustable drop interval (ms). Default uses DROP_INTERVAL_MS; can be changed at runtime for Easy/Hard modes.
+    private int dropIntervalMs = DROP_INTERVAL_MS;
     // soft-drop multiplier while DOWN is held (how many times faster)
     private static final double SOFT_DROP_RATE = 4.0;
     // normal rate
@@ -86,6 +96,9 @@ public class GuiController implements Initializable {
 
     @FXML
     private VBox scoreBox;
+
+    @FXML
+    private javafx.scene.control.Button pauseBtn;
 
     @FXML
     private VBox nextBox; // right-hand preview container for upcoming bricks
@@ -180,6 +193,13 @@ public class GuiController implements Initializable {
             if (gamePanel.getScene() != null) {
                 gamePanel.getScene().addEventHandler(KeyEvent.KEY_PRESSED, pressHandler);
                 gamePanel.getScene().addEventHandler(KeyEvent.KEY_RELEASED, releaseHandler);
+                // also listen for Esc to toggle pause
+                gamePanel.getScene().addEventHandler(KeyEvent.KEY_PRESSED, e -> {
+                    if (e.getCode() == KeyCode.ESCAPE) {
+                        togglePauseOverlay();
+                        e.consume();
+                    }
+                });
             } else {
                 gamePanel.sceneProperty().addListener(new javafx.beans.value.ChangeListener<>() {
                     @Override
@@ -187,6 +207,12 @@ public class GuiController implements Initializable {
                         if (newScene != null) {
                             newScene.addEventHandler(KeyEvent.KEY_PRESSED, pressHandler);
                             newScene.addEventHandler(KeyEvent.KEY_RELEASED, releaseHandler);
+                            newScene.addEventHandler(KeyEvent.KEY_PRESSED, e -> {
+                                if (e.getCode() == KeyCode.ESCAPE) {
+                                    togglePauseOverlay();
+                                    e.consume();
+                                }
+                            });
                         }
                     }
                 });
@@ -316,6 +342,104 @@ public class GuiController implements Initializable {
                     )
                 );
             }
+        });
+
+        // Pause button handler (if present in FXML)
+        try {
+            if (pauseBtn != null) {
+                pauseBtn.setOnAction(ev -> togglePauseOverlay());
+            }
+        } catch (Exception ignored) {}
+    }
+
+    // Toggle the pause overlay: show overlay if paused, otherwise resume
+    private StackPane pauseOverlay = null;
+    private boolean isPauseOverlayVisible = false;
+
+    private void togglePauseOverlay() {
+        // If game is already over, ignore pause
+        if (isGameOver.getValue() == Boolean.TRUE) return;
+
+        if (!isPauseOverlayVisible) {
+            // show overlay
+            javafx.application.Platform.runLater(() -> {
+                try {
+                    Scene scene = gameBoard.getScene();
+                    if (scene == null) return;
+                    // create overlay root
+                    pauseOverlay = new StackPane();
+                    pauseOverlay.setPickOnBounds(true);
+
+                    Rectangle dark = new Rectangle();
+                    dark.widthProperty().bind(scene.widthProperty());
+                    dark.heightProperty().bind(scene.heightProperty());
+                    dark.setFill(Color.rgb(0,0,0,0.55));
+
+                    VBox dialog = new VBox(14);
+                    dialog.setAlignment(Pos.CENTER);
+                    dialog.setStyle("-fx-background-color: rgba(30,30,30,0.85); -fx-padding: 18px; -fx-background-radius: 8px;");
+
+                    Label title = new Label("Paused");
+                    title.setStyle("-fx-text-fill: white; -fx-font-size: 36px; -fx-font-weight: bold;");
+
+                    HBox buttons = new HBox(10);
+                    buttons.setAlignment(Pos.CENTER);
+                    Button resume = new Button("Resume");
+                    Button settings = new Button("Settings");
+                    resume.getStyleClass().add("menu-button");
+                    settings.getStyleClass().add("menu-button");
+
+                    resume.setOnAction(ev -> {
+                        ev.consume();
+                        hidePauseOverlay();
+                    });
+
+                    // Settings placeholder: for now just close overlay (or could open settings dialog)
+                    settings.setOnAction(ev -> {
+                        ev.consume();
+                        // TODO: open settings dialog; for now hide overlay
+                        hidePauseOverlay();
+                    });
+
+                    buttons.getChildren().addAll(resume, settings);
+                    dialog.getChildren().addAll(title, buttons);
+
+                    pauseOverlay.getChildren().addAll(dark, dialog);
+
+                    if (scene.getRoot() instanceof javafx.scene.layout.Pane) {
+                        javafx.scene.layout.Pane root = (javafx.scene.layout.Pane) scene.getRoot();
+                        root.getChildren().add(pauseOverlay);
+                    } else if (groupNotification != null) {
+                        groupNotification.getChildren().add(pauseOverlay);
+                    }
+
+                    // stop gameplay timeline and block input
+                    try { if (timeLine != null) timeLine.pause(); } catch (Exception ignored) {}
+                    isPause.setValue(Boolean.TRUE);
+                    isPauseOverlayVisible = true;
+                } catch (Exception ignored) {}
+            });
+        } else {
+            hidePauseOverlay();
+        }
+    }
+
+    private void hidePauseOverlay() {
+        javafx.application.Platform.runLater(() -> {
+            try {
+                if (pauseOverlay != null) {
+                    if (pauseOverlay.getParent() instanceof javafx.scene.layout.Pane) {
+                        ((javafx.scene.layout.Pane) pauseOverlay.getParent()).getChildren().remove(pauseOverlay);
+                    } else if (groupNotification != null) {
+                        groupNotification.getChildren().remove(pauseOverlay);
+                    }
+                    pauseOverlay = null;
+                }
+                // resume timeline and input
+                try { if (timeLine != null) timeLine.play(); } catch (Exception ignored) {}
+                isPause.setValue(Boolean.FALSE);
+                isPauseOverlayVisible = false;
+            } catch (Exception ignored) {}
         });
     }
 
@@ -482,21 +606,53 @@ public class GuiController implements Initializable {
                     GraphicsContext gc = bgCanvas.getGraphicsContext2D();
                     // clear
                     gc.clearRect(0, 0, bgCanvas.getWidth(), bgCanvas.getHeight());
-                    // draw tiles (simple dotted/grid style) on a transparent canvas so the playArea image shows through
-                    gc.setFill(javafx.scene.paint.Color.TRANSPARENT);
-                    gc.setStroke(javafx.scene.paint.Color.web("#222"));
-                    gc.setLineWidth(1);
+                    // draw a subtle inner panel and a clearer grid
+                    // inner translucent background slightly lighter so grid lines contrast better
+                    gc.setFill(new javafx.scene.paint.LinearGradient(
+                        0, 0, 0, 1, true, javafx.scene.paint.CycleMethod.NO_CYCLE,
+                        new javafx.scene.paint.Stop[] {
+                            new javafx.scene.paint.Stop(0, javafx.scene.paint.Color.rgb(28,28,30,0.30)),
+                            new javafx.scene.paint.Stop(1, javafx.scene.paint.Color.rgb(12,12,14,0.48))
+                        }
+                    ));
+                    gc.fillRect(0, 0, bgCanvas.getWidth(), bgCanvas.getHeight());
+
+                    // minor grid lines (brighter for gameplay clarity)
+                    javafx.scene.paint.Color minorCol = javafx.scene.paint.Color.rgb(85, 90, 92, 0.60);
+                    // major grid lines previously were brighter (divider). Use same color as minor to avoid a strong divider
+                    // majorCol intentionally same as minor to avoid a strong divider
+
                     // draw vertical lines
                     for (int c = 0; c <= boardMatrix[0].length; c++) {
                         double x = Math.round(c * cellW) + 0.5; // 0.5 to draw crisp 1px lines
+                        // draw all lines with the same appearance so no standout divider exists
+                        gc.setStroke(minorCol);
+                        gc.setLineWidth(1.0);
                         gc.strokeLine(x, 0, x, bgCanvas.getHeight());
                     }
+
                     // draw horizontal lines
                     int visibleRows = boardMatrix.length - 2;
                     for (int r = 0; r <= visibleRows; r++) {
                         double y = Math.round(r * cellH) + 0.5;
+                        // draw all lines with the same appearance so no standout divider exists
+                        gc.setStroke(minorCol);
+                        gc.setLineWidth(1.0);
                         gc.strokeLine(0, y, bgCanvas.getWidth(), y);
                     }
+
+                    // tiny intersection dots to aid visual alignment (very subtle)
+                    try {
+                        gc.setFill(javafx.scene.paint.Color.rgb(200,200,200,0.04));
+                        for (int r = 0; r <= visibleRows; r++) {
+                            double y = Math.round(r * cellH) + 0.5;
+                            for (int c = 0; c <= boardMatrix[0].length; c++) {
+                                double x = Math.round(c * cellW) + 0.5;
+                        // larger, more visible intersection dots
+                        gc.fillOval(x - 1.5, y - 1.5, 3.0, 3.0);
+                            }
+                        }
+                    } catch (Exception ignored) {}
                 }
             } catch (Exception ignored) {}
             // reposition brick and ghost rectangles to the measured grid
@@ -553,7 +709,7 @@ public class GuiController implements Initializable {
 
 
     timeLine = new Timeline(new KeyFrame(
-        Duration.millis(DROP_INTERVAL_MS),
+        Duration.millis(dropIntervalMs),
         ae -> {
             ae.consume();
             moveDown(new MoveEvent(EventType.DOWN, EventSource.THREAD));
@@ -690,6 +846,32 @@ public class GuiController implements Initializable {
         cd.getKeyFrames().add(kf);
         cd.setCycleCount(seconds + 2);
         cd.playFromStart();
+    }
+
+    /**
+     * Adjust the automatic drop interval (milliseconds) used by the game timeline.
+     * Call before starting the game to affect falling speed.
+     */
+    public void setDropIntervalMs(int ms) {
+        if (ms <= 0) return;
+        this.dropIntervalMs = ms;
+        // if timeline already exists, recreate it with new interval
+        try {
+            boolean running = false;
+            if (timeLine != null) {
+                running = timeLine.getStatus() == Timeline.Status.RUNNING;
+                timeLine.stop();
+            }
+            timeLine = new Timeline(new KeyFrame(
+                    Duration.millis(dropIntervalMs),
+                    ae -> {
+                        ae.consume();
+                        moveDown(new MoveEvent(EventType.DOWN, EventSource.THREAD));
+                    }
+            ));
+            timeLine.setCycleCount(Timeline.INDEFINITE);
+            if (running) timeLine.play();
+        } catch (Exception ignored) {}
     }
 
     // compute landing position and update ghostPanel visibility/translate
@@ -1196,10 +1378,115 @@ public class GuiController implements Initializable {
     }
 
     public void gameOver() {
-        timeLine.stop();
-        gameOverPanel.setVisible(true);
+        try { if (timeLine != null) timeLine.stop(); } catch (Exception ignored) {}
+    // mark game over state and stop the clock
+    // keep legacy FXML GameOverPanel hidden so we use the new animated overlay instead
+    try { if (gameOverPanel != null) gameOverPanel.setVisible(false); } catch (Exception ignored) {}
         isGameOver.setValue(Boolean.TRUE);
         stopClock();
+
+        // Show an animated modal overlay: fade-to-black background + centered dialog
+        javafx.application.Platform.runLater(() -> {
+            try {
+                if (gameBoard == null || gameBoard.getScene() == null) return;
+                javafx.scene.Scene scene = gameBoard.getScene();
+                // overlay root that fills the scene
+                StackPane overlay = new StackPane();
+                overlay.setPickOnBounds(true);
+                overlay.setStyle("-fx-background-color: transparent;");
+
+                // dark background that will fade in
+                Rectangle dark = new Rectangle();
+                dark.widthProperty().bind(scene.widthProperty());
+                dark.heightProperty().bind(scene.heightProperty());
+                dark.setFill(Color.BLACK);
+                dark.setOpacity(0.0);
+
+                // dialog content
+                VBox dialog = new VBox(18);
+                dialog.setAlignment(Pos.CENTER);
+
+                Label title = new Label("GAME OVER");
+                title.getStyleClass().add("gameOverStyle");
+                title.setStyle("-fx-font-size: 64px; -fx-text-fill: white; -fx-font-weight: bold;");
+                title.setOpacity(0.0);
+
+                HBox buttons = new HBox(12);
+                buttons.setAlignment(Pos.CENTER);
+
+                Button btnMenu = new Button("Return to Main Menu");
+                Button btnExit = new Button("Exit");
+                // reuse menu-button styling if available for a consistent look
+                btnMenu.getStyleClass().add("menu-button");
+                btnExit.getStyleClass().add("menu-button");
+
+                // Return to main menu: load mainMenu.fxml and replace the scene root
+                btnMenu.setOnAction(ev -> {
+                    ev.consume();
+                    try {
+                        URL loc = getClass().getClassLoader().getResource("mainMenu.fxml");
+                        if (loc == null) return;
+                        FXMLLoader loader = new FXMLLoader(loc);
+                        Parent menuRoot = loader.load();
+                        javafx.stage.Stage stage = (javafx.stage.Stage) scene.getWindow();
+                        if (stage.getScene() != null) {
+                            stage.getScene().setRoot(menuRoot);
+                        } else {
+                            Scene s2 = new Scene(menuRoot, Math.max(420, stage.getWidth()), Math.max(700, stage.getHeight()));
+                            stage.setScene(s2);
+                        }
+                    } catch (Exception ex) {
+                        ex.printStackTrace();
+                    }
+                });
+
+                // Exit the application
+                btnExit.setOnAction(ev -> {
+                    ev.consume();
+                    try { javafx.application.Platform.exit(); } catch (Exception ignored) {}
+                });
+
+                buttons.getChildren().addAll(btnMenu, btnExit);
+                dialog.getChildren().addAll(title, buttons);
+
+                // make overlay consume input so underlying game is inaccessible
+                overlay.setOnMouseClicked(event -> event.consume());
+                overlay.getChildren().addAll(dark, dialog);
+
+                // attach to scene root if it's a Pane
+                if (scene.getRoot() instanceof javafx.scene.layout.Pane) {
+                    javafx.scene.layout.Pane root = (javafx.scene.layout.Pane) scene.getRoot();
+                    root.getChildren().add(overlay);
+                } else if (groupNotification != null) {
+                    // fallback: add to notification group
+                    groupNotification.getChildren().add(overlay);
+                }
+
+                // animations: fade-in background then pop the title and buttons
+                FadeTransition bgFade = new FadeTransition(Duration.millis(400), dark);
+                bgFade.setFromValue(0.0);
+                bgFade.setToValue(0.85);
+
+                ScaleTransition titleScale = new ScaleTransition(Duration.millis(600), title);
+                titleScale.setFromX(0.3); titleScale.setFromY(0.3);
+                titleScale.setToX(1.0); titleScale.setToY(1.0);
+                FadeTransition titleFade = new FadeTransition(Duration.millis(600), title);
+                titleFade.setFromValue(0.0); titleFade.setToValue(1.0);
+
+                FadeTransition buttonsFade = new FadeTransition(Duration.millis(400), buttons);
+                buttonsFade.setFromValue(0.0); buttonsFade.setToValue(1.0);
+
+                // sequence: background then title+buttons
+                bgFade.play();
+                bgFade.setOnFinished(e -> {
+                    e.consume();
+                    // play title + buttons together
+                    titleScale.play();
+                    titleFade.play();
+                    buttonsFade.play();
+                });
+            } catch (Exception ignored) {}
+        });
     }
 
     public void newGame(ActionEvent actionEvent) {

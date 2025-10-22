@@ -1,5 +1,5 @@
 .root {
-    -fx-background-image: url("Normal.jpg");
+    -fx-background-image: url("GUI.jpg");
     -fx-background-repeat: no-repeat;
     -fx-background-position: center center;
     -fx-background-size: cover;
@@ -20,7 +20,8 @@
    This avoids hairline artifacts that can appear when separate border and background radii
    are combined. Tune the inset to control the apparent frame thickness. */
 .gameBoard {
-    -fx-background-color: linear-gradient(#2A5058, #61a2b1), #111;
+    /* outer frame gradient + slightly translucent inner panel so background shows through */
+    -fx-background-color: linear-gradient(#2A5058, #61a2b1), rgba(17,17,17,0.80);
     /* outer gradient layer (0 inset) renders the frame, inner dark layer is inset to show the frame */
     -fx-background-insets: 0, 8px;
     /* outer radius and inner radius slightly smaller so inner panel sits comfortably inside frame */
@@ -30,7 +31,8 @@
 
 /* Next-box should visually match the gameBoard frame */
 .nextBox {
-    -fx-background-color: linear-gradient(#2A5058, #61a2b1), #111;
+    /* match gameBoard but let the scene background bleed through slightly */
+    -fx-background-color: linear-gradient(#2A5058, #61a2b1), rgba(17,17,17,0.80);
     -fx-background-insets: 0, 8px;
     -fx-background-radius: 12px, 8px;
     -fx-padding: 12px 8px;

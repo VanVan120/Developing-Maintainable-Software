@@ -1,0 +1,83 @@
+.menu-title {
+    -fx-font-size: 48px;
+    -fx-fill: linear-gradient(from 0% 0% to 100% 100%, #ffef6e 0%, #ffd700 100%);
+    -fx-stroke: black;
+    -fx-stroke-width: 2;
+    -fx-font-weight: bold;
+}
+
+.menu-subtitle {
+    -fx-font-size: 20px;
+    -fx-fill: white;
+}
+
+.menu-button {
+    /* modern rounded button with subtle gradient and shadow */
+    -fx-background-color: linear-gradient(from 0% 0% to 0% 100%, rgba(40,40,40,0.95), rgba(20,20,20,0.9));
+    -fx-text-fill: white;
+    -fx-font-size: 16px;
+    -fx-padding: 10 14 10 14;
+    -fx-background-radius: 8;
+    -fx-border-radius: 8;
+    -fx-border-color: rgba(255,255,255,0.06);
+    -fx-border-width: 1px;
+    -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.45), 6, 0.0, 0, 2);
+    -fx-cursor: hand;
+    -fx-focus-color: transparent;
+    -fx-faint-focus-color: transparent;
+    -fx-transition: all 150ms ease-in-out;
+}
+
+.menu-button.small {
+    -fx-font-size: 14px;
+    -fx-pref-width: 200px; /* make difficulty buttons match better visually */
+    -fx-padding: 8 12 8 12;
+    -fx-background-color: linear-gradient(from 0% 0% to 0% 100%, rgba(55,55,55,0.95), rgba(35,35,35,0.9));
+    -fx-text-fill: white;
+    -fx-background-radius: 6;
+    -fx-border-radius: 6;
+    -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.35), 4, 0.0, 0, 1);
+}
+
+.menu-button:hover {
+    -fx-background-color: linear-gradient(from 0% 0% to 0% 100%, rgba(80,80,80,0.98), rgba(50,50,50,0.95));
+    -fx-translate-y: -1;
+}
+
+.menu-button:pressed {
+    -fx-translate-y: 0;
+    -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.25), 2, 0.0, 0, 1);
+}
+
+/* subtle border and light inner glow for focused button */
+.menu-button:focused {
+    -fx-effect: dropshadow(gaussian, rgba(255,255,255,0.06), 8, 0.0, 0, 0);
+}
+
+/* Ensure small buttons (difficulty/back) keep the dark grey background and white text */
+.menu-button.small {
+    -fx-background-color: rgba(0,0,0,0.6);
+    -fx-text-fill: white;
+}
+
+.menu-buttons {
+    -fx-padding: 8 16 8 16;
+}
+
+/* Root background image (responsive cover) */
+.menu-root {
+    -fx-background-image: url("GUI.jpg");
+    -fx-background-size: cover; /* scale to cover the pane */
+    /* fallback for JavaFX versions that don't support 'cover' */
+    -fx-background-size: 100% 100%;
+    -fx-background-position: center center;
+    -fx-background-repeat: no-repeat;
+}
+
+/* overlay panel used behind the difficulty options to improve contrast on the background */
+.menu-options-panel {
+    -fx-background-color: rgba(10,10,10,0.45);
+    -fx-background-radius: 10px;
+    -fx-padding: 14px 18px 14px 18px;
+    -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.35), 10, 0.0, 0, 2);
+}

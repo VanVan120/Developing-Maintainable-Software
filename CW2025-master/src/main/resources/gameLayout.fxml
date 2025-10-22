@@ -44,6 +44,9 @@
         <Text fx:id="scoreValue" styleClass="scoreClass">0</Text>
     </VBox>
 
+    <!-- Pause button in top-left corner -->
+    <Button fx:id="pauseBtn" text="Pause" layoutX="12" layoutY="12" prefWidth="90" styleClass="menu-button" />
+
     <!-- Time display on the left of the main board -->
     <VBox fx:id="timeBox" spacing="6" prefWidth="140.0" prefHeight="64.0" alignment="CENTER" pickOnBounds="false" styleClass="gameBoard" style="-fx-padding:12px;">
         <Text text="Time" styleClass="nextBrickLabel" />
