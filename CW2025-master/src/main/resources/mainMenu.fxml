@@ -9,9 +9,10 @@
     <!-- Background is applied via CSS to 'menu-root' so it scales responsively -->
     <StackPane AnchorPane.leftAnchor="0" AnchorPane.rightAnchor="0" AnchorPane.topAnchor="0" AnchorPane.bottomAnchor="0">
             <children>
+                <!-- Main vertical layout (title + main buttons) -->
                 <VBox alignment="CENTER" spacing="20">
                     <children>
-                        <Text text="TetrisJFX" styleClass="menu-title" />
+                        <Text fx:id="titleText" text="TetrisJFX" styleClass="menu-title" />
                         <VBox fx:id="mainButtons" alignment="CENTER" spacing="12" styleClass="menu-buttons">
                             <children>
                                 <Button fx:id="singlePlayerBtn" text="Single Player" prefWidth="260" styleClass="menu-button" />
@@ -19,23 +20,38 @@
                                 <Button fx:id="settingsBtn" text="Settings" prefWidth="260" styleClass="menu-button" />
                             </children>
                         </VBox>
-
-                        <!-- Sub-menu for Single Player difficulty choices with translucent panel behind -->
-                        <StackPane fx:id="singleOptions" visible="false">
-                            <children>
-                                <VBox alignment="CENTER" spacing="10" styleClass="menu-options-panel" pickOnBounds="false">
-                                    <children>
-                                        <Text text="Select Difficulty" styleClass="menu-subtitle" />
-                                        <Button fx:id="easyBtn" text="Easy" prefWidth="260" styleClass="menu-button" />
-                                        <Button fx:id="normalBtn" text="Normal" prefWidth="260" styleClass="menu-button" />
-                                        <Button fx:id="hardBtn" text="Hard" prefWidth="260" styleClass="menu-button" />
-                                        <Button fx:id="backBtn" text="Back" prefWidth="260" styleClass="menu-button" />
-                                    </children>
-                                </VBox>
-                            </children>
-                        </StackPane>
                     </children>
                 </VBox>
+
+                <!-- Sub-menu for Single Player difficulty choices with translucent panel behind (overlay) -->
+                <StackPane fx:id="singleOptions" visible="false">
+                    <children>
+                        <VBox alignment="CENTER" spacing="10" styleClass="menu-options-panel" pickOnBounds="false">
+                            <children>
+                                <Text text="Select Difficulty" styleClass="menu-subtitle" />
+                                <Button fx:id="easyBtn" text="Easy" prefWidth="260" styleClass="menu-button" />
+                                <Button fx:id="normalBtn" text="Normal" prefWidth="260" styleClass="menu-button" />
+                                <Button fx:id="hardBtn" text="Hard" prefWidth="260" styleClass="menu-button" />
+                                <Button fx:id="backBtn" text="Back" prefWidth="260" styleClass="menu-button" />
+                            </children>
+                        </VBox>
+                    </children>
+                </StackPane>
+
+                <!-- Multiplayer submenu (overlay) -->
+                <StackPane fx:id="multiOptions" visible="false">
+                    <children>
+                        <VBox alignment="CENTER" spacing="10" styleClass="menu-options-panel" pickOnBounds="false">
+                            <children>
+                                <Text text="Multiplayer Mode" styleClass="menu-subtitle" />
+                                <Button fx:id="scoreBattleBtn" text="Score Battle" prefWidth="260" styleClass="menu-button" />
+                                <Button fx:id="classicBattleBtn" text="Classic Battle" prefWidth="260" styleClass="menu-button" />
+                                <Button fx:id="cooperateBattleBtn" text="Cooperate Battle" prefWidth="260" styleClass="menu-button" />
+                                <Button fx:id="multiBackBtn" text="Back" prefWidth="260" styleClass="menu-button" />
+                            </children>
+                        </VBox>
+                    </children>
+                </StackPane>
             </children>
         </StackPane>
     </children>

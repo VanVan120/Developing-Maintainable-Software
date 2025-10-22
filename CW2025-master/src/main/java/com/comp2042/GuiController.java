@@ -397,7 +397,6 @@ public class GuiController implements Initializable {
                     // Settings placeholder: for now just close overlay (or could open settings dialog)
                     settings.setOnAction(ev -> {
                         ev.consume();
-                        // TODO: open settings dialog; for now hide overlay
                         hidePauseOverlay();
                     });
 

@@ -20,6 +20,7 @@ public class MainMenuController {
 
     @FXML private ImageView bgImage;
     @FXML private VBox mainButtons;
+    @FXML private javafx.scene.text.Text titleText;
     @FXML private javafx.scene.layout.StackPane singleOptions;
     @FXML private Button singlePlayerBtn;
     @FXML private Button multiPlayerBtn;
@@ -28,6 +29,11 @@ public class MainMenuController {
     @FXML private Button normalBtn;
     @FXML private Button hardBtn;
     @FXML private Button backBtn;
+    @FXML private javafx.scene.layout.StackPane multiOptions;
+    @FXML private Button scoreBattleBtn;
+    @FXML private Button classicBattleBtn;
+    @FXML private Button cooperateBattleBtn;
+    @FXML private Button multiBackBtn;
 
     @FXML
     public void initialize() {
@@ -40,18 +46,60 @@ public class MainMenuController {
         singlePlayerBtn.setOnAction(new EventHandler<ActionEvent>() {
             @Override
             public void handle(ActionEvent event) {
-                mainButtons.setVisible(false);
-                singleOptions.setVisible(true);
+                showOverlay(singleOptions);
+            }
+        });
+
+        // Multiplayer button toggles multiplayer options
+        multiPlayerBtn.setOnAction(new EventHandler<ActionEvent>() {
+            @Override
+            public void handle(ActionEvent event) {
+                showOverlay(multiOptions);
             }
         });
 
         backBtn.setOnAction(new EventHandler<ActionEvent>() {
             @Override
             public void handle(ActionEvent event) {
-                singleOptions.setVisible(false);
-                mainButtons.setVisible(true);
+                hideOverlay(singleOptions);
             }
         });
+
+        // Multiplayer back button returns to main buttons
+        if (multiBackBtn != null) {
+            multiBackBtn.setOnAction(new EventHandler<ActionEvent>() {
+                @Override
+                public void handle(ActionEvent event) {
+                    hideOverlay(multiOptions);
+                }
+            });
+        }
+
+        // Multiplayer mode placeholders: currently just log and return to main menu
+        if (scoreBattleBtn != null) {
+            scoreBattleBtn.setOnAction(new EventHandler<ActionEvent>() {
+                @Override
+                public void handle(ActionEvent event) {
+                    System.out.println("Score Battle selected - not implemented yet");
+                }
+            });
+        }
+        if (classicBattleBtn != null) {
+            classicBattleBtn.setOnAction(new EventHandler<ActionEvent>() {
+                @Override
+                public void handle(ActionEvent event) {
+                    System.out.println("Classic Battle selected - not implemented yet");
+                }
+            });
+        }
+        if (cooperateBattleBtn != null) {
+            cooperateBattleBtn.setOnAction(new EventHandler<ActionEvent>() {
+                @Override
+                public void handle(ActionEvent event) {
+                    System.out.println("Cooperate Battle selected - not implemented yet");
+                }
+            });
+        }
 
         // Normal button: load the game layout and start the game (normal mode)
         normalBtn.setOnAction(new EventHandler<ActionEvent>() {
@@ -174,5 +222,21 @@ public class MainMenuController {
         } catch (IOException ex) {
             ex.printStackTrace();
         }
+    }
+
+    // Helper to show an overlay StackPane and hide main title/buttons
+    private void showOverlay(javafx.scene.layout.StackPane overlay) {
+        if (overlay == null) return;
+        mainButtons.setVisible(false);
+        overlay.setVisible(true);
+        if (titleText != null) titleText.setVisible(false);
+    }
+
+    // Helper to hide an overlay and restore main title/buttons
+    private void hideOverlay(javafx.scene.layout.StackPane overlay) {
+        if (overlay == null) return;
+        overlay.setVisible(false);
+        mainButtons.setVisible(true);
+        if (titleText != null) titleText.setVisible(true);
     }
 }
