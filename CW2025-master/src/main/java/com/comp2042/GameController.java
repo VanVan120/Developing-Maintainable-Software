@@ -1,5 +1,7 @@
 package com.comp2042;
 
+import javafx.beans.property.IntegerProperty;
+
 public class GameController implements InputEventListener {
 
     // SimpleBoard(width, height) — we want a tall board: height=25 rows, width=10 columns
@@ -18,6 +20,13 @@ public class GameController implements InputEventListener {
             java.util.List<com.comp2042.logic.bricks.Brick> upcoming = board.getUpcomingBricks(3);
             viewGuiController.showNextBricks(upcoming);
         } catch (Exception ignored) {}
+    }
+
+    /**
+     * Expose the score IntegerProperty for external observers (e.g. multiplayer UI).
+     */
+    public IntegerProperty getScoreProperty() {
+        return board.getScore().scoreProperty();
     }
 
     @Override

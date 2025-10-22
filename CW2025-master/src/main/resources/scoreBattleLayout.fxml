@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?import javafx.scene.layout.*?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.text.*?>
+<AnchorPane xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.comp2042.ScoreBattleController" styleClass="menu-root">
+    <children>
+        <HBox spacing="24" alignment="CENTER" AnchorPane.leftAnchor="12" AnchorPane.rightAnchor="12" AnchorPane.topAnchor="12" AnchorPane.bottomAnchor="12">
+                <!-- Left game placeholder -->
+            <StackPane fx:id="leftHolder" prefWidth="480" prefHeight="640" style="-fx-background-color: transparent;" />
+            <!-- Right game placeholder -->
+            <StackPane fx:id="rightHolder" prefWidth="480" prefHeight="640" style="-fx-background-color: transparent;" />
+        </HBox>
+
+        <!-- Back button to return to main menu -->
+        <Button fx:id="backBtn" text="Back" layoutX="12" layoutY="12" styleClass="menu-button" />
+    </children>
+</AnchorPane>

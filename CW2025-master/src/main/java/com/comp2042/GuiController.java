@@ -161,6 +161,17 @@ public class GuiController implements Initializable {
     private final BooleanProperty isPause = new SimpleBooleanProperty();
 
     private final BooleanProperty isGameOver = new SimpleBooleanProperty();
+    // becomes true when the start countdown (3..1..Start) finishes and gameplay begins
+    private final BooleanProperty countdownFinished = new SimpleBooleanProperty(false);
+
+    // Optional per-instance control key mapping. If any of these are non-null then the
+    // controller will ONLY respond to the configured keys. If all are null the legacy
+    // behavior (accept both WASD and arrows+space) is preserved for single-player.
+    private KeyCode ctrlMoveLeft = null;
+    private KeyCode ctrlMoveRight = null;
+    private KeyCode ctrlRotate = null;
+    private KeyCode ctrlSoftDrop = null;
+    private KeyCode ctrlHardDrop = null;
 
     // Configurable offsets for the timeBox relative to the game board
     private final javafx.beans.property.DoubleProperty timeBoxOffsetX = new javafx.beans.property.SimpleDoubleProperty(-100.0);
@@ -227,10 +238,18 @@ public class GuiController implements Initializable {
 
         // Center the gameBoard within the root Pane when the scene is ready
         javafx.application.Platform.runLater(() -> {
-            if (gameBoard.getScene() != null) {
-                gameBoard.layoutXProperty().bind(gameBoard.getScene().widthProperty().subtract(gameBoard.widthProperty()).divide(2));
-                gameBoard.layoutYProperty().bind(gameBoard.getScene().heightProperty().subtract(gameBoard.heightProperty()).divide(2));
-            }
+            try {
+                // prefer binding to the immediate parent region so the board centers inside its container (works for SubScene or holder panes)
+                if (gameBoard.getParent() instanceof javafx.scene.layout.Region) {
+                    javafx.scene.layout.Region parent = (javafx.scene.layout.Region) gameBoard.getParent();
+                    gameBoard.layoutXProperty().bind(parent.widthProperty().subtract(gameBoard.widthProperty()).divide(2));
+                    gameBoard.layoutYProperty().bind(parent.heightProperty().subtract(gameBoard.heightProperty()).divide(2));
+                } else if (gameBoard.getScene() != null) {
+                    // fallback to centering within the Scene
+                    gameBoard.layoutXProperty().bind(gameBoard.getScene().widthProperty().subtract(gameBoard.widthProperty()).divide(2));
+                    gameBoard.layoutYProperty().bind(gameBoard.getScene().heightProperty().subtract(gameBoard.heightProperty()).divide(2));
+                }
+            } catch (Exception ignored) {}
 
             // Position score box a little to the left of the gameBoard so it stays near the board
             if (scoreBox != null) {
@@ -445,25 +464,48 @@ public class GuiController implements Initializable {
     // Key processing helpers attached to the Scene to ensure they receive events
     private void processKeyPressed(KeyEvent keyEvent) {
         if (isPause.getValue() == Boolean.FALSE && isGameOver.getValue() == Boolean.FALSE) {
-            if (keyEvent.getCode() == KeyCode.LEFT || keyEvent.getCode() == KeyCode.A) {
-                refreshBrick(eventListener.onLeftEvent(new MoveEvent(EventType.LEFT, EventSource.USER)));
-                keyEvent.consume();
-            } else if (keyEvent.getCode() == KeyCode.RIGHT || keyEvent.getCode() == KeyCode.D) {
-                refreshBrick(eventListener.onRightEvent(new MoveEvent(EventType.RIGHT, EventSource.USER)));
-                keyEvent.consume();
-            } else if (keyEvent.getCode() == KeyCode.UP || keyEvent.getCode() == KeyCode.W) {
-                refreshBrick(eventListener.onRotateEvent(new MoveEvent(EventType.ROTATE, EventSource.USER)));
-                keyEvent.consume();
-            } else if (keyEvent.getCode() == KeyCode.DOWN || keyEvent.getCode() == KeyCode.S) {
-                // soft-drop: speed up timeline while key is held
-                if (timeLine != null) timeLine.setRate(SOFT_DROP_RATE);
-                moveDown(new MoveEvent(EventType.DOWN, EventSource.USER));
-                keyEvent.consume();
-            } else if (keyEvent.getCode() == KeyCode.SPACE) {
-                // hard drop: immediately drop to the bottom
-                hardDrop();
-                keyEvent.consume();
+            KeyCode code = keyEvent.getCode();
+            boolean handled = false;
+            boolean hasCustom = (ctrlMoveLeft != null || ctrlMoveRight != null || ctrlRotate != null || ctrlSoftDrop != null || ctrlHardDrop != null);
+            if (hasCustom) {
+                if (ctrlMoveLeft != null && code == ctrlMoveLeft) {
+                    refreshBrick(eventListener.onLeftEvent(new MoveEvent(EventType.LEFT, EventSource.USER)));
+                    handled = true;
+                } else if (ctrlMoveRight != null && code == ctrlMoveRight) {
+                    refreshBrick(eventListener.onRightEvent(new MoveEvent(EventType.RIGHT, EventSource.USER)));
+                    handled = true;
+                } else if (ctrlRotate != null && code == ctrlRotate) {
+                    refreshBrick(eventListener.onRotateEvent(new MoveEvent(EventType.ROTATE, EventSource.USER)));
+                    handled = true;
+                } else if (ctrlSoftDrop != null && code == ctrlSoftDrop) {
+                    if (timeLine != null) timeLine.setRate(SOFT_DROP_RATE);
+                    moveDown(new MoveEvent(EventType.DOWN, EventSource.USER));
+                    handled = true;
+                } else if (ctrlHardDrop != null && code == ctrlHardDrop) {
+                    hardDrop();
+                    handled = true;
+                }
+            } else {
+                // legacy behavior: accept both arrow keys and WASD/space
+                if (code == KeyCode.LEFT || code == KeyCode.A) {
+                    refreshBrick(eventListener.onLeftEvent(new MoveEvent(EventType.LEFT, EventSource.USER)));
+                    handled = true;
+                } else if (code == KeyCode.RIGHT || code == KeyCode.D) {
+                    refreshBrick(eventListener.onRightEvent(new MoveEvent(EventType.RIGHT, EventSource.USER)));
+                    handled = true;
+                } else if (code == KeyCode.UP || code == KeyCode.W) {
+                    refreshBrick(eventListener.onRotateEvent(new MoveEvent(EventType.ROTATE, EventSource.USER)));
+                    handled = true;
+                } else if (code == KeyCode.DOWN || code == KeyCode.S) {
+                    if (timeLine != null) timeLine.setRate(SOFT_DROP_RATE);
+                    moveDown(new MoveEvent(EventType.DOWN, EventSource.USER));
+                    handled = true;
+                } else if (code == KeyCode.SPACE) {
+                    hardDrop();
+                    handled = true;
+                }
             }
+            if (handled) keyEvent.consume();
         }
         if (keyEvent.getCode() == KeyCode.N) {
             newGame(null);
@@ -504,9 +546,18 @@ public class GuiController implements Initializable {
     }
 
     private void processKeyReleased(KeyEvent keyEvent) {
-        if (keyEvent.getCode() == KeyCode.DOWN || keyEvent.getCode() == KeyCode.S) {
-            if (timeLine != null) timeLine.setRate(NORMAL_RATE);
-            keyEvent.consume();
+        KeyCode code = keyEvent.getCode();
+        boolean hasCustom = (ctrlSoftDrop != null);
+        if (hasCustom) {
+            if (code == ctrlSoftDrop) {
+                if (timeLine != null) timeLine.setRate(NORMAL_RATE);
+                keyEvent.consume();
+            }
+        } else {
+            if (code == KeyCode.DOWN || code == KeyCode.S) {
+                if (timeLine != null) timeLine.setRate(NORMAL_RATE);
+                keyEvent.consume();
+            }
         }
     }
 
@@ -725,8 +776,10 @@ public class GuiController implements Initializable {
      */
     public void startCountdown(int seconds) {
         if (seconds <= 0) seconds = 3;
-        // prevent any user input until countdown completes
+    // prevent any user input until countdown completes
         isPause.setValue(Boolean.TRUE);
+    // mark countdown as not finished yet
+    countdownFinished.setValue(Boolean.FALSE);
         final Text countdown = new Text();
         countdown.getStyleClass().add("gameOverStyle");
         countdown.setStyle("-fx-font-size: 96px; -fx-fill: yellow; -fx-stroke: black; -fx-stroke-width:2;");
@@ -827,6 +880,8 @@ public class GuiController implements Initializable {
                     resetClock();
                     startClock();
                     isPause.setValue(Boolean.FALSE);
+                    // signal that countdown completed and gameplay started
+                    try { countdownFinished.setValue(Boolean.TRUE); } catch (Exception ignored) {}
                     // restore brick position (in case we snapped it to ghost during countdown)
                     try { if (currentViewData != null) doRefreshBrick(currentViewData); } catch (Exception ignored) {}
                     // restore visibility of brick and ghost after countdown
@@ -845,6 +900,13 @@ public class GuiController implements Initializable {
         cd.getKeyFrames().add(kf);
         cd.setCycleCount(seconds + 2);
         cd.playFromStart();
+    }
+
+    /**
+     * Observable property that becomes true when the start countdown finishes and gameplay begins.
+     */
+    public BooleanProperty countdownFinishedProperty() {
+        return countdownFinished;
     }
 
     /**
@@ -1315,6 +1377,19 @@ public class GuiController implements Initializable {
         this.eventListener = eventListener;
     }
 
+    /**
+     * Configure per-instance control keys. If any parameter is non-null the controller
+     * will only respond to the provided keys. Pass null for any parameter to leave it
+     * unassigned. Order: moveLeft, moveRight, rotate, softDrop, hardDrop.
+     */
+    public void setControlKeys(KeyCode moveLeft, KeyCode moveRight, KeyCode rotate, KeyCode softDrop, KeyCode hardDrop) {
+        this.ctrlMoveLeft = moveLeft;
+        this.ctrlMoveRight = moveRight;
+        this.ctrlRotate = rotate;
+        this.ctrlSoftDrop = softDrop;
+        this.ctrlHardDrop = hardDrop;
+    }
+
     public void bindScore(IntegerProperty integerProperty) {
         // Load high score (UI update only if the node exists in FXML)
         loadHighScore();
@@ -1428,12 +1503,20 @@ public class GuiController implements Initializable {
                         FXMLLoader loader = new FXMLLoader(loc);
                         Parent menuRoot = loader.load();
                         javafx.stage.Stage stage = (javafx.stage.Stage) scene.getWindow();
-                        if (stage.getScene() != null) {
-                            stage.getScene().setRoot(menuRoot);
-                        } else {
-                            Scene s2 = new Scene(menuRoot, Math.max(420, stage.getWidth()), Math.max(700, stage.getHeight()));
-                            stage.setScene(s2);
-                        }
+                            if (stage.getScene() != null) {
+                                stage.getScene().setRoot(menuRoot);
+                                try {
+                                    String css = getClass().getClassLoader().getResource("menu.css").toExternalForm();
+                                    if (!stage.getScene().getStylesheets().contains(css)) stage.getScene().getStylesheets().add(css);
+                                } catch (Exception ignored) {}
+                            } else {
+                                Scene s2 = new Scene(menuRoot, Math.max(420, stage.getWidth()), Math.max(700, stage.getHeight()));
+                                try {
+                                    String css = getClass().getClassLoader().getResource("menu.css").toExternalForm();
+                                    s2.getStylesheets().add(css);
+                                } catch (Exception ignored) {}
+                                stage.setScene(s2);
+                            }
                     } catch (Exception ex) {
                         ex.printStackTrace();
                     }

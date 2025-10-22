@@ -76,14 +76,55 @@ public class MainMenuController {
         }
 
         // Multiplayer mode placeholders: currently just log and return to main menu
-        if (scoreBattleBtn != null) {
-            scoreBattleBtn.setOnAction(new EventHandler<ActionEvent>() {
-                @Override
-                public void handle(ActionEvent event) {
-                    System.out.println("Score Battle selected - not implemented yet");
-                }
-            });
-        }
+            if (scoreBattleBtn != null) {
+                scoreBattleBtn.setOnAction(new EventHandler<ActionEvent>() {
+                    @Override
+                    public void handle(ActionEvent event) {
+                        try {
+                            URL location = getClass().getClassLoader().getResource("scoreBattleLayout.fxml");
+                            if (location == null) return;
+                            FXMLLoader fxmlLoader = new FXMLLoader(location);
+                            Parent root = fxmlLoader.load();
+                            ScoreBattleController controller = fxmlLoader.getController();
+
+                            // determine the current Stage so we can preserve window state
+                            Stage stage = (Stage) scoreBattleBtn.getScene().getWindow();
+
+                            // apply full scenic background for the whole score-battle scene (not per-board)
+                            try {
+                                URL normalBg = getClass().getClassLoader().getResource("Normal.jpg");
+                                if (normalBg != null) root.setStyle("-fx-background-image: url('" + normalBg.toExternalForm() + "'); -fx-background-size: cover; -fx-background-position: center center;");
+                                // Do not clear the Scene's stylesheets here - clearing the Scene stylesheets
+                                // removes the shared `menu.css` which causes unstyled controls after
+                                // returning from Score Battle. Embedded roots already clear their own
+                                // stylesheets in the multiplayer loader so leave the Scene alone.
+                            } catch (Exception ignored) {}
+
+                            double w = stage.getWidth();
+                            double h = stage.getHeight();
+                            boolean full = stage.isFullScreen();
+                            boolean max = stage.isMaximized();
+
+                            if (stage.getScene() != null) {
+                                stage.getScene().setRoot(root);
+                                stage.setMaximized(max);
+                                if (full) Platform.runLater(() -> stage.setFullScreen(true));
+                            } else {
+                                Scene scene = new Scene(root, Math.max(420, w), Math.max(700, h));
+                                stage.setScene(scene);
+                                stage.setMaximized(max);
+                                if (full) Platform.runLater(() -> stage.setFullScreen(true));
+                                stage.show();
+                            }
+
+                            // initialize both games inside ScoreBattleController
+                            controller.initBothGames();
+                        } catch (IOException ex) {
+                            ex.printStackTrace();
+                        }
+                    }
+                });
+            }
         if (classicBattleBtn != null) {
             classicBattleBtn.setOnAction(new EventHandler<ActionEvent>() {
                 @Override
