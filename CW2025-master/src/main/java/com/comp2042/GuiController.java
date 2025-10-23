@@ -14,6 +14,8 @@ import javafx.scene.Group;
 import javafx.scene.canvas.Canvas;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.effect.Reflection;
+import javafx.scene.effect.DropShadow;
+import javafx.scene.effect.BlurType;
 import javafx.scene.input.KeyCode;
 import javafx.scene.input.KeyEvent;
 import javafx.scene.layout.GridPane;
@@ -154,6 +156,22 @@ public class GuiController implements Initializable {
     // change these to move the real pieces without moving the ghost
     private double blockNudgeX = 0.0;
     private double blockNudgeY = 0.0;
+
+    // multiplayer mode flag - when true, only show lock effect for explicit hard-drops by the player
+    private boolean isMultiplayer = false;
+    // whether the last input was a hard drop (pressed by user)
+    private boolean lastWasHardDrop = false;
+
+    // Optional callback provided by a multiplayer manager (ScoreBattleController) so a Retry
+    // in multiplayer mode can request a full match restart (both players) instead of just
+    // restarting this single player's board.
+    private Runnable multiplayerRestartHandler = null;
+    // Optional callback to notify a multiplayer coordinator when this GUI is paused/unpaused.
+    // Accepts a Boolean: true => paused, false => resumed.
+    private java.util.function.Consumer<Boolean> multiplayerPauseHandler = null;
+    // When applying a pause change that originated from the multiplayer coordinator we
+    // set this flag to avoid re-notifying the coordinator and causing reentrant loops.
+    private boolean suppressMultiplayerPauseNotify = false;
 
     private int highScore = 0;
     private static final String HIGHSCORE_FILE = System.getProperty("user.home") + File.separator + ".tetris_highscore";
@@ -364,12 +382,6 @@ public class GuiController implements Initializable {
             }
         });
 
-        // Pause button handler (if present in FXML)
-        try {
-            if (pauseBtn != null) {
-                pauseBtn.setOnAction(ev -> togglePauseOverlay());
-            }
-        } catch (Exception ignored) {}
     }
 
     // Toggle the pause overlay: show overlay if paused, otherwise resume
@@ -388,6 +400,8 @@ public class GuiController implements Initializable {
                     if (scene == null) return;
                     // create overlay root
                     pauseOverlay = new StackPane();
+                    // mark overlay with well-known id so multiplayer mode can remove duplicates
+                    pauseOverlay.setId("GLOBAL_PAUSE_OVERLAY");
                     pauseOverlay.setPickOnBounds(true);
 
                     Rectangle dark = new Rectangle();
@@ -427,8 +441,24 @@ public class GuiController implements Initializable {
 
                     if (scene.getRoot() instanceof javafx.scene.layout.Pane) {
                         javafx.scene.layout.Pane root = (javafx.scene.layout.Pane) scene.getRoot();
+                        // remove any existing global pause overlays first (prevents duplicates from multiplayer)
+                        try {
+                            java.util.List<javafx.scene.Node> toRemove = new java.util.ArrayList<>();
+                            for (javafx.scene.Node n : root.getChildren()) {
+                                if (n != null && "GLOBAL_PAUSE_OVERLAY".equals(n.getId())) toRemove.add(n);
+                            }
+                            root.getChildren().removeAll(toRemove);
+                        } catch (Exception ignored) {}
                         root.getChildren().add(pauseOverlay);
                     } else if (groupNotification != null) {
+                        // fallback: remove any existing then add
+                        try {
+                            java.util.List<javafx.scene.Node> toRemove = new java.util.ArrayList<>();
+                            for (javafx.scene.Node n : groupNotification.getChildren()) {
+                                if (n != null && "GLOBAL_PAUSE_OVERLAY".equals(n.getId())) toRemove.add(n);
+                            }
+                            groupNotification.getChildren().removeAll(toRemove);
+                        } catch (Exception ignored) {}
                         groupNotification.getChildren().add(pauseOverlay);
                     }
 
@@ -436,6 +466,10 @@ public class GuiController implements Initializable {
                     try { if (timeLine != null) timeLine.pause(); } catch (Exception ignored) {}
                     isPause.setValue(Boolean.TRUE);
                     isPauseOverlayVisible = true;
+                    // notify multiplayer coordinator (if any) that this player paused
+                    try {
+                        if (!suppressMultiplayerPauseNotify && multiplayerPauseHandler != null) multiplayerPauseHandler.accept(Boolean.TRUE);
+                    } catch (Exception ignored) {}
                 } catch (Exception ignored) {}
             });
         } else {
@@ -446,18 +480,38 @@ public class GuiController implements Initializable {
     private void hidePauseOverlay() {
         javafx.application.Platform.runLater(() -> {
             try {
-                if (pauseOverlay != null) {
-                    if (pauseOverlay.getParent() instanceof javafx.scene.layout.Pane) {
-                        ((javafx.scene.layout.Pane) pauseOverlay.getParent()).getChildren().remove(pauseOverlay);
-                    } else if (groupNotification != null) {
-                        groupNotification.getChildren().remove(pauseOverlay);
+                // remove any existing global pause overlays from the scene root or groupNotification
+                try {
+                    Scene scene = gameBoard.getScene();
+                    if (scene != null && scene.getRoot() instanceof javafx.scene.layout.Pane) {
+                        javafx.scene.layout.Pane root = (javafx.scene.layout.Pane) scene.getRoot();
+                        java.util.List<javafx.scene.Node> toRemove = new java.util.ArrayList<>();
+                        for (javafx.scene.Node n : root.getChildren()) {
+                            if (n != null && "GLOBAL_PAUSE_OVERLAY".equals(n.getId())) toRemove.add(n);
+                        }
+                        root.getChildren().removeAll(toRemove);
                     }
-                    pauseOverlay = null;
-                }
+                } catch (Exception ignored) {}
+                try {
+                    if (groupNotification != null) {
+                        java.util.List<javafx.scene.Node> toRemove2 = new java.util.ArrayList<>();
+                        for (javafx.scene.Node n : groupNotification.getChildren()) {
+                            if (n != null && "GLOBAL_PAUSE_OVERLAY".equals(n.getId())) toRemove2.add(n);
+                        }
+                        groupNotification.getChildren().removeAll(toRemove2);
+                    }
+                } catch (Exception ignored) {}
+                pauseOverlay = null;
                 // resume timeline and input
                 try { if (timeLine != null) timeLine.play(); } catch (Exception ignored) {}
                 isPause.setValue(Boolean.FALSE);
                 isPauseOverlayVisible = false;
+                // notify multiplayer coordinator (if any) that this player resumed
+                try {
+                    if (!suppressMultiplayerPauseNotify && multiplayerPauseHandler != null) multiplayerPauseHandler.accept(Boolean.FALSE);
+                } catch (Exception ignored) {}
+                // restore keyboard focus so Scene-level handlers continue receiving key events
+                try { gamePanel.requestFocus(); } catch (Exception ignored) {}
             } catch (Exception ignored) {}
         });
     }
@@ -483,6 +537,8 @@ public class GuiController implements Initializable {
                     moveDown(new MoveEvent(EventType.DOWN, EventSource.USER));
                     handled = true;
                 } else if (ctrlHardDrop != null && code == ctrlHardDrop) {
+                    // mark that user used hard-drop via configured hard-drop key
+                    lastWasHardDrop = true;
                     hardDrop();
                     handled = true;
                 } else if (ctrlSwap != null && code == ctrlSwap) {
@@ -504,7 +560,9 @@ public class GuiController implements Initializable {
                     if (timeLine != null) timeLine.setRate(SOFT_DROP_RATE);
                     moveDown(new MoveEvent(EventType.DOWN, EventSource.USER));
                     handled = true;
-                } else if (code == KeyCode.SPACE) {
+                } else if (code == KeyCode.SPACE || code == KeyCode.SHIFT) {
+                    // mark that user used hard-drop via space or shift
+                    lastWasHardDrop = true;
                     hardDrop();
                     handled = true;
                 }
@@ -529,6 +587,8 @@ public class GuiController implements Initializable {
         if (isPause.getValue() == Boolean.FALSE && isGameOver.getValue() == Boolean.FALSE && eventListener != null) {
             // temporarily speed up timeline to normal while performing hard drop
             if (timeLine != null) timeLine.pause();
+            // capture starting view for the visual effect
+            ViewData startViewForEffect = this.currentViewData;
             int safety = 0;
             while (safety++ < 1000) { // safety limit
                 DownData d = eventListener.onDownEvent(new MoveEvent(EventType.DOWN, EventSource.USER));
@@ -543,10 +603,16 @@ public class GuiController implements Initializable {
                 // update view
                 refreshBrick(v);
                     // if clearRow is non-null it means the piece could not move and was merged -> landing occurred
-                    if (d.getClearRow() != null && d.getClearRow().getLinesRemoved() > 0) {
+                    if (d.getClearRow() != null) {
+                            // play an intense hard-drop/lock visual effect only when user explicitly hard-dropped
+                            try {
+                                if (lastWasHardDrop) playLockEffect(startViewForEffect, d.getViewData(), true);
+                            } catch (Exception ignored) {}
+                        // reset the flag after use
+                        lastWasHardDrop = false;
+                        if (d.getClearRow().getLinesRemoved() > 0) {
                             try { spawnExplosion(d.getClearRow(), d.getViewData()); } catch (Exception ignored) {}
                         }
-                    if (d.getClearRow() != null) {
                         break;
                     }
             }
@@ -919,6 +985,14 @@ public class GuiController implements Initializable {
     }
 
     /**
+     * Expose the game-over property so external coordinators (multiplayer) can listen
+     * for when this player's board becomes game over.
+     */
+    public BooleanProperty isGameOverProperty() {
+        return isGameOver;
+    }
+
+    /**
      * Adjust the automatic drop interval (milliseconds) used by the game timeline.
      * Call before starting the game to affect falling speed.
      */
@@ -1226,6 +1300,8 @@ public class GuiController implements Initializable {
 
     private void moveDown(MoveEvent event) {
         if (isPause.getValue() == Boolean.FALSE) {
+            // capture starting view so we can animate a lock effect if the piece lands
+            ViewData startViewForEffect = this.currentViewData;
             DownData downData = eventListener.onDownEvent(event);
             if (downData.getClearRow() != null && downData.getClearRow().getLinesRemoved() > 0) {
                 NotificationPanel notificationPanel = new NotificationPanel("+" + downData.getClearRow().getScoreBonus());
@@ -1233,17 +1309,130 @@ public class GuiController implements Initializable {
                 notificationPanel.showScore(groupNotification.getChildren());
             }
             refreshBrick(downData.getViewData());
-                // spawn explosion only when the landing cleared >=1 full rows
-                if (downData.getClearRow() != null && downData.getClearRow().getLinesRemoved() > 0) {
-                    try { spawnExplosion(downData.getClearRow(), downData.getViewData()); } catch (Exception ignored) {}
+                // if the piece landed (clearRow non-null) play a softer lock effect and spawn explosion when rows removed
+                if (downData.getClearRow() != null) {
+                    try {
+                        // only show lock visual when the user explicitly hard-dropped
+                        if (lastWasHardDrop) playLockEffect(startViewForEffect, downData.getViewData(), false);
+                    } catch (Exception ignored) {}
+                    // reset after using
+                    lastWasHardDrop = false;
+                    if (downData.getClearRow().getLinesRemoved() > 0) {
+                        try { spawnExplosion(downData.getClearRow(), downData.getViewData()); } catch (Exception ignored) {}
+                    }
                 }
         }
         gamePanel.requestFocus();
     }
 
+    /**
+     * Play a vertical light/lock effect from the starting view position to the ending view position.
+     * Creates one thin bright rectangle per column occupied by the piece and animates it downwards
+     * while fading out. Uses the existing particlePane (if available) as the parent layer.
+     *
+     * @param start  the ViewData before the drop (may be null)
+     * @param end    the ViewData after the drop/lock (may be null)
+     * @param intense when true use shorter/faster animation and higher opacity (for hard drops)
+     */
+    private void playLockEffect(ViewData start, ViewData end, boolean intense) {
+        if (start == null || end == null || particlePane == null) return;
+        try {
+            int[][] shape = start.getBrickData();
+            if (shape == null) return;
+
+            int startBoardY = start.getyPosition() - 2; // visible offset
+            int endBoardY = end.getyPosition() - 2;
+
+            double cellWpx = cellW;
+            double cellHpx = cellH;
+
+            // durations (ms) - increased to give a longer visible effect
+            double travelMs = intense ? 420.0 : 560.0; 
+            double fadeMs = intense ? 620.0 : 800.0;   
+
+            java.util.List<javafx.animation.ParallelTransition> running = new java.util.ArrayList<>();
+
+            // Determine top-most filled row in the shape so the effect starts at the top of the piece
+            int minR = Integer.MAX_VALUE;
+            for (int rr = 0; rr < shape.length; rr++) {
+                for (int cc = 0; cc < shape[rr].length; cc++) if (shape[rr][cc] != 0) { if (rr < minR) minR = rr; }
+            }
+            if (minR == Integer.MAX_VALUE) minR = 0;
+
+            // compute a common start Y (top of the brick) in particlePane local coords
+            javafx.geometry.Point2D topParentPt = boardToPixel(start.getxPosition(), startBoardY + minR);
+            javafx.geometry.Point2D topScenePt = (brickPanel != null && brickPanel.getParent() != null)
+                    ? brickPanel.getParent().localToScene(topParentPt)
+                    : new javafx.geometry.Point2D(topParentPt.getX(), topParentPt.getY());
+            javafx.geometry.Point2D topLocal = (particlePane != null) ? particlePane.sceneToLocal(topScenePt) : topScenePt;
+
+            // Create one visual rectangle per occupied cell so the falling visual matches the brick's shape.
+            for (int r = 0; r < shape.length; r++) {
+                for (int c = 0; c < shape[r].length; c++) {
+                    if (shape[r][c] == 0) continue;
+                    int boardX = start.getxPosition() + c;
+                    int boardYEnd = endBoardY + r;
+
+                    // compute per-cell X (start) and per-cell end position in particle local coords
+                    javafx.geometry.Point2D cellStartParent = boardToPixel(boardX, startBoardY + r);
+                    javafx.geometry.Point2D cellStartScene = (brickPanel != null && brickPanel.getParent() != null)
+                            ? brickPanel.getParent().localToScene(cellStartParent)
+                            : new javafx.geometry.Point2D(cellStartParent.getX(), cellStartParent.getY());
+                    javafx.geometry.Point2D cellStartLocal = (particlePane != null) ? particlePane.sceneToLocal(cellStartScene) : cellStartScene;
+
+                    javafx.geometry.Point2D cellEndParent = boardToPixel(boardX, boardYEnd);
+                    javafx.geometry.Point2D cellEndScene = (brickPanel != null && brickPanel.getParent() != null)
+                            ? brickPanel.getParent().localToScene(cellEndParent)
+                            : new javafx.geometry.Point2D(cellEndParent.getX(), cellEndParent.getY());
+                    javafx.geometry.Point2D cellEndLocal = (particlePane != null) ? particlePane.sceneToLocal(cellEndScene) : cellEndScene;
+
+                    double x = Math.round(cellStartLocal.getX());
+                    // use the common topLocal Y so effect originates at the top of the piece
+                    double y = Math.round(topLocal.getY());
+
+                    Rectangle cellRect = new Rectangle(Math.round(cellWpx), Math.round(cellHpx));
+                    cellRect.setArcWidth(6);
+                    cellRect.setArcHeight(6);
+                    cellRect.setFill(Color.web("#ffffff"));
+                    cellRect.setOpacity(intense ? 0.95 : 0.85);
+                    cellRect.setMouseTransparent(true);
+                    cellRect.setLayoutX(x);
+                    cellRect.setLayoutY(y);
+                    cellRect.setTranslateX(0);
+                    cellRect.setTranslateY(0);
+
+                    DropShadow ds = new DropShadow(BlurType.GAUSSIAN, Color.web("#ffffff"), intense ? 14.0 : 9.0, 0.35, 0.0, 0.0);
+                    ds.setSpread(intense ? 0.7 : 0.45);
+                    cellRect.setEffect(ds);
+
+                    if (particlePane != null) particlePane.getChildren().add(cellRect);
+
+                    TranslateTransition tt = new TranslateTransition(Duration.millis(travelMs), cellRect);
+                    double deltaY = Math.round(cellEndLocal.getY() - topLocal.getY());
+                    tt.setByY(deltaY);
+                    tt.setInterpolator(javafx.animation.Interpolator.EASE_OUT);
+                    // small per-row delay so the effect cascades downward smoothly
+                    tt.setDelay(Duration.millis(r * 18));
+
+                    FadeTransition ft = new FadeTransition(Duration.millis(fadeMs), cellRect);
+                    ft.setFromValue(cellRect.getOpacity());
+                    ft.setToValue(0.0);
+
+                    ParallelTransition pt = new ParallelTransition(tt, ft);
+                    pt.setOnFinished(e -> { try { e.consume(); if (particlePane != null) particlePane.getChildren().remove(cellRect); } catch (Exception ignored) {} });
+                    running.add(pt);
+                }
+            }
+
+            // start all transitions after a layout pass to ensure positions are stable
+            javafx.application.Platform.runLater(() -> {
+                for (ParallelTransition pt : running) pt.play();
+            });
+
+        } catch (Exception ignored) {}
+    }
+
     // Spawn explosions for cleared rows. If ClearRow contains explicit cleared row indices,
-    // spawn one particle burst per cleared absolute board row. If none provided, fall back to
-    // spawning at the landed brick position using ViewData.
     private void spawnExplosion(ClearRow clearRow, ViewData v) {
         if (particlePane == null) return;
         try {
@@ -1257,6 +1446,8 @@ public class GuiController implements Initializable {
                     }
                     // shake the board once when rows are removed
                     shakeBoard();
+                    // spawn per-cell falling square particles for each cleared cell
+                    try { spawnRowClearParticles(clearRow); } catch (Exception ignored) {}
                     // spawn a burst for each cleared row using its center Y coordinate
                     for (int r : rows) {
                         // r is absolute board row index (0 = top including hidden rows)
@@ -1271,6 +1462,82 @@ public class GuiController implements Initializable {
         } catch (Exception ignored) {}
         // fallback: spawn at brick landing position
         spawnExplosion(v);
+    }
+
+    // Spawn small square particles for each brick in the cleared rows that then fall down and fade out.
+    private void spawnRowClearParticles(ClearRow clearRow) {
+        if (clearRow == null || particlePane == null || displayMatrix == null) return;
+        try {
+            int[] rows = clearRow.getClearedRows();
+            if (rows == null || rows.length == 0) return;
+            int cols = displayMatrix[0].length;
+            for (int r : rows) {
+                // compute top-left Y for this board row (visible coords)
+                double rowTopY = Math.round(baseOffsetY + (r - 2) * cellH);
+                for (int c = 0; c < cols; c++) {
+                    try {
+                        Rectangle boardCell = null;
+                        if (displayMatrix != null && displayMatrix.length > r && r >= 0) boardCell = displayMatrix[r][c];
+                        Paint fill = (boardCell != null) ? boardCell.getFill() : null;
+                        if (fill == null) continue;
+                        if (fill == Color.TRANSPARENT) continue;
+                        Color color = (fill instanceof Color) ? (Color) fill : Color.WHITE;
+
+                        // spawn a handful of small square particles for this brick
+                        int particles = 4 + (int)(Math.random() * 6); // 4..9
+                        for (int p = 0; p < particles; p++) {
+                            double pw = Math.max(3.0, Math.round(cellW / 3.0));
+                            double ph = Math.max(3.0, Math.round(cellH / 3.0));
+                            Rectangle sq = new Rectangle(pw, ph);
+                            sq.setArcWidth(2);
+                            sq.setArcHeight(2);
+                            sq.setFill(color);
+                            sq.setMouseTransparent(true);
+
+                            // initial position: somewhere within the original brick cell
+                            double cellX = Math.round(baseOffsetX + c * cellW);
+                            double cellY = rowTopY;
+                            double jitterX = (Math.random() - 0.5) * (cellW * 0.4);
+                            double jitterY = (Math.random() - 0.5) * (cellH * 0.4);
+                            double startX = Math.round(cellX + cellW * 0.5 + jitterX - pw * 0.5);
+                            double startY = Math.round(cellY + cellH * 0.5 + jitterY - ph * 0.5);
+
+                            sq.setTranslateX(startX);
+                            sq.setTranslateY(startY);
+                            particlePane.getChildren().add(sq);
+
+                            // falling distance (to bottom of scene or a generous amount)
+                            double sceneHeight = 800.0;
+                            try { if (gameBoard != null && gameBoard.getScene() != null) sceneHeight = gameBoard.getScene().getHeight(); } catch (Exception ignored) {}
+                            double fallBy = sceneHeight - startY + 80 + Math.random() * 120;
+
+                            // duration variation (increased so particles fall longer and remain visible)
+                            double durationMs = 2000 + Math.random() * 1500; // 2000..3500ms
+
+                            TranslateTransition tt = new TranslateTransition(Duration.millis(durationMs), sq);
+                            tt.setByY(fallBy);
+                            tt.setInterpolator(javafx.animation.Interpolator.EASE_IN);
+
+                            FadeTransition ft = new FadeTransition(Duration.millis(durationMs), sq);
+                            ft.setFromValue(1.0);
+                            ft.setToValue(0.0);
+
+                            // slight outward motion for explosion feel
+                            double sideBy = (Math.random() - 0.5) * 40.0;
+                            // prolong sideways/outward motion so explosion feels stretched
+                            TranslateTransition ttx = new TranslateTransition(Duration.millis(durationMs * 0.75), sq);
+                            ttx.setByX(sideBy);
+                            ttx.setInterpolator(javafx.animation.Interpolator.EASE_OUT);
+
+                            ParallelTransition pt = new ParallelTransition(ttx, tt, ft);
+                            final Rectangle node = sq;
+                            pt.setOnFinished(e -> { try { if (e != null) e.consume(); particlePane.getChildren().remove(node); } catch (Exception ignored) {} });
+                            pt.play();
+                        }
+                    } catch (Exception ignored) {}
+                }
+            }
+        } catch (Exception ignored) {}
     }
 
     // Show a brief flash rectangle at vertical position y (top of the row) with given width/height
@@ -1402,6 +1669,48 @@ public class GuiController implements Initializable {
         this.eventListener = eventListener;
     }
 
+    /**
+     * Configure multiplayer mode. When true, lock visuals only appear when the user explicitly used a hard-drop key.
+     */
+    public void setMultiplayerMode(boolean multiplayer) {
+        this.isMultiplayer = multiplayer;
+    }
+
+    /** Register a restart handler callable provided by the multiplayer controller. */
+    public void setMultiplayerRestartHandler(Runnable handler) {
+        this.multiplayerRestartHandler = handler;
+        if (handler != null) this.isMultiplayer = true;
+    }
+
+    /** Register a pause handler provided by the multiplayer controller. The handler will be
+     * notified when this GuiController pauses or resumes due to a user action. The handler
+     * should typically forward the pause state to the other player's GuiController(s).
+     */
+    public void setMultiplayerPauseHandler(java.util.function.Consumer<Boolean> handler) {
+        this.multiplayerPauseHandler = handler;
+        if (handler != null) this.isMultiplayer = true;
+    }
+
+    /**
+     * Apply a pause/unpause request that originated externally (from the multiplayer coordinator).
+     * This prevents re-notifying the coordinator while applying the visual overlay and timeline
+     * changes locally.
+     */
+    public void applyExternalPause(boolean paused) {
+        // if requested state matches current visible overlay state, no-op
+        if (paused == isPauseOverlayVisible) return;
+        try {
+            suppressMultiplayerPauseNotify = true;
+            // togglePauseOverlay will show or hide overlay depending on current state
+            // and will normally notify the multiplayer handler, but the suppress flag
+            // prevents that re-notification while we're applying an externally-driven change.
+            togglePauseOverlay();
+        } catch (Exception ignored) {
+        } finally {
+            suppressMultiplayerPauseNotify = false;
+        }
+    }
+
     /** Public wrapper to refresh the visible falling brick from external controllers. */
     public void refreshCurrentView(ViewData v) {
         try { refreshBrick(v); } catch (Exception ignored) {}
@@ -1493,43 +1802,77 @@ public class GuiController implements Initializable {
     try { if (gameOverPanel != null) gameOverPanel.setVisible(false); } catch (Exception ignored) {}
         isGameOver.setValue(Boolean.TRUE);
         stopClock();
+        if (isMultiplayer) return;
 
-        // Show an animated modal overlay: fade-to-black background + centered dialog
+        // Show a simpler, elegant centered announcement (no large 'GAME OVER' text)
         javafx.application.Platform.runLater(() -> {
             try {
                 if (gameBoard == null || gameBoard.getScene() == null) return;
                 javafx.scene.Scene scene = gameBoard.getScene();
-                // overlay root that fills the scene
+
                 StackPane overlay = new StackPane();
                 overlay.setPickOnBounds(true);
                 overlay.setStyle("-fx-background-color: transparent;");
 
-                // dark background that will fade in
+                // dim background softly
                 Rectangle dark = new Rectangle();
                 dark.widthProperty().bind(scene.widthProperty());
                 dark.heightProperty().bind(scene.heightProperty());
-                dark.setFill(Color.BLACK);
-                dark.setOpacity(0.0);
+                dark.setFill(Color.rgb(6,6,8,0.72));
 
-                // dialog content
-                VBox dialog = new VBox(18);
+                // center announcement
+                VBox dialog = new VBox(14);
                 dialog.setAlignment(Pos.CENTER);
+                dialog.setMouseTransparent(false);
 
-                Label title = new Label("GAME OVER");
-                title.getStyleClass().add("gameOverStyle");
-                title.setStyle("-fx-font-size: 64px; -fx-text-fill: white; -fx-font-weight: bold;");
-                title.setOpacity(0.0);
+                // Decorative title: elegant gradient + soft glow
+                Text title = new Text("Match Over");
+                title.setStyle("-fx-font-weight: 700;");
+                title.setFill(javafx.scene.paint.LinearGradient.valueOf("from 0% 0% to 100% 0% , #ffd166 0%, #ff7b7b 100%"));
+                title.setOpacity(1.0);
+                title.setFont(Font.font(72));
+                DropShadow ds = new DropShadow(BlurType.GAUSSIAN, Color.rgb(0,0,0,0.8), 18, 0.25, 0, 6);
+                title.setEffect(ds);
+
+                // optional subtitle showing current score if available
+                Text subtitle = new Text("" + (scoreValue != null ? scoreValue.getText() : ""));
+                subtitle.setStyle("-fx-font-size: 28px; -fx-fill: white; -fx-opacity: 0.9;");
 
                 HBox buttons = new HBox(12);
                 buttons.setAlignment(Pos.CENTER);
 
-                Button btnMenu = new Button("Return to Main Menu");
-                Button btnExit = new Button("Exit");
-                // reuse menu-button styling if available for a consistent look
+                Button btnRestart = new Button("Restart");
+                Button btnMenu = new Button("Main Menu");
+                btnRestart.getStyleClass().add("menu-button");
                 btnMenu.getStyleClass().add("menu-button");
-                btnExit.getStyleClass().add("menu-button");
 
-                // Return to main menu: load mainMenu.fxml and replace the scene root
+                // Restart behavior: if multiplayer, delegate to multiplayer restart handler, otherwise create new game and run countdown
+                btnRestart.setOnAction(ev -> {
+                    ev.consume();
+                    try {
+                        if (overlay.getParent() instanceof javafx.scene.layout.Pane) {
+                            ((javafx.scene.layout.Pane) overlay.getParent()).getChildren().remove(overlay);
+                        } else if (groupNotification != null) {
+                            groupNotification.getChildren().remove(overlay);
+                        }
+                    } catch (Exception ignored) {}
+
+                    if (isMultiplayer && multiplayerRestartHandler != null) {
+                        try { multiplayerRestartHandler.run(); } catch (Exception ignored) {}
+                        return;
+                    }
+
+                    try { if (eventListener != null) eventListener.createNewGame(); } catch (Exception ignored) {}
+                    try {
+                        if (timeLine != null) timeLine.stop();
+                        if (gameOverPanel != null) gameOverPanel.setVisible(false);
+                        resetClock(); stopClock();
+                        isPause.setValue(Boolean.TRUE);
+                        isGameOver.setValue(Boolean.FALSE);
+                        startCountdown(3);
+                    } catch (Exception ignored) {}
+                });
+
                 btnMenu.setOnAction(ev -> {
                     ev.consume();
                     try {
@@ -1538,70 +1881,44 @@ public class GuiController implements Initializable {
                         FXMLLoader loader = new FXMLLoader(loc);
                         Parent menuRoot = loader.load();
                         javafx.stage.Stage stage = (javafx.stage.Stage) scene.getWindow();
-                            if (stage.getScene() != null) {
-                                stage.getScene().setRoot(menuRoot);
-                                try {
-                                    String css = getClass().getClassLoader().getResource("menu.css").toExternalForm();
-                                    if (!stage.getScene().getStylesheets().contains(css)) stage.getScene().getStylesheets().add(css);
-                                } catch (Exception ignored) {}
-                            } else {
-                                Scene s2 = new Scene(menuRoot, Math.max(420, stage.getWidth()), Math.max(700, stage.getHeight()));
-                                try {
-                                    String css = getClass().getClassLoader().getResource("menu.css").toExternalForm();
-                                    s2.getStylesheets().add(css);
-                                } catch (Exception ignored) {}
-                                stage.setScene(s2);
-                            }
-                    } catch (Exception ex) {
-                        ex.printStackTrace();
-                    }
+                        if (stage.getScene() != null) {
+                            stage.getScene().setRoot(menuRoot);
+                            try {
+                                String css = getClass().getClassLoader().getResource("menu.css").toExternalForm();
+                                if (!stage.getScene().getStylesheets().contains(css)) stage.getScene().getStylesheets().add(css);
+                            } catch (Exception ignored) {}
+                        } else {
+                            Scene s2 = new Scene(menuRoot, Math.max(420, stage.getWidth()), Math.max(700, stage.getHeight()));
+                            try {
+                                String css = getClass().getClassLoader().getResource("menu.css").toExternalForm();
+                                s2.getStylesheets().add(css);
+                            } catch (Exception ignored) {}
+                            stage.setScene(s2);
+                        }
+                    } catch (Exception ex) { ex.printStackTrace(); }
                 });
 
-                // Exit the application
-                btnExit.setOnAction(ev -> {
-                    ev.consume();
-                    try { javafx.application.Platform.exit(); } catch (Exception ignored) {}
-                });
+                buttons.getChildren().addAll(btnRestart, btnMenu);
+                dialog.getChildren().addAll(title, subtitle, buttons);
+                dialog.setTranslateY(0);
 
-                buttons.getChildren().addAll(btnMenu, btnExit);
-                dialog.getChildren().addAll(title, buttons);
-
-                // make overlay consume input so underlying game is inaccessible
                 overlay.setOnMouseClicked(event -> event.consume());
                 overlay.getChildren().addAll(dark, dialog);
 
-                // attach to scene root if it's a Pane
                 if (scene.getRoot() instanceof javafx.scene.layout.Pane) {
                     javafx.scene.layout.Pane root = (javafx.scene.layout.Pane) scene.getRoot();
                     root.getChildren().add(overlay);
                 } else if (groupNotification != null) {
-                    // fallback: add to notification group
                     groupNotification.getChildren().add(overlay);
                 }
 
-                // animations: fade-in background then pop the title and buttons
-                FadeTransition bgFade = new FadeTransition(Duration.millis(400), dark);
-                bgFade.setFromValue(0.0);
-                bgFade.setToValue(0.85);
+                // subtle entrance animation
+                javafx.animation.FadeTransition f = new javafx.animation.FadeTransition(Duration.millis(420), dialog);
+                dialog.setOpacity(0.0);
+                f.setFromValue(0.0);
+                f.setToValue(1.0);
+                f.play();
 
-                ScaleTransition titleScale = new ScaleTransition(Duration.millis(600), title);
-                titleScale.setFromX(0.3); titleScale.setFromY(0.3);
-                titleScale.setToX(1.0); titleScale.setToY(1.0);
-                FadeTransition titleFade = new FadeTransition(Duration.millis(600), title);
-                titleFade.setFromValue(0.0); titleFade.setToValue(1.0);
-
-                FadeTransition buttonsFade = new FadeTransition(Duration.millis(400), buttons);
-                buttonsFade.setFromValue(0.0); buttonsFade.setToValue(1.0);
-
-                // sequence: background then title+buttons
-                bgFade.play();
-                bgFade.setOnFinished(e -> {
-                    e.consume();
-                    // play title + buttons together
-                    titleScale.play();
-                    titleFade.play();
-                    buttonsFade.play();
-                });
             } catch (Exception ignored) {}
         });
     }

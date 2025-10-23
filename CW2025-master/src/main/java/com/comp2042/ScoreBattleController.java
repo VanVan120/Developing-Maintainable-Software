@@ -61,6 +61,13 @@ public class ScoreBattleController implements Initializable {
     // timeline to poll and update per-player next previews
     private javafx.animation.Timeline previewPoller;
 
+    // flag to avoid showing multiple match-end overlays
+    private volatile boolean matchEnded = false;
+    // reference to the currently shown overlay so we can remove it deterministically
+    private javafx.scene.layout.StackPane activeOverlay = null;
+    // active pulsing animation for the winner score (so we can stop it when removing overlay)
+    private javafx.animation.Animation activePulse = null;
+
     @Override
     public void initialize(URL location, ResourceBundle resources) {
         // nothing here; will load children when scene is shown
@@ -93,6 +100,51 @@ public class ScoreBattleController implements Initializable {
                 }
             } catch (Exception ignored2) {}
         } catch (Exception ignored) {}
+    }
+
+    /**
+     * Restart the multiplayer match: reset both game models and run a synchronized countdown.
+     * Safe to call from any thread (will post to JavaFX Application Thread as needed).
+     */
+    public void restartMatch() {
+        javafx.application.Platform.runLater(() -> {
+            try {
+                // stop match timer and preview poller while restarting
+                try { if (matchTimer != null) matchTimer.stop(); } catch (Exception ignored) {}
+                try { if (previewPoller != null) previewPoller.stop(); } catch (Exception ignored) {}
+
+                // reinitialize both game models via controllers
+                try { if (leftController != null) leftController.createNewGame(); } catch (Exception ignored) {}
+                try { if (rightController != null) rightController.createNewGame(); } catch (Exception ignored) {}
+
+                // run synchronized countdowns for both GUIs; the listeners set in initBothGames will restart the match timer
+                try { if (leftGui != null) leftGui.startCountdown(3); } catch (Exception ignored) {}
+                try { if (rightGui != null) rightGui.startCountdown(3); } catch (Exception ignored) {}
+
+                // reset match timer value and UI so it shows the full match length at restart
+                try {
+                    remainingSeconds = 5 * 60; // reset to configured match length
+                    if (matchTimerText != null) matchTimerText.setText(formatTime(remainingSeconds));
+                    updateMatchScoreText();
+                } catch (Exception ignored) {}
+
+                // restart the preview poller
+                try { if (previewPoller != null) previewPoller.play(); } catch (Exception ignored) {}
+                // clear match-ended flag and remove any existing overlay we created earlier
+                matchEnded = false;
+                try {
+                    if (activeOverlay != null) {
+                        Scene s = leftHolder.getScene();
+                        if (s != null && s.getRoot() instanceof javafx.scene.layout.Pane) {
+                            javafx.scene.layout.Pane root = (javafx.scene.layout.Pane) s.getRoot();
+                            root.getChildren().remove(activeOverlay);
+                        }
+                            activeOverlay = null;
+                            try { if (activePulse != null) { activePulse.stop(); activePulse = null; } } catch (Exception ignored) {}
+                    }
+                } catch (Exception ignored) {}
+            } catch (Exception ignored) {}
+        });
     }
 
     // Called by Menu to initialize and start both games
@@ -201,6 +253,70 @@ public class ScoreBattleController implements Initializable {
     // start controllers and keep references
     leftController = new GameController(leftGui);
     rightController = new GameController(rightGui);
+
+        // Listen for individual player gameOver events so we can end match early and announce winner
+        try {
+            leftGui.isGameOverProperty().addListener((obs, oldV, newV) -> {
+                // reference unused params to satisfy static analyzers
+                java.util.Objects.requireNonNull(obs);
+                java.util.Objects.requireNonNull(oldV);
+                if (newV == Boolean.TRUE && !matchEnded) {
+                    matchEnded = true;
+                    // left lost -> right wins
+                    try { if (matchTimer != null) matchTimer.stop(); } catch (Exception ignored) {}
+                    try { if (previewPoller != null) previewPoller.stop(); } catch (Exception ignored) {}
+                    int lscore = (leftController != null ? leftController.getScoreProperty().get() : 0);
+                    int rscore = (rightController != null ? rightController.getScoreProperty().get() : 0);
+                    String reason = "Winner by survival (opponent lost)";
+                    // if the loser had a higher score, make that explicit
+                    if (lscore > rscore) reason += String.format(" — opponent had higher score (%d vs %d)", lscore, rscore);
+                    showWinnerOverlay("Right Player Wins!", lscore, rscore, reason);
+                }
+            });
+        } catch (Exception ignored) {}
+        try {
+            rightGui.isGameOverProperty().addListener((obs, oldV, newV) -> {
+                // reference unused params to satisfy static analyzers
+                java.util.Objects.requireNonNull(obs);
+                java.util.Objects.requireNonNull(oldV);
+                if (newV == Boolean.TRUE && !matchEnded) {
+                    matchEnded = true;
+                    // right lost -> left wins
+                    try { if (matchTimer != null) matchTimer.stop(); } catch (Exception ignored) {}
+                    try { if (previewPoller != null) previewPoller.stop(); } catch (Exception ignored) {}
+                    int lscore = (leftController != null ? leftController.getScoreProperty().get() : 0);
+                    int rscore = (rightController != null ? rightController.getScoreProperty().get() : 0);
+                    String reason = "Winner by survival (opponent lost)";
+                    if (rscore > lscore) reason += String.format(" — opponent had higher score (%d vs %d)", rscore, lscore);
+                    showWinnerOverlay("Left Player Wins!", lscore, rscore, reason);
+                }
+            });
+        } catch (Exception ignored) {}
+
+            // mark embedded GUIs as multiplayer so they can adjust visuals/logic
+            try { leftGui.setMultiplayerMode(true); } catch (Exception ignored) {}
+            try { rightGui.setMultiplayerMode(true); } catch (Exception ignored) {}
+
+            // register a restart handler so an embedded GuiController's Retry can request a full match restart
+            try { leftGui.setMultiplayerRestartHandler(this::restartMatch); } catch (Exception ignored) {}
+            try { rightGui.setMultiplayerRestartHandler(this::restartMatch); } catch (Exception ignored) {}
+
+            // Register pause handlers so pausing one player pauses the other. Use applyExternalPause
+            // to avoid reentrant notifications.
+            try {
+                leftGui.setMultiplayerPauseHandler(paused -> {
+                    try {
+                        if (rightGui != null) rightGui.applyExternalPause(paused);
+                    } catch (Exception ignored) {}
+                });
+            } catch (Exception ignored) {}
+            try {
+                rightGui.setMultiplayerPauseHandler(paused -> {
+                    try {
+                        if (leftGui != null) leftGui.applyExternalPause(paused);
+                    } catch (Exception ignored) {}
+                });
+            } catch (Exception ignored) {}
 
         // set level text or drop intervals if desired
         leftGui.setLevelText("Score Battle");
@@ -396,6 +512,15 @@ public class ScoreBattleController implements Initializable {
         else title = "Draw!";
 
         // create an impressive animated announcement overlay
+        final String reason;
+        if (ls == rs) {
+            reason = "Tie — both players have the same score";
+        } else if (ls > rs) {
+            reason = String.format("Winner by higher score (+%d) — time expired", ls - rs);
+        } else {
+            reason = String.format("Winner by higher score (+%d) — time expired", rs - ls);
+        }
+
         javafx.application.Platform.runLater(() -> {
             try {
                 Scene scene = leftHolder.getScene();
@@ -404,17 +529,79 @@ public class ScoreBattleController implements Initializable {
                 overlay.setPickOnBounds(true);
                 overlay.setStyle("-fx-background-color: rgba(0,0,0,0.6);");
 
+                // reuse the centralized winner overlay (with reason)
+                showWinnerOverlay(title, ls, rs, reason);
+
+                // animations handled by the centralized overlay (if desired)
+            } catch (Exception ignored) {}
+        });
+    }
+
+    /**
+     * Show a winner overlay that indicates which player won and the scores. Provides Restart and Main Menu buttons.
+     */
+    private void showWinnerOverlay(String title, int ls, int rs, String reason) {
+        // Use the same centered Match Over layout used elsewhere but with a fully black background
+        javafx.application.Platform.runLater(() -> {
+            try {
+                Scene scene = leftHolder.getScene();
+                if (scene == null) return;
+
+                StackPane overlay = new StackPane();
+                overlay.setPickOnBounds(true);
+                // solid black background
+                overlay.setStyle("-fx-background-color: rgba(0,0,0,1.0);");
+                // remember overlay so we can remove it deterministically
+                activeOverlay = overlay;
+
                 VBox dialog = new VBox(12);
                 dialog.setAlignment(Pos.CENTER);
 
                 javafx.scene.text.Text titleText = new javafx.scene.text.Text(title);
-                titleText.setStyle("-fx-font-size: 72px; -fx-fill: gold; -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.9), 12, 0.0, 0, 4);");
+                titleText.setStyle("-fx-font-size: 72px; -fx-fill: linear-gradient(from 0% 0% to 100% 0%, #ffd166 0%, #ff7b7b 100%); -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.9), 12, 0.0, 0, 4);");
 
                 javafx.scene.text.Text scoreText = new javafx.scene.text.Text(String.format("%d : %d", ls, rs));
                 scoreText.setStyle("-fx-font-size: 48px; -fx-fill: white; -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.9), 8, 0.0, 0, 3);");
 
+                // create centered Match Over panel matching single-player design
+                VBox centerBox = new VBox(10);
+                centerBox.setAlignment(Pos.CENTER);
+                centerBox.setStyle("-fx-background-color: rgba(20,20,20,0.85); -fx-padding: 28px; -fx-background-radius: 6px;");
+
+                // show the winner title (e.g. "Left Player Wins!")
+                javafx.scene.text.Text matchTitle = new javafx.scene.text.Text(title);
+                matchTitle.setStyle("-fx-font-size: 72px; -fx-fill: linear-gradient(from 0% 0% to 100% 0%, #ffd166 0%, #ff7b7b 100%);");
+
+                // show both players' labeled scores as separate nodes so we can highlight the winner
+                javafx.scene.text.Text leftScoreText = new javafx.scene.text.Text(String.format("Left: %d", ls));
+                javafx.scene.text.Text sepText = new javafx.scene.text.Text("  —  ");
+                javafx.scene.text.Text rightScoreText = new javafx.scene.text.Text(String.format("Right: %d", rs));
+                leftScoreText.setStyle("-fx-font-size: 28px; -fx-fill: white;");
+                sepText.setStyle("-fx-font-size: 28px; -fx-fill: white;");
+                rightScoreText.setStyle("-fx-font-size: 28px; -fx-fill: white;");
+                // highlight the winner's score
+                if (ls > rs) {
+                    leftScoreText.setStyle("-fx-font-size: 28px; -fx-fill: #ffd166; -fx-font-weight: bold;");
+                } else if (rs > ls) {
+                    rightScoreText.setStyle("-fx-font-size: 28px; -fx-fill: #ffd166; -fx-font-weight: bold;");
+                }
+                javafx.scene.layout.HBox scoreBox = new javafx.scene.layout.HBox(4);
+                scoreBox.setAlignment(Pos.CENTER);
+                scoreBox.getChildren().addAll(leftScoreText, sepText, rightScoreText);
+
+                javafx.scene.layout.HBox btnRow = new javafx.scene.layout.HBox(12);
+                btnRow.setAlignment(Pos.CENTER);
+                Button btnRestart = new Button("Restart");
                 Button btnMenu = new Button("Main Menu");
+                btnRestart.getStyleClass().add("menu-button");
                 btnMenu.getStyleClass().add("menu-button");
+
+                btnRestart.setOnAction(ev -> {
+                    ev.consume();
+                    try { if (overlay.getParent() instanceof javafx.scene.layout.Pane) ((javafx.scene.layout.Pane) overlay.getParent()).getChildren().remove(overlay); } catch (Exception ignored) {}
+                    restartMatch();
+                });
+
                 btnMenu.setOnAction(ev -> {
                     ev.consume();
                     try {
@@ -432,26 +619,61 @@ public class ScoreBattleController implements Initializable {
                     } catch (Exception ex) { ex.printStackTrace(); }
                 });
 
-                dialog.getChildren().addAll(titleText, scoreText, btnMenu);
-                overlay.getChildren().add(dialog);
+                btnRow.getChildren().addAll(btnRestart, btnMenu);
+                // reason text explaining why this player won
+                javafx.scene.text.Text reasonText = new javafx.scene.text.Text(reason != null ? reason : "");
+                reasonText.setStyle("-fx-font-size: 18px; -fx-fill: #dddddd; -fx-opacity: 0.95;");
+                centerBox.getChildren().addAll(matchTitle, scoreBox, reasonText, btnRow);
+
+                overlay.getChildren().add(centerBox);
 
                 if (scene.getRoot() instanceof javafx.scene.layout.Pane) {
                     javafx.scene.layout.Pane root = (javafx.scene.layout.Pane) scene.getRoot();
                     root.getChildren().add(overlay);
+                    // center overlay
+                    overlay.prefWidthProperty().bind(scene.widthProperty());
+                    overlay.prefHeightProperty().bind(scene.heightProperty());
+                    StackPane.setAlignment(centerBox, Pos.CENTER);
+
+                    // subtle entrance animation: scale+fade the centerBox (longer + easing)
+                    try {
+                        centerBox.setOpacity(0.0);
+                        centerBox.setScaleX(0.85);
+                        centerBox.setScaleY(0.85);
+                        javafx.animation.FadeTransition fade = new javafx.animation.FadeTransition(javafx.util.Duration.millis(480), centerBox);
+                        fade.setFromValue(0.0); fade.setToValue(1.0);
+                        javafx.animation.ScaleTransition scale = new javafx.animation.ScaleTransition(javafx.util.Duration.millis(480), centerBox);
+                        scale.setToX(1.0); scale.setToY(1.0);
+                        scale.setFromX(0.85); scale.setFromY(0.85);
+                        scale.setInterpolator(javafx.animation.Interpolator.EASE_OUT);
+                        fade.setInterpolator(javafx.animation.Interpolator.EASE_OUT);
+                        // When entrance completes, start a pulsing glow on the winner score
+                        scale.setOnFinished(ae -> {
+                            java.util.Objects.requireNonNull(ae);
+                            try {
+                                // pulse the big winner title (matchTitle) instead of the score
+                                // only pulse when there is a clear winner
+                                if (ls != rs) {
+                                    javafx.scene.effect.DropShadow glow = new javafx.scene.effect.DropShadow();
+                                    glow.setColor(javafx.scene.paint.Color.web("#ffd166"));
+                                    glow.setRadius(18);
+                                    glow.setSpread(0.55);
+                                    matchTitle.setEffect(glow);
+                                    javafx.animation.ScaleTransition pulse = new javafx.animation.ScaleTransition(javafx.util.Duration.millis(800), matchTitle);
+                                    pulse.setFromX(1.0); pulse.setFromY(1.0);
+                                    pulse.setToX(1.06); pulse.setToY(1.06);
+                                    pulse.setCycleCount(javafx.animation.Animation.INDEFINITE);
+                                    pulse.setAutoReverse(true);
+                                    pulse.setInterpolator(javafx.animation.Interpolator.EASE_BOTH);
+                                    pulse.play();
+                                    activePulse = pulse;
+                                }
+                            } catch (Exception ignored) {}
+                        });
+                        scale.play(); fade.play();
+                    } catch (Exception ignored) {}
                 }
 
-                // play pop animations
-                try {
-                    titleText.setScaleX(0.2); titleText.setScaleY(0.2); titleText.setOpacity(0);
-                    scoreText.setOpacity(0);
-                    javafx.animation.ScaleTransition st = new javafx.animation.ScaleTransition(javafx.util.Duration.millis(700), titleText);
-                    st.setToX(1.0); st.setToY(1.0);
-                    javafx.animation.FadeTransition ft = new javafx.animation.FadeTransition(javafx.util.Duration.millis(700), titleText);
-                    ft.setToValue(1.0);
-                    st.play(); ft.play();
-                    javafx.animation.FadeTransition ft2 = new javafx.animation.FadeTransition(javafx.util.Duration.millis(600), scoreText);
-                    ft2.setDelay(javafx.util.Duration.millis(500)); ft2.setToValue(1.0); ft2.play();
-                } catch (Exception ignored) {}
             } catch (Exception ignored) {}
         });
     }
