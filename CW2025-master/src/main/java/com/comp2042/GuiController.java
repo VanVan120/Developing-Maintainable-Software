@@ -508,6 +508,11 @@ public class GuiController implements Initializable {
                     hardDrop();
                     handled = true;
                 }
+                // even in legacy mode allow a dedicated swap key if configured
+                if (!handled && ctrlSwap != null && code == ctrlSwap) {
+                    try { if (eventListener != null) eventListener.onSwapEvent(); } catch (Exception ignored) {}
+                    handled = true;
+                }
             }
             if (handled) keyEvent.consume();
         }

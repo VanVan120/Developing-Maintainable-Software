@@ -15,6 +15,10 @@ public class GameController implements InputEventListener {
         viewGuiController.setEventListener(this);
         viewGuiController.initGameView(board.getBoardMatrix(), board.getViewData());
         viewGuiController.bindScore(board.getScore().scoreProperty());
+        // enable swap key for single-player: use 'C' as default swap key (matches multiplayer right player)
+        try {
+            viewGuiController.setSwapKey(javafx.scene.input.KeyCode.C);
+        } catch (Exception ignored) {}
         // show upcoming bricks preview (up to 3)
         try {
             java.util.List<com.comp2042.logic.bricks.Brick> upcoming = board.getUpcomingBricks(3);

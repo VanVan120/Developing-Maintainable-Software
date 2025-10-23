@@ -131,26 +131,18 @@ public class ScoreBattleController implements Initializable {
 
             // helper to hide several nodes by id inside an embedded root
             java.util.function.Consumer<Parent> hideEmbeddedUi = (root) -> {
+                // hide pause button, decorative frame and embedded next box if present
                 try {
-                    javafx.scene.Node n;
-                    n = root.lookup("#pauseBtn");
+                    javafx.scene.Node n = root.lookup("#pauseBtn");
                     if (n != null) { n.setVisible(false); n.setManaged(false); }
-                    // Hide the frame and pause button but keep the next preview content visible.
-                    // Also hide the embedded "Next:" label (Text) inside the embedded #nextBox
-                    n = root.lookup("#pauseBtn");
-                    if (n != null) { n.setVisible(false); n.setManaged(false); }
-                    // hide only decorative frame node if present
                     n = root.lookup("#nextBoxFrame");
                     if (n != null) { n.setVisible(false); n.setManaged(false); }
-                    // hide the entire embedded nextBox (container + label + content) so the
-                    // external preview in the Score Battle layout is the authoritative one.
-                    // This prevents duplicate or mis-positioned "Next:" text coming from the
-                    // embedded single-player layout.
-                    try {
-                        javafx.scene.Node nb = root.lookup("#nextBox");
-                        if (nb != null) { nb.setVisible(false); nb.setManaged(false); }
-                    } catch (Exception ignored3) {}
-                } catch (Exception ignored2) {}
+                    javafx.scene.Node nb = root.lookup("#nextBox");
+                    if (nb != null) { nb.setVisible(false); nb.setManaged(false); }
+                } catch (Exception e) {
+                    // log at least to stderr during maintenance to surface unexpected UI lookup issues
+                    e.printStackTrace();
+                }
             };
 
             hideEmbeddedUi.accept(leftRoot);
@@ -270,7 +262,9 @@ public class ScoreBattleController implements Initializable {
         } catch (Exception ignored) {}
 
         // start match timer which updates every second (but only after both countdowns complete)
-        matchTimer = new javafx.animation.Timeline(new javafx.animation.KeyFrame(javafx.util.Duration.seconds(1), e -> {
+        matchTimer = new javafx.animation.Timeline(new javafx.animation.KeyFrame(javafx.util.Duration.seconds(1), _e -> {
+            // reference the event to avoid unused-parameter warnings in some compilers
+            java.util.Objects.requireNonNull(_e);
             remainingSeconds--;
             if (matchTimerText != null) matchTimerText.setText(formatTime(remainingSeconds));
             updateMatchScoreText();
@@ -285,7 +279,9 @@ public class ScoreBattleController implements Initializable {
         try {
             final javafx.beans.property.BooleanProperty leftDone = leftGui.countdownFinishedProperty();
             final javafx.beans.property.BooleanProperty rightDone = rightGui.countdownFinishedProperty();
-            javafx.beans.InvalidationListener startWhenReady = obs -> {
+            javafx.beans.InvalidationListener startWhenReady = _obs -> {
+                // reference parameter so linters/compiler don't complain about unused lambda args
+                java.util.Objects.requireNonNull(_obs);
                 try {
                     if (leftDone.get() && rightDone.get()) {
                         matchTimer.play();
@@ -303,21 +299,19 @@ public class ScoreBattleController implements Initializable {
 
         // start a small poller to refresh each player's next-three previews from their GameController
         try {
-            previewPoller = new javafx.animation.Timeline(new javafx.animation.KeyFrame(javafx.util.Duration.millis(300), ev -> {
+            // Timeline handlers already run on the JavaFX Application Thread, so we can safely
+            // update UI elements directly from the handler. Avoid extra Platform.runLater calls
+            // which can cause unnecessary queuing under load.
+            previewPoller = new javafx.animation.Timeline(new javafx.animation.KeyFrame(javafx.util.Duration.millis(300), _ev -> {
                 try {
+                    // reference the event to satisfy compilers that flag unused lambda parameters
+                    java.util.Objects.requireNonNull(_ev);
                     if (leftController != null && leftGui != null) {
                         java.util.List<com.comp2042.logic.bricks.Brick> up = leftController.getUpcomingBricks(3);
                         if (leftNextContent != null) {
-                            // build preview visuals from leftGui and swap into the inner content container
                             javafx.scene.layout.VBox built = leftGui.buildNextPreview(up);
-                            javafx.application.Platform.runLater(() -> {
-                                try {
-                                    leftNextContent.getChildren().clear();
-                                    if (built != null) leftNextContent.getChildren().addAll(built.getChildren());
-                                } catch (Exception ignored3) {}
-                            });
-                        } else if (leftNextBox != null) {
-                            if (up != null) leftGui.showNextBricks(up);
+                            leftNextContent.getChildren().clear();
+                            if (built != null) leftNextContent.getChildren().addAll(built.getChildren());
                         } else {
                             if (up != null) leftGui.showNextBricks(up);
                         }
@@ -326,23 +320,22 @@ public class ScoreBattleController implements Initializable {
                         java.util.List<com.comp2042.logic.bricks.Brick> up2 = rightController.getUpcomingBricks(3);
                         if (rightNextContent != null) {
                             javafx.scene.layout.VBox built2 = rightGui.buildNextPreview(up2);
-                            javafx.application.Platform.runLater(() -> {
-                                try {
-                                    rightNextContent.getChildren().clear();
-                                    if (built2 != null) rightNextContent.getChildren().addAll(built2.getChildren());
-                                } catch (Exception ignored3) {}
-                            });
-                        } else if (rightNextBox != null) {
-                            if (up2 != null) rightGui.showNextBricks(up2);
+                            rightNextContent.getChildren().clear();
+                            if (built2 != null) rightNextContent.getChildren().addAll(built2.getChildren());
                         } else {
                             if (up2 != null) rightGui.showNextBricks(up2);
                         }
                     }
-                } catch (Exception ignored2) {}
+                } catch (Exception e) {
+                    // log unexpected exceptions during preview update to aid debugging
+                    e.printStackTrace();
+                }
             }));
             previewPoller.setCycleCount(javafx.animation.Animation.INDEFINITE);
             previewPoller.play();
-        } catch (Exception ignored) {}
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
     }
 
     private void onBack(ActionEvent ev) {
