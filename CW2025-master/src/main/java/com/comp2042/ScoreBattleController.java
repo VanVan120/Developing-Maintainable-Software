@@ -27,6 +27,21 @@ public class ScoreBattleController implements Initializable {
     @FXML
     private StackPane rightHolder;
 
+    // optional external preview containers (added to scoreBattleLayout.fxml)
+    @FXML
+    private javafx.scene.layout.VBox leftNextBox;
+    @FXML
+    private javafx.scene.layout.VBox leftNextContent;
+    @FXML
+    private javafx.scene.text.Text leftNextLabel;
+
+    @FXML
+    private javafx.scene.layout.VBox rightNextBox;
+    @FXML
+    private javafx.scene.layout.VBox rightNextContent;
+    @FXML
+    private javafx.scene.text.Text rightNextLabel;
+
     @FXML
     private Button backBtn;
 
@@ -43,12 +58,41 @@ public class ScoreBattleController implements Initializable {
     private javafx.animation.Timeline matchTimer;
     private int remainingSeconds = 5 * 60; // 5 minutes
 
+    // timeline to poll and update per-player next previews
+    private javafx.animation.Timeline previewPoller;
+
     @Override
     public void initialize(URL location, ResourceBundle resources) {
         // nothing here; will load children when scene is shown
         if (backBtn != null) {
             backBtn.setOnAction(this::onBack);
         }
+        // Load the digital font used by single-player so the Next: label matches exactly
+        try {
+            java.net.URL fontUrl = getClass().getClassLoader().getResource("digital.ttf");
+            if (fontUrl != null) {
+                javafx.scene.text.Font.loadFont(fontUrl.toExternalForm(), 38);
+            }
+        } catch (Exception ignored) {}
+        // ensure the external labels use the same CSS class as single-player
+        try {
+            if (leftNextLabel != null) leftNextLabel.getStyleClass().add("nextBrickLabel");
+            if (rightNextLabel != null) rightNextLabel.getStyleClass().add("nextBrickLabel");
+            // Also apply inline styling to guarantee parity even if stylesheet wasn't applied
+            try {
+                javafx.scene.text.Font f = javafx.scene.text.Font.font("Let's go Digital", 26);
+                if (leftNextLabel != null) {
+                    leftNextLabel.setFont(f);
+                    leftNextLabel.setFill(javafx.scene.paint.Color.YELLOW);
+                    leftNextLabel.setStyle("-fx-effect: dropshadow(gaussian, rgba(0,0,0,0.75), 6, 0.0, 0, 2); -fx-font-weight: bold;");
+                }
+                if (rightNextLabel != null) {
+                    rightNextLabel.setFont(f);
+                    rightNextLabel.setFill(javafx.scene.paint.Color.YELLOW);
+                    rightNextLabel.setStyle("-fx-effect: dropshadow(gaussian, rgba(0,0,0,0.75), 6, 0.0, 0, 2); -fx-font-weight: bold;");
+                }
+            } catch (Exception ignored2) {}
+        } catch (Exception ignored) {}
     }
 
     // Called by Menu to initialize and start both games
@@ -91,13 +135,21 @@ public class ScoreBattleController implements Initializable {
                     javafx.scene.Node n;
                     n = root.lookup("#pauseBtn");
                     if (n != null) { n.setVisible(false); n.setManaged(false); }
-                    n = root.lookup("#nextBox");
+                    // Hide the frame and pause button but keep the next preview content visible.
+                    // Also hide the embedded "Next:" label (Text) inside the embedded #nextBox
+                    n = root.lookup("#pauseBtn");
                     if (n != null) { n.setVisible(false); n.setManaged(false); }
+                    // hide only decorative frame node if present
                     n = root.lookup("#nextBoxFrame");
                     if (n != null) { n.setVisible(false); n.setManaged(false); }
-                    // also hide the nextContent if present
-                    n = root.lookup("#nextContent");
-                    if (n != null) { n.setVisible(false); n.setManaged(false); }
+                    // hide the entire embedded nextBox (container + label + content) so the
+                    // external preview in the Score Battle layout is the authoritative one.
+                    // This prevents duplicate or mis-positioned "Next:" text coming from the
+                    // embedded single-player layout.
+                    try {
+                        javafx.scene.Node nb = root.lookup("#nextBox");
+                        if (nb != null) { nb.setVisible(false); nb.setManaged(false); }
+                    } catch (Exception ignored3) {}
                 } catch (Exception ignored2) {}
             };
 
@@ -173,8 +225,12 @@ public class ScoreBattleController implements Initializable {
         try {
             // left player: W=rotate, A=left, S=soft-drop, D=right, SHIFT=hard-drop
             leftGui.setControlKeys(javafx.scene.input.KeyCode.A, javafx.scene.input.KeyCode.D, javafx.scene.input.KeyCode.W, javafx.scene.input.KeyCode.S, javafx.scene.input.KeyCode.SHIFT);
+            // left player swap key = Q
+            leftGui.setSwapKey(javafx.scene.input.KeyCode.Q);
             // right player: Left=left, Right=right, Up=rotate, Down=soft-drop, Space=hard-drop
             rightGui.setControlKeys(javafx.scene.input.KeyCode.LEFT, javafx.scene.input.KeyCode.RIGHT, javafx.scene.input.KeyCode.UP, javafx.scene.input.KeyCode.DOWN, javafx.scene.input.KeyCode.SPACE);
+            // right player swap key = C
+            rightGui.setSwapKey(javafx.scene.input.KeyCode.C);
         } catch (Exception ignored) {}
 
         // create a centered overlay showing remaining time and combined scores
@@ -244,6 +300,49 @@ public class ScoreBattleController implements Initializable {
             // fallback: start immediately
             matchTimer.play();
         }
+
+        // start a small poller to refresh each player's next-three previews from their GameController
+        try {
+            previewPoller = new javafx.animation.Timeline(new javafx.animation.KeyFrame(javafx.util.Duration.millis(300), ev -> {
+                try {
+                    if (leftController != null && leftGui != null) {
+                        java.util.List<com.comp2042.logic.bricks.Brick> up = leftController.getUpcomingBricks(3);
+                        if (leftNextContent != null) {
+                            // build preview visuals from leftGui and swap into the inner content container
+                            javafx.scene.layout.VBox built = leftGui.buildNextPreview(up);
+                            javafx.application.Platform.runLater(() -> {
+                                try {
+                                    leftNextContent.getChildren().clear();
+                                    if (built != null) leftNextContent.getChildren().addAll(built.getChildren());
+                                } catch (Exception ignored3) {}
+                            });
+                        } else if (leftNextBox != null) {
+                            if (up != null) leftGui.showNextBricks(up);
+                        } else {
+                            if (up != null) leftGui.showNextBricks(up);
+                        }
+                    }
+                    if (rightController != null && rightGui != null) {
+                        java.util.List<com.comp2042.logic.bricks.Brick> up2 = rightController.getUpcomingBricks(3);
+                        if (rightNextContent != null) {
+                            javafx.scene.layout.VBox built2 = rightGui.buildNextPreview(up2);
+                            javafx.application.Platform.runLater(() -> {
+                                try {
+                                    rightNextContent.getChildren().clear();
+                                    if (built2 != null) rightNextContent.getChildren().addAll(built2.getChildren());
+                                } catch (Exception ignored3) {}
+                            });
+                        } else if (rightNextBox != null) {
+                            if (up2 != null) rightGui.showNextBricks(up2);
+                        } else {
+                            if (up2 != null) rightGui.showNextBricks(up2);
+                        }
+                    }
+                } catch (Exception ignored2) {}
+            }));
+            previewPoller.setCycleCount(javafx.animation.Animation.INDEFINITE);
+            previewPoller.play();
+        } catch (Exception ignored) {}
     }
 
     private void onBack(ActionEvent ev) {
@@ -272,6 +371,7 @@ public class ScoreBattleController implements Initializable {
         } catch (Exception ex) {
             ex.printStackTrace();
         }
+        try { if (previewPoller != null) previewPoller.stop(); } catch (Exception ignored) {}
     }
 
     private String formatTime(int seconds) {
@@ -292,6 +392,7 @@ public class ScoreBattleController implements Initializable {
         // stop both games
         try { if (leftGui != null) leftGui.gameOver(); } catch (Exception ignored) {}
         try { if (rightGui != null) rightGui.gameOver(); } catch (Exception ignored) {}
+        try { if (previewPoller != null) previewPoller.stop(); } catch (Exception ignored) {}
 
         // determine winner
         int ls = (leftController != null) ? leftController.getScoreProperty().get() : 0;

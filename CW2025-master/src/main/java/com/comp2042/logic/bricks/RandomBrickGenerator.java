@@ -57,4 +57,19 @@ public class RandomBrickGenerator implements BrickGenerator {
         }
         return out;
     }
+
+    @Override
+    public boolean replaceNext(Brick replacement) {
+        if (replacement == null) return false;
+        if (nextBricks.isEmpty()) return false;
+        // Replace the head while preserving order: poll head and add replacement at front
+        nextBricks.poll();
+        // Put replacement at head by creating a new deque with replacement first
+        Deque<Brick> newDeque = new ArrayDeque<>();
+        newDeque.add(replacement);
+        for (Brick b : nextBricks) newDeque.add(b);
+        nextBricks.clear();
+        nextBricks.addAll(newDeque);
+        return true;
+    }
 }

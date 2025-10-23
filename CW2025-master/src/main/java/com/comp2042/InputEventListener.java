@@ -11,4 +11,7 @@ public interface InputEventListener {
     ViewData onRotateEvent(MoveEvent event);
 
     void createNewGame();
+
+    /** Optional: request to swap current piece with next. Default no-op. */
+    default void onSwapEvent() {}
 }

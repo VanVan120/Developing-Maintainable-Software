@@ -172,6 +172,7 @@ public class GuiController implements Initializable {
     private KeyCode ctrlRotate = null;
     private KeyCode ctrlSoftDrop = null;
     private KeyCode ctrlHardDrop = null;
+    private KeyCode ctrlSwap = null;
 
     // Configurable offsets for the timeBox relative to the game board
     private final javafx.beans.property.DoubleProperty timeBoxOffsetX = new javafx.beans.property.SimpleDoubleProperty(-100.0);
@@ -483,6 +484,9 @@ public class GuiController implements Initializable {
                     handled = true;
                 } else if (ctrlHardDrop != null && code == ctrlHardDrop) {
                     hardDrop();
+                    handled = true;
+                } else if (ctrlSwap != null && code == ctrlSwap) {
+                    try { if (eventListener != null) eventListener.onSwapEvent(); } catch (Exception ignored) {}
                     handled = true;
                 }
             } else {
@@ -1031,11 +1035,27 @@ public class GuiController implements Initializable {
         if (upcoming == null) return;
         // store cache so we can re-render once actual measured sizes are available
         upcomingCache = new java.util.ArrayList<>(upcoming);
+        // Delegate the actual construction to a helper so external callers can reuse the same visuals
+        javafx.scene.layout.VBox built = buildNextPreview(upcoming);
+        if (built != null) {
+            nextContent.getChildren().addAll(built.getChildren());
+        }
+    }
 
-    // Use the same cell size as the main board so preview blocks match exactly.
-    // Avoid premature rounding when computing offsets so previews can be centered precisely.
-    double pW = Math.max(4.0, cellW);
-    double pH = Math.max(4.0, cellH);
+    /**
+     * Build a VBox containing the next-brick preview visuals for a given upcoming list.
+     * This returns a standalone node which can be embedded either into the internal nextContent
+     * or into an external container (used by multiplayer ScoreBattle layout where embedded nextBox
+     * may be clipped inside a SubScene).
+     */
+    public javafx.scene.layout.VBox buildNextPreview(java.util.List<com.comp2042.logic.bricks.Brick> upcoming) {
+        javafx.scene.layout.VBox container = new javafx.scene.layout.VBox(8);
+        container.setAlignment(Pos.TOP_CENTER);
+        if (upcoming == null || upcoming.isEmpty()) return container;
+
+        // Use the same cell size as the main board so preview blocks match approximately.
+        double pW = Math.max(4.0, cellW);
+        double pH = Math.max(4.0, cellH);
 
         int count = Math.min(upcoming.size(), 3);
         for (int i = 0; i < count; i++) {
@@ -1044,11 +1064,10 @@ public class GuiController implements Initializable {
             int rows = shape.length;
             int cols = shape[0].length;
             javafx.scene.layout.StackPane slot = new javafx.scene.layout.StackPane();
-            // keep the slot size based on full matrix so layout remains stable
             slot.setPrefWidth(cols * pW + 8.0);
             slot.setPrefHeight(rows * pH + 8.0);
             slot.setStyle("-fx-background-color: transparent;");
-            // compute bounding box of filled cells so we can center the visible piece
+
             int minR = Integer.MAX_VALUE, minC = Integer.MAX_VALUE, maxR = Integer.MIN_VALUE, maxC = Integer.MIN_VALUE;
             for (int r = 0; r < rows; r++) {
                 for (int c = 0; c < cols; c++) {
@@ -1061,12 +1080,11 @@ public class GuiController implements Initializable {
                 }
             }
             if (minR == Integer.MAX_VALUE) {
-                // empty shape? place at center
                 minR = 0; minC = 0; maxR = rows - 1; maxC = cols - 1;
             }
             int visibleCols = maxC - minC + 1;
             int visibleRows = maxR - minR + 1;
-            // inner pane sized to the visible bounding box; StackPane will center it inside slot
+
             Pane inner = new Pane();
             inner.setPrefWidth(visibleCols * pW);
             inner.setPrefHeight(visibleRows * pH);
@@ -1074,6 +1092,7 @@ public class GuiController implements Initializable {
             inner.setMinHeight(visibleRows * pH);
             inner.setMaxWidth(visibleCols * pW);
             inner.setMaxHeight(visibleRows * pH);
+
             for (int r = minR; r <= maxR; r++) {
                 for (int c = minC; c <= maxC; c++) {
                     int val = shape[r][c];
@@ -1088,8 +1107,9 @@ public class GuiController implements Initializable {
                 }
             }
             slot.getChildren().add(inner);
-            nextContent.getChildren().add(slot);
+            container.getChildren().add(slot);
         }
+        return container;
     }
 
     private Paint getFillColor(int i) {
@@ -1377,6 +1397,11 @@ public class GuiController implements Initializable {
         this.eventListener = eventListener;
     }
 
+    /** Public wrapper to refresh the visible falling brick from external controllers. */
+    public void refreshCurrentView(ViewData v) {
+        try { refreshBrick(v); } catch (Exception ignored) {}
+    }
+
     /**
      * Configure per-instance control keys. If any parameter is non-null the controller
      * will only respond to the provided keys. Pass null for any parameter to leave it
@@ -1388,6 +1413,11 @@ public class GuiController implements Initializable {
         this.ctrlRotate = rotate;
         this.ctrlSoftDrop = softDrop;
         this.ctrlHardDrop = hardDrop;
+    }
+
+    /** Set the per-instance swap key (pressing it requests a current/next swap). */
+    public void setSwapKey(KeyCode swapKey) {
+        this.ctrlSwap = swapKey;
     }
 
     public void bindScore(IntegerProperty integerProperty) {

@@ -133,6 +133,37 @@ public class SimpleBoard implements Board {
     }
 
     @Override
+    public boolean swapCurrentWithNext() {
+        // peek at next brick from generator
+        com.comp2042.logic.bricks.Brick next = brickGenerator.getNextBrick();
+        if (next == null) return false;
+        // save current brick and its rotation state
+        com.comp2042.logic.bricks.Brick oldCurrent = brickRotator.getBrick();
+        // attempt to set the next as current and test for collision at current offset
+        brickRotator.setBrick(next);
+        int[][] shape = brickRotator.getCurrentShape();
+        if (MatrixOperations.intersect(currentGameMatrix, shape, (int) currentOffset.getX(), (int) currentOffset.getY())) {
+            // collision — revert
+            brickRotator.setBrick(oldCurrent);
+            return false;
+        }
+        // replacement is safe; request the generator to replace its head with the old current so queue preserves order
+        boolean replaced = false;
+        try {
+            replaced = brickGenerator.replaceNext(oldCurrent);
+        } catch (Exception ignored) {}
+        // if generator couldn't replace, attempt to push old current by consuming next and re-adding oldCurrent
+        if (!replaced) {
+            // fallback: poll head and put oldCurrent at front by creating a small buffer
+            try {
+                // best-effort: force a new head by consuming then reinserting oldCurrent at head
+                brickGenerator.getBrick(); // consume head (we already set it as current)
+            } catch (Exception ignored) {}
+        }
+        return true;
+    }
+
+    @Override
     public java.util.List<com.comp2042.logic.bricks.Brick> getUpcomingBricks(int count) {
         return brickGenerator.getUpcomingBricks(count);
     }

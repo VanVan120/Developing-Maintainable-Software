@@ -29,6 +29,17 @@ public class GameController implements InputEventListener {
         return board.getScore().scoreProperty();
     }
 
+    /**
+     * Return a snapshot list of upcoming bricks (up to 'count').
+     */
+    public java.util.List<com.comp2042.logic.bricks.Brick> getUpcomingBricks(int count) {
+        try {
+            return board.getUpcomingBricks(count);
+        } catch (Exception e) {
+            return java.util.Collections.emptyList();
+        }
+    }
+
     @Override
     public DownData onDownEvent(MoveEvent event) {
         System.out.println("onDownEvent source=" + event.getEventSource());
@@ -89,5 +100,19 @@ public class GameController implements InputEventListener {
     public void createNewGame() {
         board.newGame();
         viewGuiController.refreshGameBackground(board.getBoardMatrix());
+    }
+
+    @Override
+    public void onSwapEvent() {
+        try {
+            boolean swapped = board.swapCurrentWithNext();
+            if (swapped) {
+                // refresh the whole board and current brick view
+                viewGuiController.refreshGameBackground(board.getBoardMatrix());
+                viewGuiController.refreshCurrentView(board.getViewData());
+                java.util.List<com.comp2042.logic.bricks.Brick> upcoming = board.getUpcomingBricks(3);
+                viewGuiController.showNextBricks(upcoming);
+            }
+        } catch (Exception ignored) {}
     }
 }

@@ -2,13 +2,46 @@
 <?import javafx.scene.layout.*?>
 <?import javafx.scene.control.*?>
 <?import javafx.scene.text.*?>
+<?import javafx.scene.shape.Rectangle?>
 <AnchorPane xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.comp2042.ScoreBattleController" styleClass="menu-root">
     <children>
         <HBox spacing="24" alignment="CENTER" AnchorPane.leftAnchor="12" AnchorPane.rightAnchor="12" AnchorPane.topAnchor="12" AnchorPane.bottomAnchor="12">
                 <!-- Left game placeholder -->
+            <!-- Left preview column: label + framed box -->
+            <VBox alignment="TOP_CENTER" spacing="8" prefWidth="140">
+                <children>
+                    <StackPane fx:id="leftNextPane" alignment="CENTER" prefWidth="120" prefHeight="360">
+                        <children>
+                            <Rectangle fx:id="leftNextFrame" width="120" height="360" arcWidth="18" arcHeight="18" strokeWidth="6" stroke="#2A5058" fill="#111" />
+                            <VBox fx:id="leftNextBox" styleClass="nextBox" alignment="TOP_CENTER" spacing="12" prefWidth="96" prefHeight="320">
+                                <children>
+                                    <Text fx:id="leftNextLabel" text="Next:" styleClass="nextBrickLabel" />
+                                    <VBox fx:id="leftNextContent" spacing="8" alignment="TOP_CENTER" />
+                                </children>
+                            </VBox>
+                        </children>
+                    </StackPane>
+                </children>
+            </VBox>
             <StackPane fx:id="leftHolder" prefWidth="480" prefHeight="640" style="-fx-background-color: transparent;" />
             <!-- Right game placeholder -->
             <StackPane fx:id="rightHolder" prefWidth="480" prefHeight="640" style="-fx-background-color: transparent;" />
+            <!-- Right preview column: label + framed box -->
+            <VBox alignment="TOP_CENTER" spacing="8" prefWidth="140">
+                <children>
+                    <StackPane fx:id="rightNextPane" alignment="CENTER" prefWidth="120" prefHeight="360">
+                        <children>
+                            <Rectangle fx:id="rightNextFrame" width="120" height="360" arcWidth="18" arcHeight="18" strokeWidth="6" stroke="#2A5058" fill="#111" />
+                            <VBox fx:id="rightNextBox" styleClass="nextBox" alignment="TOP_CENTER" spacing="12" prefWidth="96" prefHeight="320">
+                                <children>
+                                    <Text fx:id="rightNextLabel" text="Next:" styleClass="nextBrickLabel" />
+                                    <VBox fx:id="rightNextContent" spacing="8" alignment="TOP_CENTER" />
+                                </children>
+                            </VBox>
+                        </children>
+                    </StackPane>
+                </children>
+            </VBox>
         </HBox>
 
         <!-- Back button to return to main menu -->
