@@ -3,25 +3,102 @@
 <?import javafx.scene.control.*?>
 <?import javafx.scene.image.*?>
 <?import javafx.scene.layout.*?>
+<?import javafx.scene.shape.*?>
 <?import javafx.scene.text.*?>
+<?import javafx.scene.*?>
+<?import javafx.scene.media.MediaView?>
 <AnchorPane xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.comp2042.MainMenuController" styleClass="menu-root">
     <children>
     <!-- Background is applied via CSS to 'menu-root' so it scales responsively -->
     <StackPane AnchorPane.leftAnchor="0" AnchorPane.rightAnchor="0" AnchorPane.topAnchor="0" AnchorPane.bottomAnchor="0">
             <children>
-                <!-- Main vertical layout (title + main buttons) -->
-                <VBox alignment="CENTER" spacing="20">
-                    <children>
-                        <Text fx:id="titleText" text="TetrisJFX" styleClass="menu-title" />
-                        <VBox fx:id="mainButtons" alignment="CENTER" spacing="12" styleClass="menu-buttons">
+                <!-- Use a BorderPane so title sits at the top center and buttons sit centered on the left -->
+                <BorderPane prefWidth="1200" prefHeight="720">
+                    <top>
+                        <HBox alignment="CENTER" prefHeight="140">
                             <children>
-                                <Button fx:id="singlePlayerBtn" text="Single Player" prefWidth="260" styleClass="menu-button" />
-                                <Button fx:id="multiPlayerBtn" text="Multiplayer" prefWidth="260" styleClass="menu-button" />
-                                <Button fx:id="settingsBtn" text="Settings" prefWidth="260" styleClass="menu-button" />
+                                <Text fx:id="titleText" text="Tetris Nexus" styleClass="menu-title" />
+                            </children>
+                        </HBox>
+                    </top>
+                    <left>
+                        <VBox fx:id="mainButtons" alignment="CENTER_LEFT" spacing="12" styleClass="menu-buttons" BorderPane.alignment="CENTER">
+                            <children>
+                                <!-- Multiplayer card-style button -->
+                                <Button fx:id="multiPlayerBtn" prefWidth="720" styleClass="menu-button menu-card mp-card">
+                                    <graphic>
+                                        <HBox spacing="18" alignment="CENTER_LEFT" prefWidth="680" styleClass="menu-card-body">
+                                            <children>
+                                                <StackPane prefWidth="160" prefHeight="84" styleClass="menu-card-icon">
+                                                    <children>
+                                                        <Rectangle width="220" height="110" arcWidth="6" arcHeight="6" rotate="25" translateX="-30" translateY="-20" styleClass="menu-card-icon-diagonal" />
+                                                        <Text text="MP" styleClass="menu-card-icon-text" />
+                                                    </children>
+                                                </StackPane>
+                                                <VBox spacing="6" alignment="CENTER_LEFT">
+                                                    <children>
+                                                        <Text text="MULTIPLAYER" styleClass="menu-card-title" />
+                                                        <Text text="PLAY WITH FRIENDS AND FOES" styleClass="menu-card-subtitle" />
+                                                    </children>
+                                                </VBox>
+                                            </children>
+                                        </HBox>
+                                    </graphic>
+                                </Button>
+                                <!-- Solo card-style button -->
+                                <Button fx:id="singlePlayerBtn" prefWidth="720" styleClass="menu-button menu-card solo-card">
+                                    <graphic>
+                                        <HBox spacing="18" alignment="CENTER_LEFT" prefWidth="680" styleClass="menu-card-body">
+                                            <children>
+                                                <StackPane prefWidth="160" prefHeight="84" styleClass="menu-card-icon">
+                                                    <children>
+                                                        <Rectangle width="220" height="110" arcWidth="6" arcHeight="6" rotate="25" translateX="-30" translateY="-20" styleClass="menu-card-icon-diagonal" />
+                                                        <Text text="1P" styleClass="menu-card-icon-text" />
+                                                    </children>
+                                                </StackPane>
+                                                <VBox spacing="6" alignment="CENTER_LEFT">
+                                                    <children>
+                                                        <Text text="SOLO" styleClass="menu-card-title" />
+                                                        <Text text="CHALLENGE YOURSELF AND BREAK YOUR PREVIOUS RECORD" styleClass="menu-card-subtitle" />
+                                                    </children>
+                                                </VBox>
+                                            </children>
+                                        </HBox>
+                                    </graphic>
+                                </Button>
+                                <!-- Settings card-style button -->
+                                <Button fx:id="settingsBtn" prefWidth="720" styleClass="menu-button menu-card settings-card">
+                                    <graphic>
+                                        <HBox spacing="18" alignment="CENTER_LEFT" prefWidth="680" styleClass="menu-card-body">
+                                            <children>
+                                                <StackPane prefWidth="160" prefHeight="84" styleClass="menu-card-icon">
+                                                    <children>
+                                                        <Rectangle width="220" height="110" arcWidth="6" arcHeight="6" rotate="25" translateX="-30" translateY="-20" styleClass="menu-card-icon-diagonal" />
+                                                        <Text text="SET" styleClass="menu-card-icon-text" />
+                                                    </children>
+                                                </StackPane>
+                                                <VBox spacing="6" alignment="CENTER_LEFT">
+                                                    <children>
+                                                        <Text text="SETTINGS" styleClass="menu-card-title" />
+                                                        <Text text="TWEAK YOUR TETRIS EXPERIENCE" styleClass="menu-card-subtitle" />
+                                                    </children>
+                                                </VBox>
+                                            </children>
+                                        </HBox>
+                                    </graphic>
+                                </Button>
                             </children>
                         </VBox>
-                    </children>
-                </VBox>
+                    </left>
+                    <right>
+                        <!-- Container for a preview video or animated media on the right side -->
+                        <StackPane fx:id="mediaContainer" alignment="CENTER" prefWidth="480" translateX="-30" BorderPane.alignment="CENTER">
+                            <children>
+                                <MediaView fx:id="menuMediaView" preserveRatio="true"/>
+                            </children>
+                        </StackPane>
+                    </right>
+                </BorderPane>
 
                 <!-- Sub-menu for Single Player difficulty choices with translucent panel behind (overlay) -->
                 <StackPane fx:id="singleOptions" visible="false">

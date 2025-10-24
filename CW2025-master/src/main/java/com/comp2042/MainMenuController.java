@@ -15,6 +15,16 @@ import javafx.event.EventHandler;
 import java.io.IOException;
 import java.net.URL;
 import javafx.application.Platform;
+import javafx.animation.KeyFrame;
+import javafx.animation.KeyValue;
+import javafx.animation.Timeline;
+import javafx.util.Duration;
+import javafx.scene.effect.DropShadow;
+import javafx.scene.paint.Color;
+import javafx.scene.media.Media;
+import javafx.scene.media.MediaPlayer;
+import javafx.scene.media.MediaView;
+import javafx.scene.layout.StackPane;
 
 public class MainMenuController {
 
@@ -34,6 +44,9 @@ public class MainMenuController {
     @FXML private Button classicBattleBtn;
     @FXML private Button cooperateBattleBtn;
     @FXML private Button multiBackBtn;
+    @FXML private MediaView menuMediaView;
+    @FXML private javafx.scene.layout.StackPane mediaContainer;
+    private String menuMediaUrl;
 
     @FXML
     public void initialize() {
@@ -41,6 +54,87 @@ public class MainMenuController {
         try {
             URL bg = getClass().getClassLoader().getResource("GUI.jpg");
             if (bg != null && bgImage != null) bgImage.setImage(new Image(bg.toExternalForm()));
+        } catch (Exception ignored) {}
+
+        // Attempt to load a preview video into the right-side MediaView (if present in resources)
+        try {
+            if (menuMediaView != null && mediaContainer != null) {
+                String[] candidates = {"menu.mp4", "tetris_preview.mp4", "preview.mp4", "Tetris.mp4"};
+                URL mediaUrl = null;
+                for (String name : candidates) {
+                    mediaUrl = getClass().getClassLoader().getResource(name);
+                    if (mediaUrl != null) break;
+                }
+                if (mediaUrl != null) {
+                    menuMediaUrl = mediaUrl.toExternalForm();
+                    Media media = new Media(menuMediaUrl);
+                    MediaPlayer mp = new MediaPlayer(media);
+                    mp.setCycleCount(MediaPlayer.INDEFINITE);
+                    mp.setAutoPlay(true);
+                    mp.setMute(true); // mute preview by default
+                    menuMediaView.setMediaPlayer(mp);
+                    // Defer binding until after initial layout so mainButtons height is valid
+                    Platform.runLater(() -> {
+                        try {
+                            if (mainButtons != null && mediaContainer != null) {
+                                mediaContainer.prefHeightProperty().bind(mainButtons.heightProperty().multiply(0.92));
+                            }
+
+                            // Do NOT preserve aspect ratio here so the video can fill the container height
+                            menuMediaView.setPreserveRatio(false);
+
+                            // Bind MediaView to the container size (slightly inset)
+                            // use a slightly smaller multiplier so the visible video is a touch shorter than the buttons
+                            menuMediaView.fitHeightProperty().bind(mediaContainer.heightProperty().multiply(0.90));
+                            menuMediaView.fitWidthProperty().bind(mediaContainer.widthProperty().multiply(0.98));
+                        } catch (Exception ignored) {}
+                    });
+                } else {
+                    // no media found; leave placeholder empty
+                    System.out.println("No preview video found in resources (tried menu.mp4, tetris_preview.mp4, preview.mp4)");
+                }
+            }
+        } catch (Exception e) {
+            System.out.println("Failed to load preview media: " + e.getMessage());
+        }
+
+        // Make the preview clickable: open a larger preview window when clicked
+        try {
+            if (menuMediaView != null) {
+                menuMediaView.setOnMouseClicked(new javafx.event.EventHandler<javafx.scene.input.MouseEvent>() {
+                    @Override
+                    public void handle(javafx.scene.input.MouseEvent ev) {
+                        try {
+                            if (menuMediaUrl == null) return;
+                            Media media2 = new Media(menuMediaUrl);
+                            MediaPlayer mp2 = new MediaPlayer(media2);
+                            mp2.setAutoPlay(true);
+                            mp2.setCycleCount(MediaPlayer.INDEFINITE);
+                            Stage popup = new Stage();
+                            MediaView mv = new MediaView(mp2);
+                            mv.setPreserveRatio(true);
+                            StackPane root = new StackPane(mv);
+                            Scene scene = new Scene(root, 900, 600);
+                            popup.setScene(scene);
+                            popup.initOwner(menuMediaView.getScene() != null ? (Stage)menuMediaView.getScene().getWindow() : null);
+                            popup.setTitle("Preview");
+                            // bind media view to popup size
+                            mv.fitWidthProperty().bind(popup.widthProperty());
+                            mv.fitHeightProperty().bind(popup.heightProperty());
+                            popup.setOnCloseRequest(new javafx.event.EventHandler<javafx.stage.WindowEvent>() {
+                                @Override
+                                public void handle(javafx.stage.WindowEvent e2) {
+                                    mp2.stop();
+                                    mp2.dispose();
+                                }
+                            });
+                            popup.show();
+                        } catch (Exception ex) {
+                            ex.printStackTrace();
+                        }
+                    }
+                });
+            }
         } catch (Exception ignored) {}
 
         singlePlayerBtn.setOnAction(new EventHandler<ActionEvent>() {
@@ -235,6 +329,110 @@ public class MainMenuController {
         hardBtn.setOnAction(new EventHandler<ActionEvent>() {
             @Override
             public void handle(ActionEvent event) { loadGame("Hard"); }
+        });
+
+        // Ensure all main buttons share the same width (match the longest) after layout
+        Platform.runLater(() -> {
+            try {
+                final double expansion = 30; // px to expand on hover
+                final double[] baseWidth = new double[1];
+
+                Runnable recompute = () -> {
+                    // don't recompute while a hover animation is active (prevents feedback loops)
+                    if ((multiPlayerBtn != null && multiPlayerBtn.isHover()) || (singlePlayerBtn != null && singlePlayerBtn.isHover()) || (settingsBtn != null && settingsBtn.isHover())) return;
+                    double w1 = multiPlayerBtn.getWidth();
+                    double w2 = singlePlayerBtn.getWidth();
+                    double w3 = settingsBtn.getWidth();
+                    double max = Math.max(w1, Math.max(w2, w3));
+                    if (max <= 0) return; // layout not ready
+                    baseWidth[0] = max;
+                    // apply computed base width (not bound so we can animate)
+                    multiPlayerBtn.setPrefWidth(max);
+                    singlePlayerBtn.setPrefWidth(max);
+                    settingsBtn.setPrefWidth(max);
+                };
+
+                // initial compute (if layout not ready yet, listeners below will update when sizes change)
+                recompute.run();
+
+                // Listen for intrinsic width changes and recompute when not hovered
+                multiPlayerBtn.widthProperty().addListener(new javafx.beans.InvalidationListener() {
+                    @Override
+                    public void invalidated(javafx.beans.Observable observable) { recompute.run(); }
+                });
+                singlePlayerBtn.widthProperty().addListener(new javafx.beans.InvalidationListener() {
+                    @Override
+                    public void invalidated(javafx.beans.Observable observable) { recompute.run(); }
+                });
+                settingsBtn.widthProperty().addListener(new javafx.beans.InvalidationListener() {
+                    @Override
+                    public void invalidated(javafx.beans.Observable observable) { recompute.run(); }
+                });
+
+                // Hover animations: translate the whole button to the left on hover and return on exit.
+                // Animating translateX avoids changing widths (prevents recompute feedback/accumulation).
+                Duration dur = Duration.millis(140);
+
+                java.util.function.BiConsumer<Button, Double> animateTranslate = (b, to) -> {
+                    // Stop any existing timeline stored in properties
+                    Object existing = b.getProperties().get("hoverTimeline");
+                    if (existing instanceof Timeline) ((Timeline) existing).stop();
+                    Timeline t = new Timeline(new KeyFrame(dur, new KeyValue(b.translateXProperty(), to)));
+                    b.getProperties().put("hoverTimeline", t);
+                    t.play();
+                };
+
+                javafx.event.EventHandler<javafx.scene.input.MouseEvent> enterHandler = e -> {
+                    Button b = (Button) e.getSource();
+                    // move left by expansion px
+                    animateTranslate.accept(b, -expansion);
+                    try {
+                        // create a subtle drop shadow and animate its radius for a glow effect
+                        DropShadow ds = new DropShadow(6, 0, 4, Color.rgb(0,0,0,0.28));
+                        b.setEffect(ds);
+                        // stop previous shadow timeline if any
+                        Object existing = b.getProperties().get("shadowTimeline");
+                        if (existing instanceof Timeline) ((Timeline) existing).stop();
+                        Timeline s = new Timeline(new KeyFrame(dur, new KeyValue(ds.radiusProperty(), 18)));
+                        b.getProperties().put("shadowTimeline", s);
+                        b.getProperties().put("hoverDropShadow", ds);
+                        s.play();
+                    } catch (Exception ignored) {}
+                };
+                javafx.event.EventHandler<javafx.scene.input.MouseEvent> exitHandler = e -> {
+                    Button b = (Button) e.getSource();
+                    // return to original position
+                    animateTranslate.accept(b, 0.0);
+                    try {
+                        Object existing = b.getProperties().get("shadowTimeline");
+                        if (existing instanceof Timeline) ((Timeline) existing).stop();
+                        Object dsObj = b.getProperties().get("hoverDropShadow");
+                        if (dsObj instanceof DropShadow) {
+                            DropShadow ds = (DropShadow) dsObj;
+                            Timeline s = new Timeline(new KeyFrame(dur, new KeyValue(ds.radiusProperty(), 6)));
+                            s.setOnFinished(new javafx.event.EventHandler<javafx.event.ActionEvent>() {
+                                @Override
+                                public void handle(javafx.event.ActionEvent event) {
+                                    b.setEffect(null);
+                                    b.getProperties().remove("hoverDropShadow");
+                                    b.getProperties().remove("shadowTimeline");
+                                }
+                            });
+                            b.getProperties().put("shadowTimeline", s);
+                            s.play();
+                        } else {
+                            b.setEffect(null);
+                        }
+                    } catch (Exception ignored) {}
+                };
+
+                multiPlayerBtn.setOnMouseEntered(enterHandler);
+                multiPlayerBtn.setOnMouseExited(exitHandler);
+                singlePlayerBtn.setOnMouseEntered(enterHandler);
+                singlePlayerBtn.setOnMouseExited(exitHandler);
+                settingsBtn.setOnMouseEntered(enterHandler);
+                settingsBtn.setOnMouseExited(exitHandler);
+            } catch (Exception ignored) {}
         });
     }
 
