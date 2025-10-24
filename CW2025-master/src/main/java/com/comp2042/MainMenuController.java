@@ -129,7 +129,42 @@ public class MainMenuController {
             classicBattleBtn.setOnAction(new EventHandler<ActionEvent>() {
                 @Override
                 public void handle(ActionEvent event) {
-                    System.out.println("Classic Battle selected - not implemented yet");
+                    try {
+                        URL location = getClass().getClassLoader().getResource("classicBattleLayout.fxml");
+                        if (location == null) return;
+                        FXMLLoader fxmlLoader = new FXMLLoader(location);
+                        Parent root = fxmlLoader.load();
+                        ClassicBattle controller = fxmlLoader.getController();
+
+                        Stage stage = (Stage) classicBattleBtn.getScene().getWindow();
+
+                        try {
+                            URL normalBg = getClass().getClassLoader().getResource("Normal.jpg");
+                            if (normalBg != null) root.setStyle("-fx-background-image: url('" + normalBg.toExternalForm() + "'); -fx-background-size: cover; -fx-background-position: center center;");
+                        } catch (Exception ignored) {}
+
+                        double w = stage.getWidth();
+                        double h = stage.getHeight();
+                        boolean full = stage.isFullScreen();
+                        boolean max = stage.isMaximized();
+
+                        if (stage.getScene() != null) {
+                            stage.getScene().setRoot(root);
+                            stage.setMaximized(max);
+                            if (full) Platform.runLater(() -> stage.setFullScreen(true));
+                        } else {
+                            Scene scene = new Scene(root, Math.max(420, w), Math.max(700, h));
+                            stage.setScene(scene);
+                            stage.setMaximized(max);
+                            if (full) Platform.runLater(() -> stage.setFullScreen(true));
+                            stage.show();
+                        }
+
+                        // initialize both games inside ClassicBattle
+                        controller.initBothGames();
+                    } catch (IOException ex) {
+                        ex.printStackTrace();
+                    }
                 }
             });
         }
@@ -203,11 +238,6 @@ public class MainMenuController {
         });
     }
 
-    private void loadGame() { loadGame("Normal"); }
-
-    /**
-     * Load the game scene for a specific mode. mode is one of "Easy", "Normal", "Hard".
-     */
     private void loadGame(String mode) {
         try {
             URL location = getClass().getClassLoader().getResource("gameLayout.fxml");

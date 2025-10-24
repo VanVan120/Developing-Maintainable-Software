@@ -7,7 +7,6 @@ import javafx.scene.Scene;
 import javafx.stage.Stage;
 
 import java.net.URL;
-import java.util.ResourceBundle;
 
 public class Main extends Application {
 
@@ -18,7 +17,7 @@ public class Main extends Application {
         FXMLLoader fxmlLoader = new FXMLLoader(location);
         Parent root = fxmlLoader.load();
 
-        primaryStage.setTitle("TetrisJFX");
+        primaryStage.setTitle("Tetris Nexus");
         Scene scene = new Scene(root, 1024, 600);
         // apply menu stylesheet if available
         try {

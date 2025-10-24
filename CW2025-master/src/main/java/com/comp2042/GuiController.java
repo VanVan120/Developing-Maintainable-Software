@@ -140,6 +140,8 @@ public class GuiController implements Initializable {
     private Timeline timeLine;
     private Timeline clockTimeline;
     private long startTimeMs = 0;
+    // accumulated elapsed milliseconds when clock is paused
+    private long pausedElapsedMs = 0;
 
     // actual cell size measured from the background grid after layout
     private double cellW = BRICK_SIZE;
@@ -176,11 +178,19 @@ public class GuiController implements Initializable {
     private int highScore = 0;
     private static final String HIGHSCORE_FILE = System.getProperty("user.home") + File.separator + ".tetris_highscore";
 
+    // keep a reference to the bound score property so we can read the numeric score at game over
+    private IntegerProperty currentScoreProperty = null;
+    // record the previous high score value at the start of the current game so we can compare at game over
+    private int prevHighBeforeGame = 0;
+
     private final BooleanProperty isPause = new SimpleBooleanProperty();
 
     private final BooleanProperty isGameOver = new SimpleBooleanProperty();
     // becomes true when the start countdown (3..1..Start) finishes and gameplay begins
     private final BooleanProperty countdownFinished = new SimpleBooleanProperty(false);
+
+    // animation reference for the single-player game-over title so we can stop it when overlay is removed
+    private javafx.animation.Animation gameOverPulse = null;
 
     // Optional per-instance control key mapping. If any of these are non-null then the
     // controller will ONLY respond to the configured keys. If all are null the legacy
@@ -464,6 +474,14 @@ public class GuiController implements Initializable {
 
                     // stop gameplay timeline and block input
                     try { if (timeLine != null) timeLine.pause(); } catch (Exception ignored) {}
+                        // pause clock and remember elapsed time so we don't count paused duration
+                        try {
+                            if (clockTimeline != null && clockTimeline.getStatus() == Timeline.Status.RUNNING) {
+                                // capture elapsed so far
+                                pausedElapsedMs = System.currentTimeMillis() - startTimeMs;
+                                clockTimeline.pause();
+                            }
+                        } catch (Exception ignored) {}
                     isPause.setValue(Boolean.TRUE);
                     isPauseOverlayVisible = true;
                     // notify multiplayer coordinator (if any) that this player paused
@@ -509,6 +527,11 @@ public class GuiController implements Initializable {
                 // notify multiplayer coordinator (if any) that this player resumed
                 try {
                     if (!suppressMultiplayerPauseNotify && multiplayerPauseHandler != null) multiplayerPauseHandler.accept(Boolean.FALSE);
+                } catch (Exception ignored) {}
+                // resume clock but account for paused elapsed time
+                try {
+                    // startClock uses pausedElapsedMs to resume without counting paused duration
+                    startClock();
                 } catch (Exception ignored) {}
                 // restore keyboard focus so Scene-level handlers continue receiving key events
                 try { gamePanel.requestFocus(); } catch (Exception ignored) {}
@@ -851,6 +874,8 @@ public class GuiController implements Initializable {
      */
     public void startCountdown(int seconds) {
         if (seconds <= 0) seconds = 3;
+        // capture the high score snapshot at the start of this game so we can compare at game over
+        try { prevHighBeforeGame = highScore; } catch (Exception ignored) {}
     // prevent any user input until countdown completes
         isPause.setValue(Boolean.TRUE);
     // mark countdown as not finished yet
@@ -968,6 +993,8 @@ public class GuiController implements Initializable {
                     });
                     // stop timeline properly
                     cd.stop();
+                    // restore keyboard focus so scene-level handlers continue receiving key events
+                    try { gamePanel.requestFocus(); } catch (Exception ignored) {}
                 }
                 cnt[0] = cnt[0] - 1;
             }
@@ -1217,6 +1244,10 @@ public class GuiController implements Initializable {
                 break;
             case 7:
                 returnPaint = Color.BURLYWOOD;
+                break;
+            case 8:
+                // garbage rows - use a neutral grey so they're visually distinct
+                returnPaint = Color.DARKGRAY;
                 break;
             default:
                 returnPaint = Color.WHITE;
@@ -1735,6 +1766,10 @@ public class GuiController implements Initializable {
     }
 
     public void bindScore(IntegerProperty integerProperty) {
+        // remember the bound score property so we can report the numeric score at game over
+        this.currentScoreProperty = integerProperty;
+
+        // store a snapshot of previous high when binding occurs (will be updated at game start)
         // Load high score (UI update only if the node exists in FXML)
         loadHighScore();
         if (highScoreValue != null) {
@@ -1754,7 +1789,7 @@ public class GuiController implements Initializable {
                 java.util.Objects.requireNonNull(oldV);
              int current = newV.intValue();
              if (current > highScore) {
-                 highScore = current;
+                highScore = current;
                  saveHighScore();
                  if (highScoreValue != null) {
                      highScoreValue.setText("Highest: " + highScore);
@@ -1796,6 +1831,9 @@ public class GuiController implements Initializable {
     }
 
     public void gameOver() {
+        // Prevent duplicate game-over handling if already in game-over state
+        try { if (Boolean.TRUE.equals(isGameOver.getValue())) return; } catch (Exception ignored) {}
+
         try { if (timeLine != null) timeLine.stop(); } catch (Exception ignored) {}
     // mark game over state and stop the clock
     // keep legacy FXML GameOverPanel hidden so we use the new animated overlay instead
@@ -1814,16 +1852,19 @@ public class GuiController implements Initializable {
                 overlay.setPickOnBounds(true);
                 overlay.setStyle("-fx-background-color: transparent;");
 
-                // dim background softly
+                // dim background: make the full-screen overlay nearly-black for a crisp game-over screen
                 Rectangle dark = new Rectangle();
                 dark.widthProperty().bind(scene.widthProperty());
                 dark.heightProperty().bind(scene.heightProperty());
-                dark.setFill(Color.rgb(6,6,8,0.72));
+                // use near-opaque black to make the game-over screen appear fully black
+                dark.setFill(Color.rgb(0,0,0,0.95));
 
-                // center announcement
+                // center announcement - use a black dialog panel so the entire screen reads as black
                 VBox dialog = new VBox(14);
                 dialog.setAlignment(Pos.CENTER);
                 dialog.setMouseTransparent(false);
+                // opaque black panel with subtle corner radius so the text remains readable
+                dialog.setStyle("-fx-background-color: rgba(0,0,0,1.0); -fx-padding: 18px; -fx-background-radius: 8px;");
 
                 // Decorative title: elegant gradient + soft glow
                 Text title = new Text("Match Over");
@@ -1834,9 +1875,85 @@ public class GuiController implements Initializable {
                 DropShadow ds = new DropShadow(BlurType.GAUSSIAN, Color.rgb(0,0,0,0.8), 18, 0.25, 0, 6);
                 title.setEffect(ds);
 
-                // optional subtitle showing current score if available
-                Text subtitle = new Text("" + (scoreValue != null ? scoreValue.getText() : ""));
-                subtitle.setStyle("-fx-font-size: 28px; -fx-fill: white; -fx-opacity: 0.9;");
+        // add a gold glow + gentle pulse + color accent to the title
+        try {
+            javafx.scene.effect.DropShadow glow = new javafx.scene.effect.DropShadow();
+            glow.setColor(javafx.scene.paint.Color.web("#ffd166"));
+            glow.setRadius(10);
+            glow.setSpread(0.45);
+            title.setEffect(glow);
+
+            javafx.animation.ScaleTransition scalePulse = new javafx.animation.ScaleTransition(Duration.millis(900), title);
+            scalePulse.setFromX(1.0); scalePulse.setFromY(1.0);
+            scalePulse.setToX(1.05); scalePulse.setToY(1.05);
+            scalePulse.setCycleCount(javafx.animation.Animation.INDEFINITE);
+            scalePulse.setAutoReverse(true);
+
+            javafx.animation.Timeline glowTimeline = new javafx.animation.Timeline(
+                new javafx.animation.KeyFrame(Duration.ZERO, new javafx.animation.KeyValue(glow.radiusProperty(), 10)),
+                new javafx.animation.KeyFrame(Duration.millis(900), new javafx.animation.KeyValue(glow.radiusProperty(), 36))
+            );
+            glowTimeline.setCycleCount(javafx.animation.Animation.INDEFINITE);
+            glowTimeline.setAutoReverse(true);
+
+            javafx.animation.Timeline colorPulse = new javafx.animation.Timeline(
+                new javafx.animation.KeyFrame(Duration.ZERO, ae -> { ae.consume(); title.setFill(javafx.scene.paint.Color.WHITE); }),
+                new javafx.animation.KeyFrame(Duration.millis(420), ae -> { ae.consume(); title.setFill(javafx.scene.paint.Color.web("#ffd166")); }),
+                new javafx.animation.KeyFrame(Duration.millis(900), ae -> { ae.consume(); title.setFill(javafx.scene.paint.Color.WHITE); })
+            );
+            colorPulse.setCycleCount(javafx.animation.Animation.INDEFINITE);
+
+            javafx.animation.ParallelTransition combined = new javafx.animation.ParallelTransition(scalePulse, glowTimeline, colorPulse);
+            combined.setCycleCount(javafx.animation.Animation.INDEFINITE);
+            gameOverPulse = combined;
+            combined.play();
+        } catch (Exception ignored) {}
+
+                // build an informative subtitle showing score and time and compare with previous best
+                String scoreStr = "";
+                int currentScore = -1;
+                try {
+                    if (currentScoreProperty != null) currentScore = currentScoreProperty.get();
+                    if (currentScore < 0 && scoreValue != null) {
+                        // fallback: parse score from scoreValue text which is like "Current: X"
+                        String s = scoreValue.getText();
+                        if (s != null) {
+                            int idx = s.lastIndexOf(':');
+                            if (idx >= 0 && idx + 1 < s.length()) {
+                                String num = s.substring(idx + 1).trim();
+                                try { currentScore = Integer.parseInt(num); } catch (Exception ignored) {}
+                            }
+                        }
+                    }
+                } catch (Exception ignored) {}
+                if (currentScore >= 0) scoreStr = Integer.toString(currentScore);
+                String timePlayed = (timeValue != null) ? timeValue.getText() : "00:00";
+
+                Text scoreText = new Text("Score: " + (scoreStr.isEmpty() ? (scoreValue != null ? scoreValue.getText() : "0") : scoreStr));
+                scoreText.setStyle("-fx-font-size: 28px; -fx-fill: white; -fx-opacity: 0.95;");
+                Text timeText = new Text("Time: " + timePlayed);
+                timeText.setStyle("-fx-font-size: 22px; -fx-fill: #dddddd; -fx-opacity: 0.95;");
+
+                Text compareText = new Text();
+                try {
+                    if (prevHighBeforeGame <= 0) {
+                        // no previous record
+                        compareText.setText("No previous record");
+                        compareText.setStyle("-fx-font-size: 18px; -fx-fill: #cccccc;");
+                    } else if (currentScore >= 0 && currentScore > prevHighBeforeGame) {
+                        compareText.setText("New High Score! Previous: " + prevHighBeforeGame);
+                        compareText.setStyle("-fx-font-size: 20px; -fx-fill: #ffd166; -fx-font-weight: bold;");
+                    } else {
+                        compareText.setText("Previous Best: " + prevHighBeforeGame);
+                        compareText.setStyle("-fx-font-size: 18px; -fx-fill: #cccccc;");
+                    }
+                } catch (Exception ignored) {
+                    compareText.setText("");
+                }
+
+                VBox subtitleBox = new VBox(6);
+                subtitleBox.setAlignment(Pos.CENTER);
+                subtitleBox.getChildren().addAll(scoreText, timeText, compareText);
 
                 HBox buttons = new HBox(12);
                 buttons.setAlignment(Pos.CENTER);
@@ -1850,6 +1967,8 @@ public class GuiController implements Initializable {
                 btnRestart.setOnAction(ev -> {
                     ev.consume();
                     try {
+                        // stop any running title animation
+                        try { if (gameOverPulse != null) { gameOverPulse.stop(); gameOverPulse = null; } } catch (Exception ignored) {}
                         if (overlay.getParent() instanceof javafx.scene.layout.Pane) {
                             ((javafx.scene.layout.Pane) overlay.getParent()).getChildren().remove(overlay);
                         } else if (groupNotification != null) {
@@ -1876,6 +1995,8 @@ public class GuiController implements Initializable {
                 btnMenu.setOnAction(ev -> {
                     ev.consume();
                     try {
+                        // stop any running title animation
+                        try { if (gameOverPulse != null) { gameOverPulse.stop(); gameOverPulse = null; } } catch (Exception ignored) {}
                         URL loc = getClass().getClassLoader().getResource("mainMenu.fxml");
                         if (loc == null) return;
                         FXMLLoader loader = new FXMLLoader(loc);
@@ -1899,7 +2020,7 @@ public class GuiController implements Initializable {
                 });
 
                 buttons.getChildren().addAll(btnRestart, btnMenu);
-                dialog.getChildren().addAll(title, subtitle, buttons);
+                dialog.getChildren().addAll(title, subtitleBox, buttons);
                 dialog.setTranslateY(0);
 
                 overlay.setOnMouseClicked(event -> event.consume());
@@ -1936,7 +2057,9 @@ public class GuiController implements Initializable {
     }
 
     private void startClock() {
-        startTimeMs = System.currentTimeMillis();
+        // when starting (or resuming) the clock, ensure startTimeMs is adjusted so
+        // pausedElapsedMs is preserved (we want clock to exclude paused durations)
+        startTimeMs = System.currentTimeMillis() - pausedElapsedMs;
         if (clockTimeline != null) clockTimeline.stop();
         clockTimeline = new Timeline(new KeyFrame(Duration.seconds(1), new javafx.event.EventHandler<javafx.event.ActionEvent>() {
             @Override
@@ -1953,6 +2076,8 @@ public class GuiController implements Initializable {
     }
 
     private void resetClock() {
+        // reset both the start timestamp and any paused-accumulated time
+        pausedElapsedMs = 0;
         startTimeMs = System.currentTimeMillis();
         if (timeValue != null) timeValue.setText("00:00");
     }
@@ -1966,6 +2091,31 @@ public class GuiController implements Initializable {
         if (timeValue != null) {
             timeValue.setText(String.format("%02d:%02d", mins, secs));
         }
+    }
+
+    /**
+     * Hide the on-board score and time UI elements. Intended for use by
+     * multiplayer modes (ClassicBattle) which don't display per-player score/time.
+     */
+    public void hideScoreAndTimeUI() {
+        try {
+            javafx.application.Platform.runLater(() -> {
+                try {
+                    if (scoreBox != null) { scoreBox.setVisible(false); scoreBox.setManaged(false); }
+                } catch (Exception ignored) {}
+                try {
+                    if (timeBox != null) { timeBox.setVisible(false); timeBox.setManaged(false); }
+                } catch (Exception ignored) {}
+                try {
+                    if (scoreValue != null) {
+                        try { scoreValue.textProperty().unbind(); } catch (Exception ignored) {}
+                    }
+                    if (highScoreValue != null) {
+                        try { highScoreValue.textProperty().unbind(); } catch (Exception ignored) {}
+                    }
+                } catch (Exception ignored) {}
+            });
+        } catch (Exception ignored) {}
     }
 
     public void pauseGame(ActionEvent actionEvent) {
