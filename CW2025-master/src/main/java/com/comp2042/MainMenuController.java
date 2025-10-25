@@ -369,69 +369,68 @@ public class MainMenuController {
                     public void invalidated(javafx.beans.Observable observable) { recompute.run(); }
                 });
 
-                // Hover animations: translate the whole button to the left on hover and return on exit.
-                // Animating translateX avoids changing widths (prevents recompute feedback/accumulation).
-                Duration dur = Duration.millis(140);
+                attachHoverEffects(multiPlayerBtn, expansion);
+                attachHoverEffects(singlePlayerBtn, expansion);
+                attachHoverEffects(settingsBtn, expansion);
 
-                java.util.function.BiConsumer<Button, Double> animateTranslate = (b, to) -> {
-                    // Stop any existing timeline stored in properties
-                    Object existing = b.getProperties().get("hoverTimeline");
-                    if (existing instanceof Timeline) ((Timeline) existing).stop();
-                    Timeline t = new Timeline(new KeyFrame(dur, new KeyValue(b.translateXProperty(), to)));
-                    b.getProperties().put("hoverTimeline", t);
-                    t.play();
-                };
+                attachHoverEffects(scoreBattleBtn, expansion);
+                attachHoverEffects(classicBattleBtn, expansion);
+                attachHoverEffects(cooperateBattleBtn, expansion);
+                attachHoverEffects(multiBackBtn, expansion);
 
-                javafx.event.EventHandler<javafx.scene.input.MouseEvent> enterHandler = e -> {
-                    Button b = (Button) e.getSource();
-                    // move left by expansion px
-                    animateTranslate.accept(b, -expansion);
-                    try {
-                        // create a subtle drop shadow and animate its radius for a glow effect
-                        DropShadow ds = new DropShadow(6, 0, 4, Color.rgb(0,0,0,0.28));
-                        b.setEffect(ds);
-                        // stop previous shadow timeline if any
-                        Object existing = b.getProperties().get("shadowTimeline");
-                        if (existing instanceof Timeline) ((Timeline) existing).stop();
-                        Timeline s = new Timeline(new KeyFrame(dur, new KeyValue(ds.radiusProperty(), 18)));
-                        b.getProperties().put("shadowTimeline", s);
-                        b.getProperties().put("hoverDropShadow", ds);
-                        s.play();
-                    } catch (Exception ignored) {}
-                };
-                javafx.event.EventHandler<javafx.scene.input.MouseEvent> exitHandler = e -> {
-                    Button b = (Button) e.getSource();
-                    // return to original position
-                    animateTranslate.accept(b, 0.0);
-                    try {
-                        Object existing = b.getProperties().get("shadowTimeline");
-                        if (existing instanceof Timeline) ((Timeline) existing).stop();
-                        Object dsObj = b.getProperties().get("hoverDropShadow");
-                        if (dsObj instanceof DropShadow) {
-                            DropShadow ds = (DropShadow) dsObj;
-                            Timeline s = new Timeline(new KeyFrame(dur, new KeyValue(ds.radiusProperty(), 6)));
-                            s.setOnFinished(new javafx.event.EventHandler<javafx.event.ActionEvent>() {
-                                @Override
-                                public void handle(javafx.event.ActionEvent event) {
-                                    b.setEffect(null);
-                                    b.getProperties().remove("hoverDropShadow");
-                                    b.getProperties().remove("shadowTimeline");
-                                }
-                            });
-                            b.getProperties().put("shadowTimeline", s);
-                            s.play();
-                        } else {
-                            b.setEffect(null);
-                        }
-                    } catch (Exception ignored) {}
-                };
+                attachHoverEffects(easyBtn, expansion);
+                attachHoverEffects(normalBtn, expansion);
+                attachHoverEffects(hardBtn, expansion);
+                attachHoverEffects(backBtn, expansion);
+            } catch (Exception ignored) {}
+        });
+    }
 
-                multiPlayerBtn.setOnMouseEntered(enterHandler);
-                multiPlayerBtn.setOnMouseExited(exitHandler);
-                singlePlayerBtn.setOnMouseEntered(enterHandler);
-                singlePlayerBtn.setOnMouseExited(exitHandler);
-                settingsBtn.setOnMouseEntered(enterHandler);
-                settingsBtn.setOnMouseExited(exitHandler);
+    // Reusable helper to attach the same hover translate + subtle glow effect to any button
+    private void attachHoverEffects(Button b, double expansion) {
+        if (b == null) return;
+        Duration dur = Duration.millis(140);
+        java.util.function.BiConsumer<Button, Double> animateTranslate = (btn, to) -> {
+            Object existing = btn.getProperties().get("hoverTimeline");
+            if (existing instanceof Timeline) ((Timeline) existing).stop();
+            Timeline t = new Timeline(new KeyFrame(dur, new KeyValue(btn.translateXProperty(), to)));
+            btn.getProperties().put("hoverTimeline", t);
+            t.play();
+        };
+
+        b.setOnMouseEntered(e -> {
+            animateTranslate.accept(b, -expansion);
+            try {
+                DropShadow ds = new DropShadow(6, 0, 4, Color.rgb(0,0,0,0.28));
+                b.setEffect(ds);
+                Object existing = b.getProperties().get("shadowTimeline");
+                if (existing instanceof Timeline) ((Timeline) existing).stop();
+                Timeline s = new Timeline(new KeyFrame(dur, new KeyValue(ds.radiusProperty(), 18)));
+                b.getProperties().put("shadowTimeline", s);
+                b.getProperties().put("hoverDropShadow", ds);
+                s.play();
+            } catch (Exception ignored) {}
+        });
+
+        b.setOnMouseExited(e -> {
+            animateTranslate.accept(b, 0.0);
+            try {
+                Object existing = b.getProperties().get("shadowTimeline");
+                if (existing instanceof Timeline) ((Timeline) existing).stop();
+                Object dsObj = b.getProperties().get("hoverDropShadow");
+                if (dsObj instanceof DropShadow) {
+                    DropShadow ds = (DropShadow) dsObj;
+                    Timeline s = new Timeline(new KeyFrame(dur, new KeyValue(ds.radiusProperty(), 6)));
+                    s.setOnFinished(ev -> {
+                        b.setEffect(null);
+                        b.getProperties().remove("hoverDropShadow");
+                        b.getProperties().remove("shadowTimeline");
+                    });
+                    b.getProperties().put("shadowTimeline", s);
+                    s.play();
+                } else {
+                    b.setEffect(null);
+                }
             } catch (Exception ignored) {}
         });
     }

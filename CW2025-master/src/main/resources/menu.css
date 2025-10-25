@@ -1,6 +1,5 @@
 .menu-title {
     -fx-font-size: 120px;
-    /* Bright game-title yellow that pairs with the purple background */
     -fx-fill: linear-gradient(from 0% 0% to 100% 100%, #ffd24a 0%, #ffd700 100%);
     -fx-stroke: black;
     -fx-stroke-width: 3;
@@ -14,7 +13,6 @@
 }
 
 .menu-button {
-    /* modern rounded button with subtle gradient and shadow */
     -fx-background-color: linear-gradient(from 0% 0% to 0% 100%, rgba(40,40,40,0.95), rgba(20,20,20,0.9));
     -fx-text-fill: white;
     -fx-font-size: 16px;
@@ -32,7 +30,7 @@
 
 .menu-button.small {
     -fx-font-size: 14px;
-    -fx-pref-width: 200px; /* make difficulty buttons match better visually */
+    -fx-pref-width: 200px;
     -fx-padding: 8 12 8 12;
     -fx-background-color: linear-gradient(from 0% 0% to 0% 100%, rgba(55,55,55,0.95), rgba(35,35,35,0.9));
     -fx-text-fill: white;
@@ -51,12 +49,10 @@
     -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.25), 2, 0.0, 0, 1);
 }
 
-/* subtle border and light inner glow for focused button */
 .menu-button:focused {
     -fx-effect: dropshadow(gaussian, rgba(255,255,255,0.06), 8, 0.0, 0, 0);
 }
 
-/* Ensure small buttons (difficulty/back) keep the dark grey background and white text */
 .menu-button.small {
     -fx-background-color: rgba(0,0,0,0.6);
     -fx-text-fill: white;
@@ -66,27 +62,21 @@
     -fx-padding: 8 16 8 16;
 }
 
-/* Root background: layered image + dark vignette + top bar to match the supplied mockup */
 .menu-root {
-    /* Use only an image as the background-image; JavaFX does not accept gradients in -fx-background-image. */
     -fx-background-image: url("GUI.jpg");
     -fx-background-size: cover;
     -fx-background-position: center center;
     -fx-background-repeat: no-repeat;
-
-    /* fallback solid color / tint if image not present */
     -fx-background-color: linear-gradient(from 50% 0% to 50% 100%, rgba(8,8,10,0.95), rgba(4,4,6,0.9));
 }
 
-/* overlay panel used behind the difficulty options to improve contrast on the background */
 .menu-options-panel {
     -fx-background-color: rgba(10,10,10,0.45);
-    -fx-background-radius: 10px;
+    -fx-background-radius: 0 0 10px 10px; 
     -fx-padding: 14px 18px 14px 18px;
     -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.35), 10, 0.0, 0, 2);
 }
 
-/* Large card-style menu entries (left icon area + title + subtitle) */
 .menu-card {
     -fx-padding: 8 12 8 12;
     -fx-border-radius: 8px;
@@ -97,15 +87,14 @@
     -fx-translate-y: -3;
 }
 
-/* Make sure card variants override the generic .menu-button background by targeting the Button + card combo */
 .menu-button.menu-card {
-    /* ensure the button base allows a full-card background; per-card rules will set the gradient
-       Use minimal padding here - inner graphic handles content spacing */
+    -fx-background-color: transparent;
     -fx-background-insets: 0;
-    -fx-padding: 6 8 6 8;
+    -fx-padding: 0;
+    -fx-border-width: 0;
+    -fx-border-color: transparent;
 }
 
-/* Specific card backgrounds applied to the Button (ensures the right area isn't white) */
 .menu-button.menu-card.mp-card {
     -fx-background-color: linear-gradient(from 0% 0% to 100% 0%, #3b242c 0%, #2f1b22 100%);
     -fx-background-radius: 8px;
@@ -130,7 +119,7 @@
 }
 .menu-card-body {
     -fx-background-color: transparent;
-    -fx-padding: 12 18 12 18; /* spacing inside the card */
+    -fx-padding: 12 18 12 18;
     -fx-background-radius: 8px;
     -fx-border-radius: 8px;
 }
@@ -143,13 +132,12 @@
     -fx-font-weight: bold;
     -fx-fill: linear-gradient(from 0% 0% to 100% 100%, #ff6aa3 0%, #ff5b5b 100%);
 }
-/* diagonal accent that sits over the left icon block (rotated Rectangle) */
+
 .menu-card-icon-diagonal {
     -fx-fill: rgba(0,0,0,0.18);
     -fx-opacity: 0.28;
 }
 
-/* block glyph pieces used for the multiplayer geometric mark */
 .mp-glyph-block {
     -fx-fill: linear-gradient(from 0% 0% to 100% 100%, #6ee07a 0%, #2fa84a 100%);
     -fx-stroke: rgba(0,0,0,0.14);
@@ -165,15 +153,12 @@
     -fx-letter-spacing: 1.2px;
 }
 
-/* Per-card color variants */
 .mp-card {
-    /* Dark maroon / plum card like the reference image */
     -fx-background-color: linear-gradient(from 0% 0% to 100% 0%, #3b242c 0%, #2f1b22 100%);
     -fx-border-color: rgba(0,0,0,0.45);
     -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.7), 10, 0.0, 0, 3);
 }
 .mp-card .menu-card-icon-bg {
-    /* slightly lighter left icon block with subtle inner gradient */
     -fx-fill: linear-gradient(from 0% 0% to 100% 100%, #8f3a61 0%, #6a2240 100%);
 }
 .mp-card .menu-card-icon-text {
@@ -181,11 +166,9 @@
     -fx-font-weight: 800;
 }
 .mp-card .menu-card-title {
-    /* Match the pink used in the provided attachment for the MULTIPLAYER title */
     -fx-fill: #f4b3c9;
 }
 .mp-card .menu-card-subtitle {
-    /* Use the same pink hue for the subtitle to match the provided image */
     -fx-fill: #f4b3c9;
 }
 
@@ -206,12 +189,10 @@
     -fx-fill: linear-gradient(from 0% 0% to 100% 100%, rgba(138,132,200,0.96), rgba(90,84,150,0.95));
 }
 .solo-card .menu-card-icon-text {
-    /* Use the SOLO lavender palette for the left icon glyph to match the SOLO title */
     -fx-fill: #d6c9f0;
     fill: #d6c9f0;
 }
 
-/* Ensure the specific singlePlayer button icon uses the same SOLO lavender glyph */
 #singlePlayerBtn .menu-card-icon-text,
 .menu-button.solo-card .menu-card-icon-text,
 .menu-button.menu-card.solo-card .menu-card-icon-text {
@@ -219,10 +200,9 @@
     fill: #7033e9;
 }
 
-/* Match the SOLO example image: use a light lavender/pale purple for title and subtitle */
 .solo-card .menu-card-title {
     -fx-fill: #d6c9f0;
-    fill: #d6c9f0; /* also provide standard property for compatibility */
+    fill: #d6c9f0;
 }
 .solo-card .menu-card-subtitle {
     -fx-fill: rgba(214,201,240,0.88);
@@ -236,12 +216,10 @@
     -fx-fill: linear-gradient(from 0% 0% to 100% 100%, rgba(90,180,140,0.96), rgba(50,120,90,0.95));
 }
 .settings-card .menu-card-icon-text {
-    /* Use the TETRA green palette for the boxed icon text */
     -fx-fill: linear-gradient(from 0% 0% to 100% 100%, #7ee07a 0%, #2fa84a 100%);
     -fx-font-weight: 800;
 }
 
-/* Settings card title/subtitle color overrides to match the TETRA CHANNEL green style */
 .settings-card .menu-card-title {
     -fx-fill: linear-gradient(from 0% 0% to 100% 0%, #9ffeb5 0%, #6ee07a 100%);
     fill: #6ee07a;
@@ -251,7 +229,6 @@
     fill: rgba(110,224,122,0.90);
 }
 
-/* Stronger, id-specific overrides in case skins or ordering prevent class rules taking effect */
 #multiPlayerBtn.menu-button, #multiPlayerBtn.menu-card, #multiPlayerBtn.button {
     -fx-background-color: linear-gradient(from 0% 0% to 100% 0%, #3b242c 0%, #2f1b22 100%);
     -fx-background-radius: 8px;
@@ -271,7 +248,6 @@
     -fx-border-color: rgba(0,0,0,0.35);
 }
 
-/* Stronger overrides for settings to ensure the intended colors apply */
 #settingsBtn .menu-card-title,
 #settingsBtn.menu-button .menu-card-title,
 .menu-button.settings-card .menu-card-title {
@@ -290,17 +266,215 @@
     -fx-fill: linear-gradient(from 0% 0% to 100% 100%, #7ee07a 0%, #2fa84a 100%) !important;
 }
 
-/* Stronger overrides to ensure the SOLO card title/subtitle use the lavender color
-   (added after other rules so these win when needed) */
 .menu-button.solo-card .menu-card-title,
 .menu-button.menu-card.solo-card .menu-card-title,
 #singlePlayerBtn .menu-card-title {
     -fx-fill: #d6c9f0 !important;
-    fill: #d6c9f0; /* standard property for compatibility */
+    fill: #d6c9f0;
 }
 .menu-button.solo-card .menu-card-subtitle,
 .menu-button.menu-card.solo-card .menu-card-subtitle,
 #singlePlayerBtn .menu-card-subtitle {
     -fx-fill: rgba(214,201,240,0.88) !important;
     fill: rgba(214,201,240,0.88);
+}
+
+.menu-button.menu-card.mp-card,
+.menu-button.menu-card.overlay-light {
+    -fx-background-insets: 0;
+    -fx-padding: 18 22 18 18;
+    -fx-background-radius: 10px;
+    -fx-border-radius: 10px;
+    -fx-border-color: rgba(0,0,0,0.45);
+    -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.72), 16, 0.0, 0, 4);
+}
+
+#scoreBattleBtn .menu-card-body {
+    -fx-background-color: #2a211c;
+}
+#scoreBattleBtn .menu-card-icon-text {
+    -fx-fill: #f7b500;
+    -fx-font-size: 96px;
+    -fx-font-weight: 800;
+}
+#scoreBattleBtn .menu-card-title {
+    -fx-fill: #fcdb7C;
+    -fx-font-size: 46px;
+    -fx-font-weight: 700;
+}
+#scoreBattleBtn .menu-card-subtitle { 
+    -fx-fill: #a18f72;
+    -fx-font-size: 18px; 
+    -fx-letter-spacing: 1.5px;
+}
+
+#classicBattleBtn .menu-card-body {
+    -fx-background-color: #2e1b1b;
+}
+#classicBattleBtn .menu-card-icon-text {
+    -fx-fill: #f05023; 
+    -fx-font-size: 96px;
+    -fx-font-weight: 800;
+}
+#classicBattleBtn .menu-card-title {
+    -fx-fill: #f59f8a; 
+    -fx-font-size: 46px;
+    -fx-font-weight: 700;
+}
+#classicBattleBtn .menu-card-subtitle { 
+    -fx-fill: #a37a72; 
+    -fx-font-size: 18px; 
+    -fx-letter-spacing: 1.5px;
+}
+
+#cooperateBattleBtn .menu-card-body {
+    -fx-background-color: #2b1d34; 
+}
+#cooperateBattleBtn .menu-card-icon-text {
+    -fx-fill: #d050d0; 
+    -fx-font-size: 96px;
+    -fx-font-weight: 800;
+}
+#cooperateBattleBtn .menu-card-title {
+    -fx-fill: #e09ee0; 
+    -fx-font-size: 46px;
+    -fx-font-weight: 700;
+}
+#cooperateBattleBtn .menu-card-subtitle { 
+    -fx-fill: #a37a9a;
+    -fx-font-size: 18px; 
+    -fx-letter-spacing: 1.5px;
+}
+
+#multiBackBtn .menu-card-body {
+    -fx-background-color: #20203a;
+}
+#multiBackBtn .menu-card-icon-text {
+    -fx-fill: #6060f0;
+    -fx-font-size: 86px;
+    -fx-font-weight: 800;
+}
+#multiBackBtn .menu-card-title { 
+    -fx-fill: #a0a0f5; 
+    -fx-font-size: 40px; 
+    -fx-font-weight:700; 
+}
+#multiBackBtn .menu-card-subtitle { 
+    -fx-fill: #8080a0; 
+    -fx-font-size: 18px; 
+    -fx-letter-spacing: 1.5px;
+}
+
+#easyBtn .menu-card-body {
+    -fx-background-color: #233a34;
+}
+#easyBtn .menu-card-icon-text {
+    -fx-fill: #6ee07a;
+    -fx-font-size: 96px;
+    -fx-font-weight: 800;
+}
+#easyBtn .menu-card-title {
+    -fx-fill: #b3fcc0;
+    -fx-font-size: 46px;
+    -fx-font-weight: 700;
+}
+#easyBtn .menu-card-subtitle { 
+    -fx-fill: #789980;
+    -fx-font-size: 18px; 
+    -fx-letter-spacing: 1.5px;
+}
+
+#normalBtn .menu-card-body {
+    -fx-background-color: #2a211c;
+}
+#normalBtn .menu-card-icon-text {
+    -fx-fill: #f7b500;
+    -fx-font-size: 96px;
+    -fx-font-weight: 800;
+}
+#normalBtn .menu-card-title {
+    -fx-fill: #fcdb7C;
+    -fx-font-size: 46px;
+    -fx-font-weight: 700;
+}
+#normalBtn .menu-card-subtitle { 
+    -fx-fill: #a18f72;
+    -fx-font-size: 18px; 
+    -fx-letter-spacing: 1.5px;
+}
+
+#hardBtn .menu-card-body {
+    -fx-background-color: #2e1b1b; 
+}
+#hardBtn .menu-card-icon-text {
+    -fx-fill: #f05023; 
+    -fx-font-size: 96px;
+    -fx-font-weight: 800;
+}
+#hardBtn .menu-card-title {
+    -fx-fill: #f59f8a; 
+    -fx-font-size: 46px;
+    -fx-font-weight: 700;
+}
+#hardBtn .menu-card-subtitle { 
+    -fx-fill: #a37a72;
+    -fx-font-size: 18px; 
+    -fx-letter-spacing: 1.5px;
+}
+
+#backBtn .menu-card-body {
+    -fx-background-color: #20203a;
+}
+#backBtn .menu-card-icon-text {
+    -fx-fill: #6060f0;
+    -fx-font-size: 86px;
+    -fx-font-weight: 800;
+}
+#backBtn .menu-card-title { 
+    -fx-fill: #a0a0f5;
+    -fx-font-size: 40px; 
+    -fx-font-weight:700; 
+}
+#backBtn .menu-card-subtitle { 
+    -fx-fill: #8080a0;
+    -fx-font-size: 18px; 
+    -fx-letter-spacing: 1.5px;
+}
+
+.submenu-header-bar-mp {
+    -fx-background-color: linear-gradient(from 0% 0% to 100% 0%, #3b242c 0%, #2f1b22 100%);
+    -fx-pref-width: 712px; 
+    -fx-pref-height: 70px;
+    -fx-alignment: CENTER_LEFT;
+    -fx-padding: 0 16px 0 16px;
+    -fx-background-radius: 10px 10px 0 0;
+}
+
+.submenu-header-title-mp {
+    -fx-fill: #f4b3c9;
+    -fx-font-size: 32px;
+    -fx-font-weight: 700;
+    -fx-letter-spacing: 1.5px;
+}
+
+/* --- ADD THIS NEW CODE FOR THE SOLO HEADER --- */
+
+/* New header bar for SOLO menu */
+.submenu-header-bar-solo {
+    /* This gradient is from your .solo-card / #singlePlayerBtn style */
+    -fx-background-color: linear-gradient(from 0% 0% to 100% 0%, #3b3450 0%, #2a2438 100%);
+    -fx-pref-width: 712px; 
+    -fx-pref-height: 70px;
+    -fx-alignment: CENTER_LEFT;
+    -fx-padding: 0 16px 0 16px;
+    -fx-background-radius: 10px 10px 0 0;
+}
+
+/* New header title for SOLO menu */
+.submenu-header-title-solo {
+    /* This fill color is from your .solo-card .menu-card-title style */
+    -fx-fill: #d6c9f0; 
+    -fx-font-size: 32px;
+    -fx-font-weight: 700;
+    -fx-letter-spacing: 1.5px;
 }

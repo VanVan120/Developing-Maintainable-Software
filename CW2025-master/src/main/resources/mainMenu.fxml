@@ -9,10 +9,8 @@
 <?import javafx.scene.media.MediaView?>
 <AnchorPane xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.comp2042.MainMenuController" styleClass="menu-root">
     <children>
-    <!-- Background is applied via CSS to 'menu-root' so it scales responsively -->
     <StackPane AnchorPane.leftAnchor="0" AnchorPane.rightAnchor="0" AnchorPane.topAnchor="0" AnchorPane.bottomAnchor="0">
             <children>
-                <!-- Use a BorderPane so title sits at the top center and buttons sit centered on the left -->
                 <BorderPane prefWidth="1200" prefHeight="720">
                     <top>
                         <HBox alignment="CENTER" prefHeight="140">
@@ -24,7 +22,6 @@
                     <left>
                         <VBox fx:id="mainButtons" alignment="CENTER_LEFT" spacing="12" styleClass="menu-buttons" BorderPane.alignment="CENTER">
                             <children>
-                                <!-- Multiplayer card-style button -->
                                 <Button fx:id="multiPlayerBtn" prefWidth="720" styleClass="menu-button menu-card mp-card">
                                     <graphic>
                                         <HBox spacing="18" alignment="CENTER_LEFT" prefWidth="680" styleClass="menu-card-body">
@@ -45,7 +42,6 @@
                                         </HBox>
                                     </graphic>
                                 </Button>
-                                <!-- Solo card-style button -->
                                 <Button fx:id="singlePlayerBtn" prefWidth="720" styleClass="menu-button menu-card solo-card">
                                     <graphic>
                                         <HBox spacing="18" alignment="CENTER_LEFT" prefWidth="680" styleClass="menu-card-body">
@@ -66,7 +62,6 @@
                                         </HBox>
                                     </graphic>
                                 </Button>
-                                <!-- Settings card-style button -->
                                 <Button fx:id="settingsBtn" prefWidth="720" styleClass="menu-button menu-card settings-card">
                                     <graphic>
                                         <HBox spacing="18" alignment="CENTER_LEFT" prefWidth="680" styleClass="menu-card-body">
@@ -91,7 +86,7 @@
                         </VBox>
                     </left>
                     <right>
-                        <!-- Container for a preview video or animated media on the right side -->
+
                         <StackPane fx:id="mediaContainer" alignment="CENTER" prefWidth="480" translateX="-30" BorderPane.alignment="CENTER">
                             <children>
                                 <MediaView fx:id="menuMediaView" preserveRatio="true"/>
@@ -100,33 +95,210 @@
                     </right>
                 </BorderPane>
 
-                <!-- Sub-menu for Single Player difficulty choices with translucent panel behind (overlay) -->
                 <StackPane fx:id="singleOptions" visible="false">
                     <children>
-                        <VBox alignment="CENTER" spacing="10" styleClass="menu-options-panel" pickOnBounds="false">
-                            <children>
-                                <Text text="Select Difficulty" styleClass="menu-subtitle" />
-                                <Button fx:id="easyBtn" text="Easy" prefWidth="260" styleClass="menu-button" />
-                                <Button fx:id="normalBtn" text="Normal" prefWidth="260" styleClass="menu-button" />
-                                <Button fx:id="hardBtn" text="Hard" prefWidth="260" styleClass="menu-button" />
-                                <Button fx:id="backBtn" text="Back" prefWidth="260" styleClass="menu-button" />
-                            </children>
+                        <VBox alignment="CENTER_LEFT" spacing="0" pickOnBounds="false" StackPane.alignment="CENTER_LEFT">
+                           <children>
+                              <HBox alignment="CENTER_LEFT" styleClass="submenu-header-bar-solo">
+                                 <children>
+                                    <Text text="SOLO MODE" styleClass="submenu-header-title-solo" />
+                                 </children>
+                              </HBox>
+                              
+                              <VBox alignment="CENTER_LEFT" spacing="12" styleClass="menu-options-panel">
+                                <padding>
+                                    <Insets top="16" right="16" bottom="16" left="16" />
+                                </padding>
+                                <children>
+                                    <Button fx:id="easyBtn" prefWidth="680" styleClass="menu-button menu-card" style="-fx-background-color: transparent; -fx-padding: 0;">
+                                        <graphic>
+                                            <HBox spacing="12" alignment="CENTER_LEFT" prefWidth="680" styleClass="menu-card-body">
+                                                <children>
+                                                    <StackPane prefWidth="96" prefHeight="56" styleClass="menu-card-icon">
+                                                        <children>
+                                                            <Rectangle width="140" height="70" arcWidth="6" arcHeight="6" rotate="25" translateX="-20" translateY="-12" styleClass="menu-card-icon-diagonal" />
+                                                            <Text text="EA" styleClass="menu-card-icon-text" />
+                                                        </children>
+                                                    </StackPane>
+                                                    <VBox spacing="4" alignment="CENTER_LEFT">
+                                                        <children>
+                                                            <Text text="Easy" styleClass="menu-card-title" />
+                                                            <Text text="Relaxed pace for beginners" styleClass="menu-card-subtitle" />
+                                                        </children>
+                                                    </VBox>
+                                                </children>
+                                            </HBox>
+                                        </graphic>
+                                    </Button>
+
+                                    <Button fx:id="normalBtn" prefWidth="680" styleClass="menu-button menu-card" style="-fx-background-color: transparent; -fx-padding: 0;">
+                                        <graphic>
+                                            <HBox spacing="12" alignment="CENTER_LEFT" prefWidth="680" styleClass="menu-card-body">
+                                                <children>
+                                                    <StackPane prefWidth="96" prefHeight="56" styleClass="menu-card-icon">
+                                                        <children>
+                                                            <Rectangle width="140" height="70" arcWidth="6" arcHeight="6" rotate="25" translateX="-20" translateY="-12" styleClass="menu-card-icon-diagonal" />
+                                                            <Text text="NO" styleClass="menu-card-icon-text" />
+                                                        </children>
+                                                    </StackPane>
+                                                    <VBox spacing="4" alignment="CENTER_LEFT">
+                                                        <children>
+                                                            <Text text="Normal" styleClass="menu-card-title" />
+                                                            <Text text="The standard challenge" styleClass="menu-card-subtitle" />
+                                                        </children>
+                                                    </VBox>
+                                                </children>
+                                            </HBox>
+                                        </graphic>
+                                    </Button>
+
+                                    <Button fx:id="hardBtn" prefWidth="680" styleClass="menu-button menu-card" style="-fx-background-color: transparent; -fx-padding: 0;">
+                                        <graphic>
+                                            <HBox spacing="12" alignment="CENTER_LEFT" prefWidth="680" styleClass="menu-card-body">
+                                                <children>
+                                                    <StackPane prefWidth="96" prefHeight="56" styleClass="menu-card-icon">
+                                                        <children>
+                                                            <Rectangle width="140" height="70" arcWidth="6" arcHeight="6" rotate="25" translateX="-20" translateY="-12" styleClass="menu-card-icon-diagonal" />
+                                                            <Text text="HA" styleClass="menu-card-icon-text" />
+                                                        </children>
+                                                    </StackPane>
+                                                    <VBox spacing="4" alignment="CENTER_LEFT">
+                                                        <children>
+                                                            <Text text="Hard" styleClass="menu-card-title" />
+                                                            <Text text="For experts only" styleClass="menu-card-subtitle" />
+                                                        </children>
+                                                    </VBox>
+                                                </children>
+                                            </HBox>
+                                        </graphic>
+                                    </Button>
+
+                                    <Button fx:id="backBtn" prefWidth="680" styleClass="menu-button menu-card" style="-fx-background-color: transparent; -fx-padding: 0;">
+                                        <graphic>
+                                            <HBox spacing="12" alignment="CENTER_LEFT" prefWidth="680" styleClass="menu-card-body">
+                                                <children>
+                                                    <StackPane prefWidth="96" prefHeight="56" styleClass="menu-card-icon">
+                                                        <children>
+                                                            <Rectangle width="140" height="70" arcWidth="6" arcHeight="6" rotate="25" translateX="-20" translateY="-12" styleClass="menu-card-icon-diagonal" />
+                                                            <Text text="BK" styleClass="menu-card-icon-text" />
+                                                        </children>
+                                                    </StackPane>
+                                                    <VBox spacing="4" alignment="CENTER_LEFT">
+                                                        <children>
+                                                            <Text text="Back" styleClass="menu-card-title" />
+                                                            <Text text="Return to main menu" styleClass="menu-card-subtitle" />
+                                                        </children>
+                                                    </VBox>
+                                                </children>
+                                            </HBox>
+                                        </graphic>
+                                    </Button>
+                                </children>
+                              </VBox>
+                           </children>
                         </VBox>
                     </children>
                 </StackPane>
-
-                <!-- Multiplayer submenu (overlay) -->
                 <StackPane fx:id="multiOptions" visible="false">
                     <children>
-                        <VBox alignment="CENTER" spacing="10" styleClass="menu-options-panel" pickOnBounds="false">
+                        
+                        <VBox alignment="CENTER_LEFT" spacing="0" pickOnBounds="false" StackPane.alignment="CENTER_LEFT">
                             <children>
-                                <Text text="Multiplayer Mode" styleClass="menu-subtitle" />
-                                <Button fx:id="scoreBattleBtn" text="Score Battle" prefWidth="260" styleClass="menu-button" />
-                                <Button fx:id="classicBattleBtn" text="Classic Battle" prefWidth="260" styleClass="menu-button" />
-                                <Button fx:id="cooperateBattleBtn" text="Cooperate Battle" prefWidth="260" styleClass="menu-button" />
-                                <Button fx:id="multiBackBtn" text="Back" prefWidth="260" styleClass="menu-button" />
+                                <HBox alignment="CENTER_LEFT" styleClass="submenu-header-bar-mp">
+                                    <children>
+                                        <Text text="MULTIPLAYER MODE" styleClass="submenu-header-title-mp" />
+                                    </children>
+                                </HBox>
+                                
+                                <VBox alignment="CENTER_LEFT" spacing="12" styleClass="menu-options-panel">
+                                    <padding>
+                                        <Insets bottom="16.0" left="16.0" right="16.0" top="16.0" />
+                                    </padding>
+                                    <children>
+                                        <Button fx:id="scoreBattleBtn" prefWidth="680" styleClass="menu-button menu-card" style="-fx-background-color: transparent; -fx-padding: 0;">
+                                            <graphic>
+                                                <HBox alignment="CENTER_LEFT" prefWidth="680" spacing="12" styleClass="menu-card-body">
+                                                    <children>
+                                                        <StackPane prefHeight="56" prefWidth="96" styleClass="menu-card-icon">
+                                                            <children>
+                                                                <Rectangle arcHeight="6" arcWidth="6" height="70" rotate="25" styleClass="menu-card-icon-diagonal" translateX="-20" translateY="-12" width="140" />
+                                                                <Text styleClass="menu-card-icon-text" text="SB" />
+                                                            </children>
+                                                        </StackPane>
+                                                        <VBox alignment="CENTER_LEFT" spacing="4">
+                                                            <children>
+                                                                <Text styleClass="menu-card-title" text="Score Battle" />
+                                                                <Text styleClass="menu-card-subtitle" text="Competitive scoring mode" />
+                                                            </children>
+                                                        </VBox>
+                                                    </children>
+                                                </HBox>
+                                            </graphic>
+                                        </Button>
+                                        <Button fx:id="classicBattleBtn" prefWidth="680" styleClass="menu-button menu-card" style="-fx-background-color: transparent; -fx-padding: 0;">
+                                            <graphic>
+                                                <HBox alignment="CENTER_LEFT" prefWidth="680" spacing="12" styleClass="menu-card-body">
+                                                    <children>
+                                                        <StackPane prefHeight="56" prefWidth="96" styleClass="menu-card-icon">
+                                                            <children>
+                                                                <Rectangle arcHeight="6" arcWidth="6" height="70" rotate="25" styleClass="menu-card-icon-diagonal" translateX="-20" translateY="-12" width="140" />
+                                                                <Text styleClass="menu-card-icon-text" text="CB" />
+                                                            </children>
+                                                        </StackPane>
+                                                        <VBox alignment="CENTER_LEFT" spacing="4">
+                                                            <children>
+                                                                <Text styleClass="menu-card-title" text="Classic Battle" />
+                                                                <Text styleClass="menu-card-subtitle" text="Traditional head-to-head" />
+                                                            </children>
+                                                        </VBox>
+                                                    </children>
+                                                </HBox>
+                                            </graphic>
+                                        </Button>
+                                        <Button fx:id="cooperateBattleBtn" prefWidth="680" styleClass="menu-button menu-card" style="-fx-background-color: transparent; -fx-padding: 0;">
+                                            <graphic>
+                                                <HBox alignment="CENTER_LEFT" prefWidth="680" spacing="12" styleClass="menu-card-body">
+                                                    <children>
+                                                        <StackPane prefHeight="56" prefWidth="96" styleClass="menu-card-icon">
+                                                            <children>
+                                                                <Rectangle arcHeight="6" arcWidth="6" height="70" rotate="25" styleClass="menu-card-icon-diagonal" translateX="-20" translateY="-12" width="140" />
+                                                                <Text styleClass="menu-card-icon-text" text="CO" />
+                                                            </children>
+                                                        </StackPane>
+                                                        <VBox alignment="CENTER_LEFT" spacing="4">
+                                                            <children>
+                                                                <Text styleClass="menu-card-title" text="Cooperate Battle" />
+                                                                <Text styleClass="menu-card-subtitle" text="Team up with friends" />
+                                                            </children>
+                                                        </VBox>
+                                                    </children>
+                                                </HBox>
+                                            </graphic>
+                                        </Button>
+                                        <Button fx:id="multiBackBtn" prefWidth="680" styleClass="menu-button menu-card" style="-fx-background-color: transparent; -fx-padding: 0;">
+                                            <graphic>
+                                                <HBox alignment="CENTER_LEFT" prefWidth="680" spacing="12" styleClass="menu-card-body">
+                                                    <children>
+                                                        <StackPane prefHeight="56" prefWidth="96" styleClass="menu-card-icon">
+                                                            <children>
+                                                                <Rectangle arcHeight="6" arcWidth="6" height="70" rotate="25" styleClass="menu-card-icon-diagonal" translateX="-20" translateY="-12" width="140" />
+                                                                <Text styleClass="menu-card-icon-text" text="BK" />
+                                                            </children>
+                                                        </StackPane>
+                                                        <VBox alignment="CENTER_LEFT" spacing="4">
+                                                            <children>
+                                                                <Text styleClass="menu-card-title" text="Back" />
+                                                                <Text styleClass="menu-card-subtitle" text="Return to main menu" />
+                                                            </children>
+                                                        </VBox>
+                                                    </children>
+                                                </HBox>
+                                            </graphic>
+                                        </Button>
+                                    </children>
+                                </VBox>
                             </children>
-                        </VBox>
+                        </VBox> 
                     </children>
                 </StackPane>
             </children>
