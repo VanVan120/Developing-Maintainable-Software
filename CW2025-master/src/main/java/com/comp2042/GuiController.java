@@ -1330,6 +1330,14 @@ public class GuiController implements Initializable {
     }
 
     private void moveDown(MoveEvent event) {
+        // If the game is over, ignore any further down events and make sure the timeline is stopped
+        try {
+            if (Boolean.TRUE.equals(isGameOver.getValue())) {
+                try { if (timeLine != null) timeLine.stop(); } catch (Exception ignored) {}
+                return;
+            }
+        } catch (Exception ignored) {}
+
         if (isPause.getValue() == Boolean.FALSE) {
             // capture starting view so we can animate a lock effect if the piece lands
             ViewData startViewForEffect = this.currentViewData;

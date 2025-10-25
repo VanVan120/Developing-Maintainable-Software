@@ -1,0 +1,35 @@
+/* Settings panel styling to match provided design */
+.settings-root {
+    -fx-background-color: #0f1113; /* dark panel */
+    -fx-padding: 18px;
+}
+.settings-title {
+    -fx-text-fill: white;
+    -fx-font-size: 18px;
+    -fx-font-weight: bold;
+    -fx-padding: 6px 0 4px 0;
+}
+/* TitledPane header style */
+.titled-pane > .title {
+    -fx-background-color: linear-gradient(#f2f2f2, #dcdcdc);
+    -fx-padding: 6 8 6 8;
+}
+.titled-pane > .title > .text {
+    -fx-fill: #222222;
+    -fx-font-size: 13px;
+}
+/* Content inside panes */
+.titled-pane .content {
+    -fx-background-color: transparent;
+}
+.titled-pane .content .label {
+    -fx-text-fill: #e6e6e6;
+    -fx-font-size: 12px;
+}
+/* Slider styling minimal */
+.slider .track {
+    -fx-background-color: #444;
+}
+.slider .thumb {
+    -fx-background-color: #ddd;
+}

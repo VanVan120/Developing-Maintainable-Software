@@ -18,7 +18,16 @@ import javafx.application.Platform;
 import javafx.animation.KeyFrame;
 import javafx.animation.KeyValue;
 import javafx.animation.Timeline;
+import javafx.animation.FadeTransition;
+import javafx.animation.Interpolator;
 import javafx.util.Duration;
+import javafx.animation.TranslateTransition;
+import javafx.scene.control.Accordion;
+import javafx.scene.control.Label;
+import javafx.scene.control.Slider;
+import javafx.scene.control.TitledPane;
+import javafx.geometry.Pos;
+import javafx.scene.layout.Region;
 import javafx.scene.effect.DropShadow;
 import javafx.scene.paint.Color;
 import javafx.scene.media.Media;
@@ -46,7 +55,12 @@ public class MainMenuController {
     @FXML private Button multiBackBtn;
     @FXML private MediaView menuMediaView;
     @FXML private javafx.scene.layout.StackPane mediaContainer;
+    @FXML private javafx.scene.layout.StackPane rootStack;
     private String menuMediaUrl;
+    // settings overlay root (created on demand)
+    private StackPane settingsOverlayRoot;
+    private VBox settingsPanel;
+    private boolean settingsVisible = false;
 
     @FXML
     public void initialize() {
@@ -55,6 +69,20 @@ public class MainMenuController {
             URL bg = getClass().getClassLoader().getResource("GUI.jpg");
             if (bg != null && bgImage != null) bgImage.setImage(new Image(bg.toExternalForm()));
         } catch (Exception ignored) {}
+
+        // Settings button: show a left-side sliding settings panel (collapsible sections)
+        if (settingsBtn != null) {
+            settingsBtn.setOnAction(new EventHandler<ActionEvent>() {
+                @Override
+                public void handle(ActionEvent event) {
+                    try {
+                        toggleSettingsOverlay();
+                    } catch (Exception ex) {
+                        ex.printStackTrace();
+                    }
+                }
+            });
+        }
 
         // Attempt to load a preview video into the right-side MediaView (if present in resources)
         try {
@@ -67,31 +95,47 @@ public class MainMenuController {
                 }
                 if (mediaUrl != null) {
                     menuMediaUrl = mediaUrl.toExternalForm();
-                    Media media = new Media(menuMediaUrl);
-                    MediaPlayer mp = new MediaPlayer(media);
-                    mp.setCycleCount(MediaPlayer.INDEFINITE);
-                    mp.setAutoPlay(true);
-                    mp.setMute(true); // mute preview by default
-                    menuMediaView.setMediaPlayer(mp);
-                    // Defer binding until after initial layout so mainButtons height is valid
-                    Platform.runLater(() -> {
-                        try {
-                            if (mainButtons != null && mediaContainer != null) {
-                                mediaContainer.prefHeightProperty().bind(mainButtons.heightProperty().multiply(0.92));
-                            }
+                    try {
+                        Media media = new Media(menuMediaUrl);
+                        MediaPlayer mp = new MediaPlayer(media);
+                        // handle media player errors and state for better diagnostics/fallback
+                        mp.setOnError(() -> {
+                            try { System.err.println("Menu media player error: " + mp.getError()); } catch (Exception ignored) {}
+                            disableMenuMedia("MediaPlayer error: " + (mp.getError() != null ? mp.getError().getMessage() : "unknown"));
+                        });
+                        mp.setOnReady(() -> {
+                            try { System.out.println("Menu media ready: " + menuMediaUrl); } catch (Exception ignored) {}
+                        });
+                        mp.setCycleCount(MediaPlayer.INDEFINITE);
+                        mp.setAutoPlay(true);
+                        mp.setMute(true); // mute preview by default
+                        menuMediaView.setMediaPlayer(mp);
 
-                            // Do NOT preserve aspect ratio here so the video can fill the container height
-                            menuMediaView.setPreserveRatio(false);
+                        // Defer binding until after initial layout so mainButtons height is valid
+                        Platform.runLater(() -> {
+                            try {
+                                if (mainButtons != null && mediaContainer != null) {
+                                    mediaContainer.prefHeightProperty().bind(mainButtons.heightProperty().multiply(0.92));
+                                }
 
-                            // Bind MediaView to the container size (slightly inset)
-                            // use a slightly smaller multiplier so the visible video is a touch shorter than the buttons
-                            menuMediaView.fitHeightProperty().bind(mediaContainer.heightProperty().multiply(0.90));
-                            menuMediaView.fitWidthProperty().bind(mediaContainer.widthProperty().multiply(0.98));
-                        } catch (Exception ignored) {}
-                    });
+                                // Do NOT preserve aspect ratio here so the video can fill the container height
+                                menuMediaView.setPreserveRatio(false);
+
+                                // Bind MediaView to the container size (slightly inset)
+                                // use a slightly smaller multiplier so the visible video is a touch shorter than the buttons
+                                menuMediaView.fitHeightProperty().bind(mediaContainer.heightProperty().multiply(0.90));
+                                menuMediaView.fitWidthProperty().bind(mediaContainer.widthProperty().multiply(0.98));
+                            } catch (Exception ignored) {}
+                        });
+                    } catch (Exception me) {
+                        // Media construction can fail (unsupported format, codecs missing, bad URL)
+                        System.err.println("Failed to initialize menu media: " + me.getMessage());
+                        disableMenuMedia("Media init exception: " + me.getMessage());
+                    }
                 } else {
                     // no media found; leave placeholder empty
                     System.out.println("No preview video found in resources (tried menu.mp4, tetris_preview.mp4, preview.mp4)");
+                    disableMenuMedia("no resource");
                 }
             }
         } catch (Exception e) {
@@ -124,8 +168,8 @@ public class MainMenuController {
                             popup.setOnCloseRequest(new javafx.event.EventHandler<javafx.stage.WindowEvent>() {
                                 @Override
                                 public void handle(javafx.stage.WindowEvent e2) {
-                                    mp2.stop();
-                                    mp2.dispose();
+                                    try { mp2.stop(); } catch (Exception ignored) {}
+                                    try { mp2.dispose(); } catch (Exception ignored) {}
                                 }
                             });
                             popup.show();
@@ -386,6 +430,113 @@ public class MainMenuController {
         });
     }
 
+    /**
+     * Toggle the left-side settings overlay (create on demand).
+     */
+    private void toggleSettingsOverlay() {
+        if (settingsOverlayRoot == null) {
+            createSettingsOverlay();
+        }
+
+        // attach overlay to the top-level root StackPane so it covers the whole menu area
+        if (rootStack == null) return; // defensive
+
+        if (!settingsVisible) {
+            if (!rootStack.getChildren().contains(settingsOverlayRoot)) {
+                rootStack.getChildren().add(settingsOverlayRoot);
+            }
+            // use the standard overlay animation to match Solo/Multiplayer
+            showOverlay(settingsOverlayRoot);
+            // then animate the panel itself from right->0
+            Platform.runLater(() -> {
+                try {
+                    TranslateTransition t = new TranslateTransition(Duration.millis(300), settingsPanel);
+                    t.setFromX(settingsPanel.getTranslateX());
+                    t.setToX(0);
+                    t.play();
+                } catch (Exception ignored) {}
+            });
+            settingsVisible = true;
+        } else {
+            // animate panel out to the right, then hide overlay with the same effect as other screens
+            TranslateTransition t = new TranslateTransition(Duration.millis(240), settingsPanel);
+            t.setFromX(settingsPanel.getTranslateX());
+            t.setToX(settingsPanel.getPrefWidth() + 20);
+            t.setOnFinished(ev -> {
+                try {
+                    hideOverlay(settingsOverlayRoot);
+                    rootStack.getChildren().remove(settingsOverlayRoot);
+                } catch (Exception ignored) {}
+            });
+            t.play();
+            settingsVisible = false;
+        }
+    }
+
+    private void createSettingsOverlay() {
+        settingsOverlayRoot = new StackPane();
+        settingsOverlayRoot.setPickOnBounds(true);
+        // keep overlay transparent so it doesn't appear as a solid black box
+        settingsOverlayRoot.setStyle("-fx-background-color: transparent;");
+        settingsOverlayRoot.setVisible(false);
+
+        // Try to load FXML-based settings panel (preferred for styling)
+        try {
+            URL fxmlUrl = getClass().getClassLoader().getResource("settings.fxml");
+            if (fxmlUrl != null) {
+                FXMLLoader loader = new FXMLLoader(fxmlUrl);
+                Parent loaded = loader.load();
+                if (loaded instanceof VBox) {
+                    settingsPanel = (VBox) loaded;
+                } else {
+                    // wrap if it's not a VBox
+                    settingsPanel = new VBox();
+                    settingsPanel.getChildren().add(loaded);
+                }
+                // attach stylesheet if present
+                URL cssUrl = getClass().getClassLoader().getResource("settings.css");
+                if (cssUrl != null) settingsOverlayRoot.getStylesheets().add(cssUrl.toExternalForm());
+                // position off-screen to the right initially
+                double pref = settingsPanel.getPrefWidth() > 0 ? settingsPanel.getPrefWidth() : 360;
+                settingsPanel.setPrefWidth(pref);
+                settingsPanel.setTranslateX(pref + 20);
+            } else {
+                // fallback to a minimal inline panel
+                settingsPanel = new VBox();
+                settingsPanel.setPrefWidth(320);
+                settingsPanel.setMaxWidth(320);
+                settingsPanel.setStyle("-fx-background-color: #111217; -fx-padding: 18; -fx-spacing: 12;");
+                Label title = new Label("SETTINGS");
+                title.setStyle("-fx-text-fill: white; -fx-font-size: 18px; -fx-font-weight: bold;");
+                Accordion accordion = new Accordion();
+                settingsPanel.getChildren().addAll(title, accordion);
+                settingsPanel.setTranslateX(settingsPanel.getPrefWidth() + 20);
+            }
+        } catch (IOException ex) {
+            // fallback
+            settingsPanel = new VBox();
+            settingsPanel.setPrefWidth(320);
+            settingsPanel.setMaxWidth(320);
+            settingsPanel.setStyle("-fx-background-color: #111217; -fx-padding: 18; -fx-spacing: 12;");
+            Label title = new Label("SETTINGS");
+            title.setStyle("-fx-text-fill: white; -fx-font-size: 18px; -fx-font-weight: bold;");
+            Accordion accordion = new Accordion();
+            settingsPanel.getChildren().addAll(title, accordion);
+            settingsPanel.setTranslateX(settingsPanel.getPrefWidth() + 20);
+        }
+
+        // capture clicks outside to close
+    Region clickCatcher = new Region();
+    // expand the click catcher to fill available area so clicks outside the panel close it
+    clickCatcher.setMaxSize(Double.MAX_VALUE, Double.MAX_VALUE);
+        clickCatcher.setStyle("-fx-background-color: transparent;");
+        clickCatcher.setOnMouseClicked(ev -> { if (settingsVisible) toggleSettingsOverlay(); });
+
+        // anchor the panel to the right so it appears like other overlays
+        StackPane.setAlignment(settingsPanel, Pos.CENTER_RIGHT);
+        settingsOverlayRoot.getChildren().addAll(clickCatcher, settingsPanel);
+    }
+
     // Reusable helper to attach the same hover translate + subtle glow effect to any button
     private void attachHoverEffects(Button b, double expansion) {
         if (b == null) return;
@@ -495,16 +646,104 @@ public class MainMenuController {
     // Helper to show an overlay StackPane and hide main title/buttons
     private void showOverlay(javafx.scene.layout.StackPane overlay) {
         if (overlay == null) return;
-        mainButtons.setVisible(false);
-        overlay.setVisible(true);
-        if (titleText != null) titleText.setVisible(false);
+        try {
+            // animate main buttons out (slide left & fade)
+            if (mainButtons != null) {
+                Timeline t = new Timeline(
+                        new KeyFrame(Duration.ZERO, new KeyValue(mainButtons.translateXProperty(), 0), new KeyValue(mainButtons.opacityProperty(), 1.0)),
+                        new KeyFrame(Duration.millis(260), new KeyValue(mainButtons.translateXProperty(), -40, Interpolator.EASE_BOTH), new KeyValue(mainButtons.opacityProperty(), 0.08, Interpolator.EASE_BOTH))
+                );
+                t.play();
+            }
+
+            if (titleText != null) {
+                FadeTransition ft = new FadeTransition(Duration.millis(200), titleText);
+                ft.setFromValue(1.0);
+                ft.setToValue(0.0);
+                ft.play();
+            }
+
+            // prepare overlay: position off-screen to the right then slide in
+            overlay.setVisible(true);
+            overlay.setOpacity(1.0);
+            // compute start X after layout
+            Platform.runLater(() -> {
+                try {
+                    double startX = overlay.getScene() != null ? overlay.getScene().getWidth() : overlay.getWidth();
+                    overlay.setTranslateX(startX);
+                    TranslateTransition tt = new TranslateTransition(Duration.millis(300), overlay);
+                    tt.setFromX(startX);
+                    tt.setToX(0);
+                    tt.setInterpolator(Interpolator.EASE_BOTH);
+                    tt.play();
+                } catch (Exception ignored) {}
+            });
+        } catch (Exception ex) {
+            // fallback to instant visibility
+            try { mainButtons.setVisible(false); } catch (Exception ignored) {}
+            try { overlay.setVisible(true); } catch (Exception ignored) {}
+            try { if (titleText != null) titleText.setVisible(false); } catch (Exception ignored) {}
+        }
     }
 
-    // Helper to hide an overlay and restore main title/buttons
+    // Disable/hide the menu media view and dispose any active player. Provide a reason for diagnostics.
+    private void disableMenuMedia(String reason) {
+        try {
+            System.err.println("Menu media disabled: " + reason);
+        } catch (Exception ignored) {}
+        try {
+            if (menuMediaView != null) {
+                javafx.scene.media.MediaPlayer mp = menuMediaView.getMediaPlayer();
+                if (mp != null) {
+                    try { mp.stop(); } catch (Exception ignored) {}
+                    try { mp.dispose(); } catch (Exception ignored) {}
+                }
+                try { menuMediaView.setMediaPlayer(null); } catch (Exception ignored) {}
+            }
+        } catch (Exception ignored) {}
+        try { if (mediaContainer != null) mediaContainer.setVisible(false); } catch (Exception ignored) {}
+    }
+
+    // Helper to hide an overlay and restore main title/buttons (animated)
     private void hideOverlay(javafx.scene.layout.StackPane overlay) {
         if (overlay == null) return;
-        overlay.setVisible(false);
-        mainButtons.setVisible(true);
-        if (titleText != null) titleText.setVisible(true);
+        try {
+            // slide overlay out to right
+            Platform.runLater(() -> {
+                try {
+                    double endX = overlay.getScene() != null ? overlay.getScene().getWidth() : overlay.getWidth();
+                    TranslateTransition tt = new TranslateTransition(Duration.millis(220), overlay);
+                    tt.setFromX(overlay.getTranslateX());
+                    tt.setToX(endX);
+                    tt.setInterpolator(Interpolator.EASE_BOTH);
+                    tt.setOnFinished(ev -> {
+                        try { overlay.setVisible(false); overlay.setTranslateX(0); } catch (Exception ignored) {}
+                    });
+                    tt.play();
+                } catch (Exception ignored) {
+                    try { overlay.setVisible(false); } catch (Exception ignored2) {}
+                }
+            });
+
+            // restore main buttons (slide back and fade in)
+            if (mainButtons != null) {
+                Timeline t = new Timeline(
+                        new KeyFrame(Duration.ZERO, new KeyValue(mainButtons.translateXProperty(), mainButtons.getTranslateX()), new KeyValue(mainButtons.opacityProperty(), mainButtons.getOpacity())),
+                        new KeyFrame(Duration.millis(260), new KeyValue(mainButtons.translateXProperty(), 0, Interpolator.EASE_BOTH), new KeyValue(mainButtons.opacityProperty(), 1.0, Interpolator.EASE_BOTH))
+                );
+                t.play();
+            }
+
+            if (titleText != null) {
+                FadeTransition ft = new FadeTransition(Duration.millis(220), titleText);
+                ft.setFromValue(titleText.getOpacity());
+                ft.setToValue(1.0);
+                ft.play();
+            }
+        } catch (Exception ex) {
+            try { overlay.setVisible(false); } catch (Exception ignored) {}
+            try { mainButtons.setVisible(true); } catch (Exception ignored) {}
+            try { if (titleText != null) titleText.setVisible(true); } catch (Exception ignored) {}
+        }
     }
 }

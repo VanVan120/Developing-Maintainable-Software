@@ -9,7 +9,7 @@
 <?import javafx.scene.media.MediaView?>
 <AnchorPane xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.comp2042.MainMenuController" styleClass="menu-root">
     <children>
-    <StackPane AnchorPane.leftAnchor="0" AnchorPane.rightAnchor="0" AnchorPane.topAnchor="0" AnchorPane.bottomAnchor="0">
+    <StackPane fx:id="rootStack" AnchorPane.leftAnchor="0" AnchorPane.rightAnchor="0" AnchorPane.topAnchor="0" AnchorPane.bottomAnchor="0">
             <children>
                 <BorderPane prefWidth="1200" prefHeight="720">
                     <top>

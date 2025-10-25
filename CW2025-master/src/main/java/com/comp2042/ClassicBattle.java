@@ -238,6 +238,9 @@ public class ClassicBattle implements Initializable {
                     matchEnded = true;
                     try { if (matchTimer != null) matchTimer.stop(); } catch (Exception ignored) {}
                     try { if (previewPoller != null) previewPoller.stop(); } catch (Exception ignored) {}
+                    // Ensure both GUIs are transitioned to game-over so their timelines and input handlers stop
+                    try { if (leftGui != null) leftGui.gameOver(); } catch (Exception ignored) {}
+                    try { if (rightGui != null) rightGui.gameOver(); } catch (Exception ignored) {}
                     int lscore = (leftController != null ? leftController.getScoreProperty().get() : 0);
                     int rscore = (rightController != null ? rightController.getScoreProperty().get() : 0);
                     String reason = "Winner by survival (opponent lost)";
@@ -254,6 +257,9 @@ public class ClassicBattle implements Initializable {
                     matchEnded = true;
                     try { if (matchTimer != null) matchTimer.stop(); } catch (Exception ignored) {}
                     try { if (previewPoller != null) previewPoller.stop(); } catch (Exception ignored) {}
+                    // Ensure both GUIs are transitioned to game-over so their timelines and input handlers stop
+                    try { if (leftGui != null) leftGui.gameOver(); } catch (Exception ignored) {}
+                    try { if (rightGui != null) rightGui.gameOver(); } catch (Exception ignored) {}
                     int lscore = (leftController != null ? leftController.getScoreProperty().get() : 0);
                     int rscore = (rightController != null ? rightController.getScoreProperty().get() : 0);
                     String reason = "Winner by survival (opponent lost)";

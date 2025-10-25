@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+<?import javafx.geometry.Insets?>
+<VBox xmlns="http://javafx.com/javafx/21" xmlns:fx="http://javafx.com/fxml/1" fx:id="settingsPanel" spacing="12" prefWidth="360" styleClass="settings-root">
+    <children>
+        <Label text="SETTINGS" styleClass="settings-title" />
+        <Accordion fx:id="settingsAccordion">
+            <panes>
+                <TitledPane text="CONTROLS">
+                    <content>
+                        <VBox spacing="6" padding="10">
+                            <children>
+                                <Label text="Move Left: A / ←" />
+                                <Label text="Move Right: D / →" />
+                                <Label text="Rotate: W / ↑" />
+                            </children>
+                        </VBox>
+                    </content>
+                </TitledPane>
+                <TitledPane text="HANDLING">
+                    <content>
+                        <VBox spacing="6" padding="10">
+                            <children>
+                                <Label text="Soft Drop: S / ↓" />
+                                <Label text="Hard Drop: Space" />
+                            </children>
+                        </VBox>
+                    </content>
+                </TitledPane>
+                <TitledPane text="VOLUME & AUDIO">
+                    <content>
+                        <VBox spacing="8" padding="10">
+                            <children>
+                                <Label text="Master Volume" />
+                                <Slider fx:id="volumeSlider" min="0" max="1" value="0.7" blockIncrement="0.05" />
+                            </children>
+                        </VBox>
+                    </content>
+                </TitledPane>
+            </panes>
+        </Accordion>
+    </children>
+    <padding>
+        <Insets top="18" right="18" bottom="18" left="18" />
+    </padding>
+</VBox>
