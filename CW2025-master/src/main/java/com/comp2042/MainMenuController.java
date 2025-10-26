@@ -57,10 +57,18 @@ public class MainMenuController {
     @FXML private javafx.scene.layout.StackPane mediaContainer;
     @FXML private javafx.scene.layout.StackPane rootStack;
     private String menuMediaUrl;
-    // settings overlay root (created on demand)
-    private StackPane settingsOverlayRoot;
-    private VBox settingsPanel;
-    private boolean settingsVisible = false;
+    
+    // --- NEW SETTINGS VARIABLES ---
+    @FXML private javafx.scene.layout.StackPane settingsOptions;
+    @FXML private Button controlsBtn;
+    @FXML private Button handlingBtn;
+    @FXML private Button audioBtn;
+    @FXML private Button settingsBackBtn;
+    
+    // --- OLD SETTINGS VARIABLES (REMOVED) ---
+    // private StackPane settingsOverlayRoot;
+    // private VBox settingsPanel;
+    // private boolean settingsVisible = false;
 
     @FXML
     public void initialize() {
@@ -70,16 +78,21 @@ public class MainMenuController {
             if (bg != null && bgImage != null) bgImage.setImage(new Image(bg.toExternalForm()));
         } catch (Exception ignored) {}
 
-        // Settings button: show a left-side sliding settings panel (collapsible sections)
+        // --- MODIFIED SETTINGS BUTTON HANDLER ---
+        // Settings button: now shows the new 'settingsOptions' overlay
         if (settingsBtn != null) {
             settingsBtn.setOnAction(new EventHandler<ActionEvent>() {
                 @Override
                 public void handle(ActionEvent event) {
-                    try {
-                        toggleSettingsOverlay();
-                    } catch (Exception ex) {
-                        ex.printStackTrace();
-                    }
+                    // OLD CODE:
+                    // try {
+                    //     toggleSettingsOverlay();
+                    // } catch (Exception ex) {
+                    //     ex.printStackTrace();
+                    // }
+                    
+                    // NEW CODE:
+                    showOverlay(settingsOptions);
                 }
             });
         }
@@ -209,6 +222,41 @@ public class MainMenuController {
                 @Override
                 public void handle(ActionEvent event) {
                     hideOverlay(multiOptions);
+                }
+            });
+        }
+        
+        // --- NEW SETTINGS BUTTON HANDLERS ---
+        if (settingsBackBtn != null) {
+            settingsBackBtn.setOnAction(new EventHandler<ActionEvent>() {
+                @Override
+                public void handle(ActionEvent event) {
+                    hideOverlay(settingsOptions);
+                }
+            });
+        }
+        if (controlsBtn != null) {
+            controlsBtn.setOnAction(new EventHandler<ActionEvent>() {
+                @Override
+                public void handle(ActionEvent event) {
+                    System.out.println("Controls button clicked - not implemented yet");
+                    // Here you would open the controls popup or screen
+                }
+            });
+        }
+        if (handlingBtn != null) {
+            handlingBtn.setOnAction(new EventHandler<ActionEvent>() {
+                @Override
+                public void handle(ActionEvent event) {
+                    System.out.println("Handling button clicked - not implemented yet");
+                }
+            });
+        }
+        if (audioBtn != null) {
+            audioBtn.setOnAction(new EventHandler<ActionEvent>() {
+                @Override
+                public void handle(ActionEvent event) {
+                    System.out.println("Audio button clicked - not implemented yet");
                 }
             });
         }
@@ -426,117 +474,19 @@ public class MainMenuController {
                 attachHoverEffects(normalBtn, expansion);
                 attachHoverEffects(hardBtn, expansion);
                 attachHoverEffects(backBtn, expansion);
+                
+                // --- ADD NEW SETTINGS BUTTONS TO HOVER EFFECTS ---
+                attachHoverEffects(controlsBtn, expansion);
+                attachHoverEffects(handlingBtn, expansion);
+                attachHoverEffects(audioBtn, expansion);
+                attachHoverEffects(settingsBackBtn, expansion);
+                
             } catch (Exception ignored) {}
         });
     }
-
-    /**
-     * Toggle the left-side settings overlay (create on demand).
-     */
-    private void toggleSettingsOverlay() {
-        if (settingsOverlayRoot == null) {
-            createSettingsOverlay();
-        }
-
-        // attach overlay to the top-level root StackPane so it covers the whole menu area
-        if (rootStack == null) return; // defensive
-
-        if (!settingsVisible) {
-            if (!rootStack.getChildren().contains(settingsOverlayRoot)) {
-                rootStack.getChildren().add(settingsOverlayRoot);
-            }
-            // use the standard overlay animation to match Solo/Multiplayer
-            showOverlay(settingsOverlayRoot);
-            // then animate the panel itself from right->0
-            Platform.runLater(() -> {
-                try {
-                    TranslateTransition t = new TranslateTransition(Duration.millis(300), settingsPanel);
-                    t.setFromX(settingsPanel.getTranslateX());
-                    t.setToX(0);
-                    t.play();
-                } catch (Exception ignored) {}
-            });
-            settingsVisible = true;
-        } else {
-            // animate panel out to the right, then hide overlay with the same effect as other screens
-            TranslateTransition t = new TranslateTransition(Duration.millis(240), settingsPanel);
-            t.setFromX(settingsPanel.getTranslateX());
-            t.setToX(settingsPanel.getPrefWidth() + 20);
-            t.setOnFinished(ev -> {
-                try {
-                    hideOverlay(settingsOverlayRoot);
-                    rootStack.getChildren().remove(settingsOverlayRoot);
-                } catch (Exception ignored) {}
-            });
-            t.play();
-            settingsVisible = false;
-        }
-    }
-
-    private void createSettingsOverlay() {
-        settingsOverlayRoot = new StackPane();
-        settingsOverlayRoot.setPickOnBounds(true);
-        // keep overlay transparent so it doesn't appear as a solid black box
-        settingsOverlayRoot.setStyle("-fx-background-color: transparent;");
-        settingsOverlayRoot.setVisible(false);
-
-        // Try to load FXML-based settings panel (preferred for styling)
-        try {
-            URL fxmlUrl = getClass().getClassLoader().getResource("settings.fxml");
-            if (fxmlUrl != null) {
-                FXMLLoader loader = new FXMLLoader(fxmlUrl);
-                Parent loaded = loader.load();
-                if (loaded instanceof VBox) {
-                    settingsPanel = (VBox) loaded;
-                } else {
-                    // wrap if it's not a VBox
-                    settingsPanel = new VBox();
-                    settingsPanel.getChildren().add(loaded);
-                }
-                // attach stylesheet if present
-                URL cssUrl = getClass().getClassLoader().getResource("settings.css");
-                if (cssUrl != null) settingsOverlayRoot.getStylesheets().add(cssUrl.toExternalForm());
-                // position off-screen to the right initially
-                double pref = settingsPanel.getPrefWidth() > 0 ? settingsPanel.getPrefWidth() : 360;
-                settingsPanel.setPrefWidth(pref);
-                settingsPanel.setTranslateX(pref + 20);
-            } else {
-                // fallback to a minimal inline panel
-                settingsPanel = new VBox();
-                settingsPanel.setPrefWidth(320);
-                settingsPanel.setMaxWidth(320);
-                settingsPanel.setStyle("-fx-background-color: #111217; -fx-padding: 18; -fx-spacing: 12;");
-                Label title = new Label("SETTINGS");
-                title.setStyle("-fx-text-fill: white; -fx-font-size: 18px; -fx-font-weight: bold;");
-                Accordion accordion = new Accordion();
-                settingsPanel.getChildren().addAll(title, accordion);
-                settingsPanel.setTranslateX(settingsPanel.getPrefWidth() + 20);
-            }
-        } catch (IOException ex) {
-            // fallback
-            settingsPanel = new VBox();
-            settingsPanel.setPrefWidth(320);
-            settingsPanel.setMaxWidth(320);
-            settingsPanel.setStyle("-fx-background-color: #111217; -fx-padding: 18; -fx-spacing: 12;");
-            Label title = new Label("SETTINGS");
-            title.setStyle("-fx-text-fill: white; -fx-font-size: 18px; -fx-font-weight: bold;");
-            Accordion accordion = new Accordion();
-            settingsPanel.getChildren().addAll(title, accordion);
-            settingsPanel.setTranslateX(settingsPanel.getPrefWidth() + 20);
-        }
-
-        // capture clicks outside to close
-    Region clickCatcher = new Region();
-    // expand the click catcher to fill available area so clicks outside the panel close it
-    clickCatcher.setMaxSize(Double.MAX_VALUE, Double.MAX_VALUE);
-        clickCatcher.setStyle("-fx-background-color: transparent;");
-        clickCatcher.setOnMouseClicked(ev -> { if (settingsVisible) toggleSettingsOverlay(); });
-
-        // anchor the panel to the right so it appears like other overlays
-        StackPane.setAlignment(settingsPanel, Pos.CENTER_RIGHT);
-        settingsOverlayRoot.getChildren().addAll(clickCatcher, settingsPanel);
-    }
-
+    
+    // --- 'toggleSettingsOverlay' and 'createSettingsOverlay' METHODS REMOVED ---
+    
     // Reusable helper to attach the same hover translate + subtle glow effect to any button
     private void attachHoverEffects(Button b, double expansion) {
         if (b == null) return;
