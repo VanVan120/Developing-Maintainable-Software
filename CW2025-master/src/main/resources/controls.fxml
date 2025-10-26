@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?import javafx.geometry.*?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+<?import javafx.scene.text.*?>
+<StackPane xmlns="http://javafx.com/javafx/8" xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.comp2042.ControlsController" prefWidth="600" prefHeight="420"> <children>
+        <StackPane prefWidth="920" prefHeight="560">
+            <GridPane hgap="12" vgap="14" style="-fx-padding:28; -fx-background-color: linear-gradient(to bottom, rgba(18,20,24,0.92), rgba(18,20,24,0.88)); -fx-background-radius:10;">
+                <columnConstraints>
+                    <ColumnConstraints percentWidth="48" />
+                    <ColumnConstraints percentWidth="26" hgrow="ALWAYS"/>
+                    <ColumnConstraints percentWidth="26" hgrow="ALWAYS"/>
+                </columnConstraints>
+
+                <Label text="Controls" style="-fx-text-fill: #9fb0ff; -fx-font-size:38px; -fx-font-weight:700; -fx-letter-spacing:2px;" GridPane.rowIndex="0" GridPane.columnIndex="0" GridPane.columnSpan="3" />
+                <Label text="Configure singleplayer key bindings" style="-fx-text-fill: #c9d1e8; -fx-font-size:12px;" GridPane.rowIndex="1" GridPane.columnIndex="0" GridPane.columnSpan="3" />
+
+                <Label text="Default" style="-fx-text-fill: #7f8a9e; -fx-font-size:14px; -fx-font-weight:bold;" GridPane.rowIndex="2" GridPane.columnIndex="1" alignment="CENTER"/>
+                <Label text="Current" style="-fx-text-fill: #7f8a9e; -fx-font-size:14px; -fx-font-weight:bold;" GridPane.rowIndex="2" GridPane.columnIndex="2" alignment="CENTER"/>
+                <Region prefHeight="6" GridPane.rowIndex="3" GridPane.columnIndex="0" GridPane.columnSpan="3" /> <Label text="MOVE FALLING PIECE LEFT" style="-fx-text-fill:#9aa3b2; -fx-font-size:20px; -fx-font-family: 'Arial Black';" GridPane.rowIndex="4" GridPane.columnIndex="0" />
+                <Button fx:id="btnLeftDefault" text="[DEFAULT]" GridPane.rowIndex="4" GridPane.columnIndex="1" styleClass="keybind-button-default" maxWidth="Infinity"/>
+                <Button fx:id="btnLeftCurrent" text="[NOT SET]" GridPane.rowIndex="4" GridPane.columnIndex="2" styleClass="keybind-button-current" maxWidth="Infinity"/>
+
+                <Label text="MOVE FALLING PIECE RIGHT" style="-fx-text-fill:#9aa3b2; -fx-font-size:20px; -fx-font-family: 'Arial Black';" GridPane.rowIndex="5" GridPane.columnIndex="0" />
+                <Button fx:id="btnRightDefault" text="[DEFAULT]" GridPane.rowIndex="5" GridPane.columnIndex="1" styleClass="keybind-button-default" maxWidth="Infinity"/>
+                <Button fx:id="btnRightCurrent" text="[NOT SET]" GridPane.rowIndex="5" GridPane.columnIndex="2" styleClass="keybind-button-current" maxWidth="Infinity"/>
+
+                <Label text="SOFT DROP" style="-fx-text-fill:#9aa3b2; -fx-font-size:20px; -fx-font-family: 'Arial Black';" GridPane.rowIndex="6" GridPane.columnIndex="0" />
+                <Button fx:id="btnSoftDefault" text="[DEFAULT]" GridPane.rowIndex="6" GridPane.columnIndex="1" styleClass="keybind-button-default" maxWidth="Infinity"/>
+                <Button fx:id="btnSoftCurrent" text="[NOT SET]" GridPane.rowIndex="6" GridPane.columnIndex="2" styleClass="keybind-button-current" maxWidth="Infinity"/>
+
+                <Label text="HARD DROP" style="-fx-text-fill:#9aa3b2; -fx-font-size:20px; -fx-font-family: 'Arial Black';" GridPane.rowIndex="7" GridPane.columnIndex="0" />
+                <Button fx:id="btnHardDefault" text="[DEFAULT]" GridPane.rowIndex="7" GridPane.columnIndex="1" styleClass="keybind-button-default" maxWidth="Infinity"/>
+                <Button fx:id="btnHardCurrent" text="[NOT SET]" GridPane.rowIndex="7" GridPane.columnIndex="2" styleClass="keybind-button-current" maxWidth="Infinity"/>
+
+                <Label text="ROTATE (UP)" style="-fx-text-fill:#9aa3b2; -fx-font-size:20px; -fx-font-family: 'Arial Black';" GridPane.rowIndex="8" GridPane.columnIndex="0" />
+                <Button fx:id="btnRotateDefault" text="[DEFAULT]" GridPane.rowIndex="8" GridPane.columnIndex="1" styleClass="keybind-button-default" maxWidth="Infinity"/>
+                <Button fx:id="btnRotateCurrent" text="[NOT SET]" GridPane.rowIndex="8" GridPane.columnIndex="2" styleClass="keybind-button-current" maxWidth="Infinity"/>
+
+                <Label fx:id="lblInfo" text="Click a button in the 'Current' column to change the key binding." style="-fx-text-fill: #c9d1e8; -fx-font-size:12px;" GridPane.rowIndex="9" GridPane.columnIndex="1" GridPane.columnSpan="2" />
+
+                <HBox GridPane.rowIndex="1" GridPane.columnIndex="2" alignment="CENTER_RIGHT" spacing="8">
+                    <Button fx:id="btnReset" text="Reset" styleClass="controls-action" />
+                    <Button fx:id="btnCancel" text="Cancel" styleClass="controls-action" />
+                    <Button fx:id="btnSave" text="Save" styleClass="controls-action" />
+                </HBox>
+            </GridPane>
+        </StackPane>
+    </children>
+</StackPane>

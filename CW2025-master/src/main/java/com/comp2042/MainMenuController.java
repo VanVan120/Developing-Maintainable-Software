@@ -15,6 +15,7 @@ import javafx.event.EventHandler;
 import java.io.IOException;
 import java.net.URL;
 import javafx.application.Platform;
+import javafx.scene.input.KeyCode;
 import javafx.animation.KeyFrame;
 import javafx.animation.KeyValue;
 import javafx.animation.Timeline;
@@ -58,18 +59,26 @@ public class MainMenuController {
     @FXML private javafx.scene.layout.StackPane rootStack;
     private String menuMediaUrl;
     
-    // --- NEW SETTINGS VARIABLES ---
+    // --- SETTINGS VARIABLES ---
     @FXML private javafx.scene.layout.StackPane settingsOptions;
     @FXML private Button controlsBtn;
     @FXML private Button handlingBtn;
     @FXML private Button audioBtn;
     @FXML private Button settingsBackBtn;
     
-    // --- OLD SETTINGS VARIABLES (REMOVED) ---
-    // private StackPane settingsOverlayRoot;
-    // private VBox settingsPanel;
-    // private boolean settingsVisible = false;
+    // --- NEW CONTROLS SUB-MENU VARIABLES ---
+    @FXML private StackPane controlsOptions;
+    @FXML private Button singlePlayerConfigBtn;
+    @FXML private Button multiPlayerConfigBtn;
+    @FXML private Button controlsBackBtn;
 
+    // stored singleplayer control overrides
+    private KeyCode spLeft = null;
+    private KeyCode spRight = null;
+    private KeyCode spRotate = null;
+    private KeyCode spDown = null;
+    private KeyCode spHard = null;
+    
     @FXML
     public void initialize() {
         // set a background if available
@@ -78,26 +87,17 @@ public class MainMenuController {
             if (bg != null && bgImage != null) bgImage.setImage(new Image(bg.toExternalForm()));
         } catch (Exception ignored) {}
 
-        // --- MODIFIED SETTINGS BUTTON HANDLER ---
-        // Settings button: now shows the new 'settingsOptions' overlay
+        // Settings button: shows the 'settingsOptions' overlay
         if (settingsBtn != null) {
             settingsBtn.setOnAction(new EventHandler<ActionEvent>() {
                 @Override
                 public void handle(ActionEvent event) {
-                    // OLD CODE:
-                    // try {
-                    //     toggleSettingsOverlay();
-                    // } catch (Exception ex) {
-                    //     ex.printStackTrace();
-                    // }
-                    
-                    // NEW CODE:
                     showOverlay(settingsOptions);
                 }
             });
         }
 
-        // Attempt to load a preview video into the right-side MediaView (if present in resources)
+        // --- (MediaView logic remains unchanged) ---
         try {
             if (menuMediaView != null && mediaContainer != null) {
                 String[] candidates = {"menu.mp4", "tetris_preview.mp4", "preview.mp4", "Tetris.mp4"};
@@ -111,7 +111,6 @@ public class MainMenuController {
                     try {
                         Media media = new Media(menuMediaUrl);
                         MediaPlayer mp = new MediaPlayer(media);
-                        // handle media player errors and state for better diagnostics/fallback
                         mp.setOnError(() -> {
                             try { System.err.println("Menu media player error: " + mp.getError()); } catch (Exception ignored) {}
                             disableMenuMedia("MediaPlayer error: " + (mp.getError() != null ? mp.getError().getMessage() : "unknown"));
@@ -121,32 +120,24 @@ public class MainMenuController {
                         });
                         mp.setCycleCount(MediaPlayer.INDEFINITE);
                         mp.setAutoPlay(true);
-                        mp.setMute(true); // mute preview by default
+                        mp.setMute(true); 
                         menuMediaView.setMediaPlayer(mp);
 
-                        // Defer binding until after initial layout so mainButtons height is valid
                         Platform.runLater(() -> {
                             try {
                                 if (mainButtons != null && mediaContainer != null) {
                                     mediaContainer.prefHeightProperty().bind(mainButtons.heightProperty().multiply(0.92));
                                 }
-
-                                // Do NOT preserve aspect ratio here so the video can fill the container height
                                 menuMediaView.setPreserveRatio(false);
-
-                                // Bind MediaView to the container size (slightly inset)
-                                // use a slightly smaller multiplier so the visible video is a touch shorter than the buttons
                                 menuMediaView.fitHeightProperty().bind(mediaContainer.heightProperty().multiply(0.90));
                                 menuMediaView.fitWidthProperty().bind(mediaContainer.widthProperty().multiply(0.98));
                             } catch (Exception ignored) {}
                         });
                     } catch (Exception me) {
-                        // Media construction can fail (unsupported format, codecs missing, bad URL)
                         System.err.println("Failed to initialize menu media: " + me.getMessage());
                         disableMenuMedia("Media init exception: " + me.getMessage());
                     }
                 } else {
-                    // no media found; leave placeholder empty
                     System.out.println("No preview video found in resources (tried menu.mp4, tetris_preview.mp4, preview.mp4)");
                     disableMenuMedia("no resource");
                 }
@@ -155,7 +146,6 @@ public class MainMenuController {
             System.out.println("Failed to load preview media: " + e.getMessage());
         }
 
-        // Make the preview clickable: open a larger preview window when clicked
         try {
             if (menuMediaView != null) {
                 menuMediaView.setOnMouseClicked(new javafx.event.EventHandler<javafx.scene.input.MouseEvent>() {
@@ -175,7 +165,6 @@ public class MainMenuController {
                             popup.setScene(scene);
                             popup.initOwner(menuMediaView.getScene() != null ? (Stage)menuMediaView.getScene().getWindow() : null);
                             popup.setTitle("Preview");
-                            // bind media view to popup size
                             mv.fitWidthProperty().bind(popup.widthProperty());
                             mv.fitHeightProperty().bind(popup.heightProperty());
                             popup.setOnCloseRequest(new javafx.event.EventHandler<javafx.stage.WindowEvent>() {
@@ -201,7 +190,6 @@ public class MainMenuController {
             }
         });
 
-        // Multiplayer button toggles multiplayer options
         multiPlayerBtn.setOnAction(new EventHandler<ActionEvent>() {
             @Override
             public void handle(ActionEvent event) {
@@ -216,7 +204,6 @@ public class MainMenuController {
             }
         });
 
-        // Multiplayer back button returns to main buttons
         if (multiBackBtn != null) {
             multiBackBtn.setOnAction(new EventHandler<ActionEvent>() {
                 @Override
@@ -226,7 +213,9 @@ public class MainMenuController {
             });
         }
         
-        // --- NEW SETTINGS BUTTON HANDLERS ---
+        // --- SETTINGS MENU BUTTON HANDLERS ---
+        
+        // "Back" button on Settings menu (goes to Main Menu)
         if (settingsBackBtn != null) {
             settingsBackBtn.setOnAction(new EventHandler<ActionEvent>() {
                 @Override
@@ -235,20 +224,25 @@ public class MainMenuController {
                 }
             });
         }
+        
+        // "Controls" button (goes to Controls Sub-Menu)
         if (controlsBtn != null) {
             controlsBtn.setOnAction(new EventHandler<ActionEvent>() {
                 @Override
                 public void handle(ActionEvent event) {
-                    System.out.println("Controls button clicked - not implemented yet");
-                    // Here you would open the controls popup or screen
+                    // Transition from Settings -> Controls sub-menu
+                    transitionFrom(settingsOptions);
+                    transitionTo(controlsOptions);
                 }
             });
         }
+        
         if (handlingBtn != null) {
             handlingBtn.setOnAction(new EventHandler<ActionEvent>() {
                 @Override
                 public void handle(ActionEvent event) {
                     System.out.println("Handling button clicked - not implemented yet");
+                    // TODO: Create handlingOptions StackPane and transition to it
                 }
             });
         }
@@ -257,11 +251,39 @@ public class MainMenuController {
                 @Override
                 public void handle(ActionEvent event) {
                     System.out.println("Audio button clicked - not implemented yet");
+                    // TODO: Create audioOptions StackPane and transition to it
                 }
             });
         }
 
-        // Multiplayer mode placeholders: currently just log and return to main menu
+        // --- NEW CONTROLS SUB-MENU HANDLERS ---
+
+        // "Back" button on Controls sub-menu (goes to Settings)
+        if (controlsBackBtn != null) {
+            controlsBackBtn.setOnAction(e -> {
+                // Transition from Controls sub-menu -> Settings
+                transitionFrom(controlsOptions);
+                transitionTo(settingsOptions);
+            });
+        }
+
+        // "Single Player" button (loads the final controls.fxml overlay)
+        if (singlePlayerConfigBtn != null) {
+            singlePlayerConfigBtn.setOnAction(e -> {
+                loadSinglePlayerControls();
+            });
+        }
+
+        // "Multiplayer" button (placeholder)
+        if (multiPlayerConfigBtn != null) {
+            multiPlayerConfigBtn.setOnAction(e -> {
+                System.out.println("Multiplayer controls not implemented yet.");
+                // TODO: Load multiplayer controls FXML
+            });
+        }
+
+
+        // --- (Multiplayer game buttons remain unchanged) ---
             if (scoreBattleBtn != null) {
                 scoreBattleBtn.setOnAction(new EventHandler<ActionEvent>() {
                     @Override
@@ -272,25 +294,15 @@ public class MainMenuController {
                             FXMLLoader fxmlLoader = new FXMLLoader(location);
                             Parent root = fxmlLoader.load();
                             ScoreBattleController controller = fxmlLoader.getController();
-
-                            // determine the current Stage so we can preserve window state
                             Stage stage = (Stage) scoreBattleBtn.getScene().getWindow();
-
-                            // apply full scenic background for the whole score-battle scene (not per-board)
                             try {
                                 URL normalBg = getClass().getClassLoader().getResource("Normal.jpg");
                                 if (normalBg != null) root.setStyle("-fx-background-image: url('" + normalBg.toExternalForm() + "'); -fx-background-size: cover; -fx-background-position: center center;");
-                                // Do not clear the Scene's stylesheets here - clearing the Scene stylesheets
-                                // removes the shared `menu.css` which causes unstyled controls after
-                                // returning from Score Battle. Embedded roots already clear their own
-                                // stylesheets in the multiplayer loader so leave the Scene alone.
                             } catch (Exception ignored) {}
-
                             double w = stage.getWidth();
                             double h = stage.getHeight();
                             boolean full = stage.isFullScreen();
                             boolean max = stage.isMaximized();
-
                             if (stage.getScene() != null) {
                                 stage.getScene().setRoot(root);
                                 stage.setMaximized(max);
@@ -302,8 +314,6 @@ public class MainMenuController {
                                 if (full) Platform.runLater(() -> stage.setFullScreen(true));
                                 stage.show();
                             }
-
-                            // initialize both games inside ScoreBattleController
                             controller.initBothGames();
                         } catch (IOException ex) {
                             ex.printStackTrace();
@@ -321,19 +331,15 @@ public class MainMenuController {
                         FXMLLoader fxmlLoader = new FXMLLoader(location);
                         Parent root = fxmlLoader.load();
                         ClassicBattle controller = fxmlLoader.getController();
-
                         Stage stage = (Stage) classicBattleBtn.getScene().getWindow();
-
                         try {
                             URL normalBg = getClass().getClassLoader().getResource("Normal.jpg");
                             if (normalBg != null) root.setStyle("-fx-background-image: url('" + normalBg.toExternalForm() + "'); -fx-background-size: cover; -fx-background-position: center center;");
                         } catch (Exception ignored) {}
-
                         double w = stage.getWidth();
                         double h = stage.getHeight();
                         boolean full = stage.isFullScreen();
                         boolean max = stage.isMaximized();
-
                         if (stage.getScene() != null) {
                             stage.getScene().setRoot(root);
                             stage.setMaximized(max);
@@ -345,8 +351,6 @@ public class MainMenuController {
                             if (full) Platform.runLater(() -> stage.setFullScreen(true));
                             stage.show();
                         }
-
-                        // initialize both games inside ClassicBattle
                         controller.initBothGames();
                     } catch (IOException ex) {
                         ex.printStackTrace();
@@ -363,7 +367,7 @@ public class MainMenuController {
             });
         }
 
-        // Normal button: load the game layout and start the game (normal mode)
+        // --- (Solo game buttons remain unchanged) ---
         normalBtn.setOnAction(new EventHandler<ActionEvent>() {
             @Override
             public void handle(ActionEvent event) {
@@ -372,22 +376,16 @@ public class MainMenuController {
                 FXMLLoader fxmlLoader = new FXMLLoader(location);
                 Parent root = fxmlLoader.load();
                 GuiController controller = fxmlLoader.getController();
-
                 Stage stage = (Stage) normalBtn.getScene().getWindow();
-                // preserve current stage size and full-screen/maximized state and reuse existing Scene root
                 double w = stage.getWidth();
                 double h = stage.getHeight();
                 boolean full = stage.isFullScreen();
                 boolean max = stage.isMaximized();
-
                 if (stage.getScene() != null) {
-                    // set Normal background specifically for Normal mode
                     try {
                         URL normalBg = getClass().getClassLoader().getResource("Normal.jpg");
                         if (normalBg != null) root.setStyle("-fx-background-image: url('" + normalBg.toExternalForm() + "'); -fx-background-size: cover; -fx-background-position: center center;");
                     } catch (Exception ignored) {}
-
-                    // reuse existing scene to keep size and window state unchanged
                     stage.getScene().setRoot(root);
                     stage.setMaximized(max);
                     if (full) Platform.runLater(() -> stage.setFullScreen(true));
@@ -396,15 +394,12 @@ public class MainMenuController {
                         URL normalBg = getClass().getClassLoader().getResource("Normal.jpg");
                         if (normalBg != null) root.setStyle("-fx-background-image: url('" + normalBg.toExternalForm() + "'); -fx-background-size: cover; -fx-background-position: center center;");
                     } catch (Exception ignored) {}
-
                     Scene scene = new Scene(root, Math.max(420, w), Math.max(700, h));
                     stage.setScene(scene);
                     stage.setMaximized(max);
                     if (full) Platform.runLater(() -> stage.setFullScreen(true));
                     stage.show();
                 }
-
-                // initialize game controller and start countdown
                 new GameController(controller);
                 controller.startCountdown(3);
             } catch (IOException ex) {
@@ -412,8 +407,6 @@ public class MainMenuController {
             }
             }
         });
-
-        // Easy and Hard: pass mode to loadGame so we can set background and level
         easyBtn.setOnAction(new EventHandler<ActionEvent>() {
             @Override
             public void handle(ActionEvent event) { loadGame("Easy"); }
@@ -423,31 +416,24 @@ public class MainMenuController {
             public void handle(ActionEvent event) { loadGame("Hard"); }
         });
 
-        // Ensure all main buttons share the same width (match the longest) after layout
+        // --- (Hover effects remain unchanged, but with new buttons added) ---
         Platform.runLater(() -> {
             try {
-                final double expansion = 30; // px to expand on hover
+                final double expansion = 30; 
                 final double[] baseWidth = new double[1];
-
                 Runnable recompute = () -> {
-                    // don't recompute while a hover animation is active (prevents feedback loops)
                     if ((multiPlayerBtn != null && multiPlayerBtn.isHover()) || (singlePlayerBtn != null && singlePlayerBtn.isHover()) || (settingsBtn != null && settingsBtn.isHover())) return;
                     double w1 = multiPlayerBtn.getWidth();
                     double w2 = singlePlayerBtn.getWidth();
                     double w3 = settingsBtn.getWidth();
                     double max = Math.max(w1, Math.max(w2, w3));
-                    if (max <= 0) return; // layout not ready
+                    if (max <= 0) return; 
                     baseWidth[0] = max;
-                    // apply computed base width (not bound so we can animate)
                     multiPlayerBtn.setPrefWidth(max);
                     singlePlayerBtn.setPrefWidth(max);
                     settingsBtn.setPrefWidth(max);
                 };
-
-                // initial compute (if layout not ready yet, listeners below will update when sizes change)
                 recompute.run();
-
-                // Listen for intrinsic width changes and recompute when not hovered
                 multiPlayerBtn.widthProperty().addListener(new javafx.beans.InvalidationListener() {
                     @Override
                     public void invalidated(javafx.beans.Observable observable) { recompute.run(); }
@@ -464,30 +450,76 @@ public class MainMenuController {
                 attachHoverEffects(multiPlayerBtn, expansion);
                 attachHoverEffects(singlePlayerBtn, expansion);
                 attachHoverEffects(settingsBtn, expansion);
-
                 attachHoverEffects(scoreBattleBtn, expansion);
                 attachHoverEffects(classicBattleBtn, expansion);
                 attachHoverEffects(cooperateBattleBtn, expansion);
                 attachHoverEffects(multiBackBtn, expansion);
-
                 attachHoverEffects(easyBtn, expansion);
                 attachHoverEffects(normalBtn, expansion);
                 attachHoverEffects(hardBtn, expansion);
                 attachHoverEffects(backBtn, expansion);
-                
-                // --- ADD NEW SETTINGS BUTTONS TO HOVER EFFECTS ---
                 attachHoverEffects(controlsBtn, expansion);
                 attachHoverEffects(handlingBtn, expansion);
                 attachHoverEffects(audioBtn, expansion);
                 attachHoverEffects(settingsBackBtn, expansion);
                 
+                // ADDED NEW BUTTONS TO HOVER EFFECTS
+                attachHoverEffects(singlePlayerConfigBtn, expansion);
+                attachHoverEffects(multiPlayerConfigBtn, expansion);
+                attachHoverEffects(controlsBackBtn, expansion);
+                
             } catch (Exception ignored) {}
         });
     }
     
-    // --- 'toggleSettingsOverlay' and 'createSettingsOverlay' METHODS REMOVED ---
+    /**
+     * This method now loads the final controls.fxml overlay.
+     * It is called by the 'singlePlayerConfigBtn'.
+     */
+    private void loadSinglePlayerControls() {
+        try {
+            URL loc = getClass().getClassLoader().getResource("controls.fxml");
+            if (loc == null) {
+                System.err.println("Cannot find controls.fxml");
+                return;
+            }
+            FXMLLoader fx = new FXMLLoader(loc);
+            javafx.scene.layout.StackPane overlay = fx.load();
+            ControlsController cc = fx.getController();
+            
+            // initialize with current mappings
+            cc.init(spLeft, spRight, spRotate, spDown, spHard);
+            
+            // set close handler so we can hide/remove this overlay
+            cc.setCloseHandler(saved -> {
+                try {
+                    if (saved) {
+                        KeyCode l = cc.getLeft();
+                        KeyCode r = cc.getRight();
+                        KeyCode rot = cc.getRotate();
+                        KeyCode d = cc.getDown();
+                        KeyCode h = cc.getHard();
+                        if (l != null) spLeft = l;
+                        if (r != null) spRight = r;
+                        if (rot != null) spRotate = rot;
+                        if (d != null) spDown = d;
+                        if (h != null) spHard = h;
+                    }
+                } catch (Exception ignored) {}
+                // hide and remove the overlay
+                transitionFrom(overlay); // Use new transition
+                try { rootStack.getChildren().remove(overlay); } catch (Exception ignored) {}
+            });
+
+            // add to scene overlay stack and show with same slide animation
+            try { rootStack.getChildren().add(overlay); } catch (Exception ignored) {}
+            transitionTo(overlay); // Use new transition
+        } catch (Exception ex) {
+            ex.printStackTrace();
+        }
+    }
     
-    // Reusable helper to attach the same hover translate + subtle glow effect to any button
+    // Reusable helper to attach hover effects
     private void attachHoverEffects(Button b, double expansion) {
         if (b == null) return;
         Duration dur = Duration.millis(140);
@@ -536,6 +568,7 @@ public class MainMenuController {
         });
     }
 
+    // Load game (remains unchanged)
     private void loadGame(String mode) {
         try {
             URL location = getClass().getClassLoader().getResource("gameLayout.fxml");
@@ -548,20 +581,16 @@ public class MainMenuController {
             double h = stage.getHeight();
             boolean full = stage.isFullScreen();
             boolean max = stage.isMaximized();
-
-            // Apply mode-specific background and level text
             try {
                 String bgName = null;
                 if ("Easy".equalsIgnoreCase(mode)) bgName = "Easy.jpg";
                 else if ("Hard".equalsIgnoreCase(mode)) bgName = "Hard.jpg";
                 else bgName = "Normal.jpg";
-
                 if (bgName != null) {
                     URL bgUrl = getClass().getClassLoader().getResource(bgName);
                     if (bgUrl != null) root.setStyle("-fx-background-image: url('" + bgUrl.toExternalForm() + "'); -fx-background-size: cover; -fx-background-position: center center;");
                 }
             } catch (Exception ignored) {}
-
             if (stage.getScene() != null) {
                 stage.getScene().setRoot(root);
                 stage.setMaximized(max);
@@ -573,18 +602,18 @@ public class MainMenuController {
                 if (full) Platform.runLater(() -> stage.setFullScreen(true));
                 stage.show();
             }
-
-            // initialize game controller and set level text
+            try {
+                controller.setControlKeys(spLeft, spRight, spRotate, spDown, spHard);
+            } catch (Exception ignored) {}
             new GameController(controller);
             controller.setLevelText(mode);
-            // adjust drop interval per mode: Easy slower, Normal default, Hard faster
             try {
                 if ("Easy".equalsIgnoreCase(mode)) {
-                    controller.setDropIntervalMs(1300); // slower
+                    controller.setDropIntervalMs(1300); 
                 } else if ("Hard".equalsIgnoreCase(mode)) {
-                    controller.setDropIntervalMs(800); // faster
+                    controller.setDropIntervalMs(800); 
                 } else {
-                    controller.setDropIntervalMs(1000); // default (Normal)
+                    controller.setDropIntervalMs(1000); 
                 }
             } catch (Exception ignored) {}
             controller.startCountdown(3);
@@ -593,11 +622,51 @@ public class MainMenuController {
         }
     }
 
-    // Helper to show an overlay StackPane and hide main title/buttons
+    private void transitionTo(StackPane toPane) {
+        if (toPane == null) return;
+        toPane.setVisible(true);
+        toPane.setOpacity(1.0);
+        Platform.runLater(() -> {
+            try {
+                double startX = toPane.getScene() != null ? toPane.getScene().getWidth() : toPane.getWidth();
+                toPane.setTranslateX(startX);
+                TranslateTransition tt = new TranslateTransition(Duration.millis(300), toPane);
+                tt.setFromX(startX);
+                tt.setToX(0);
+                tt.setInterpolator(Interpolator.EASE_BOTH);
+                tt.play();
+            } catch (Exception ignored) {}
+        });
+    }
+
+    /**
+     * Animates an overlay pane OUT to the right, without affecting main menu.
+     */
+    private void transitionFrom(StackPane fromPane) {
+        if (fromPane == null) return;
+        Platform.runLater(() -> {
+            try {
+                double endX = fromPane.getScene() != null ? fromPane.getScene().getWidth() : fromPane.getWidth();
+                TranslateTransition tt = new TranslateTransition(Duration.millis(220), fromPane);
+                tt.setFromX(fromPane.getTranslateX());
+                tt.setToX(endX);
+                tt.setInterpolator(Interpolator.EASE_BOTH);
+                tt.setOnFinished(ev -> {
+                    try { fromPane.setVisible(false); fromPane.setTranslateX(0); } catch (Exception ignored) {}
+                });
+                tt.play();
+            } catch (Exception ignored) {
+                try { fromPane.setVisible(false); } catch (Exception ignored2) {}
+            }
+        });
+    }
+
+    // --- ORIGINAL show/hideOverlay METHODS ---
+    // (These interact with the main menu buttons)
+
     private void showOverlay(javafx.scene.layout.StackPane overlay) {
         if (overlay == null) return;
         try {
-            // animate main buttons out (slide left & fade)
             if (mainButtons != null) {
                 Timeline t = new Timeline(
                         new KeyFrame(Duration.ZERO, new KeyValue(mainButtons.translateXProperty(), 0), new KeyValue(mainButtons.opacityProperty(), 1.0)),
@@ -605,38 +674,22 @@ public class MainMenuController {
                 );
                 t.play();
             }
-
             if (titleText != null) {
                 FadeTransition ft = new FadeTransition(Duration.millis(200), titleText);
                 ft.setFromValue(1.0);
                 ft.setToValue(0.0);
                 ft.play();
             }
-
-            // prepare overlay: position off-screen to the right then slide in
-            overlay.setVisible(true);
-            overlay.setOpacity(1.0);
-            // compute start X after layout
-            Platform.runLater(() -> {
-                try {
-                    double startX = overlay.getScene() != null ? overlay.getScene().getWidth() : overlay.getWidth();
-                    overlay.setTranslateX(startX);
-                    TranslateTransition tt = new TranslateTransition(Duration.millis(300), overlay);
-                    tt.setFromX(startX);
-                    tt.setToX(0);
-                    tt.setInterpolator(Interpolator.EASE_BOTH);
-                    tt.play();
-                } catch (Exception ignored) {}
-            });
+            // Use the new transitionTo helper for the animation
+            transitionTo(overlay);
+            
         } catch (Exception ex) {
-            // fallback to instant visibility
             try { mainButtons.setVisible(false); } catch (Exception ignored) {}
             try { overlay.setVisible(true); } catch (Exception ignored) {}
             try { if (titleText != null) titleText.setVisible(false); } catch (Exception ignored) {}
         }
     }
 
-    // Disable/hide the menu media view and dispose any active player. Provide a reason for diagnostics.
     private void disableMenuMedia(String reason) {
         try {
             System.err.println("Menu media disabled: " + reason);
@@ -654,28 +707,13 @@ public class MainMenuController {
         try { if (mediaContainer != null) mediaContainer.setVisible(false); } catch (Exception ignored) {}
     }
 
-    // Helper to hide an overlay and restore main title/buttons (animated)
     private void hideOverlay(javafx.scene.layout.StackPane overlay) {
         if (overlay == null) return;
         try {
-            // slide overlay out to right
-            Platform.runLater(() -> {
-                try {
-                    double endX = overlay.getScene() != null ? overlay.getScene().getWidth() : overlay.getWidth();
-                    TranslateTransition tt = new TranslateTransition(Duration.millis(220), overlay);
-                    tt.setFromX(overlay.getTranslateX());
-                    tt.setToX(endX);
-                    tt.setInterpolator(Interpolator.EASE_BOTH);
-                    tt.setOnFinished(ev -> {
-                        try { overlay.setVisible(false); overlay.setTranslateX(0); } catch (Exception ignored) {}
-                    });
-                    tt.play();
-                } catch (Exception ignored) {
-                    try { overlay.setVisible(false); } catch (Exception ignored2) {}
-                }
-            });
-
-            // restore main buttons (slide back and fade in)
+            // Use the new transitionFrom helper for the animation
+            transitionFrom(overlay);
+            
+            // Restore main buttons
             if (mainButtons != null) {
                 Timeline t = new Timeline(
                         new KeyFrame(Duration.ZERO, new KeyValue(mainButtons.translateXProperty(), mainButtons.getTranslateX()), new KeyValue(mainButtons.opacityProperty(), mainButtons.getOpacity())),
@@ -683,7 +721,6 @@ public class MainMenuController {
                 );
                 t.play();
             }
-
             if (titleText != null) {
                 FadeTransition ft = new FadeTransition(Duration.millis(220), titleText);
                 ft.setFromValue(titleText.getOpacity());

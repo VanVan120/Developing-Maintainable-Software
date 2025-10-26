@@ -53,6 +53,49 @@
     -fx-effect: dropshadow(gaussian, rgba(255,255,255,0.06), 8, 0.0, 0, 0);
 }
 
+/* Make small menu buttons show a blue outline and soft glow when focused (matches Game Over focus) */
+.menu-button.small:focused {
+    -fx-border-color: #2fc1ff;
+    -fx-border-width: 2px;
+    -fx-border-radius: 6px;
+    -fx-effect: dropshadow(gaussian, rgba(47,193,255,0.22), 12, 0.0, 0, 3);
+}
+
+/* Controls header action buttons (Reset/Cancel/Save) - richer chrome */
+.controls-action {
+    -fx-background-color: linear-gradient(from 0% 0% to 0% 100%, #f6f9fb 0%, #e9eef3 45%, #dfe6ec 100%), linear-gradient(#ffffff, #dcdfe3);
+    -fx-background-insets: 0, 1;
+    -fx-background-radius: 8;
+    -fx-border-radius: 8;
+    -fx-border-color: rgba(0,0,0,0.28);
+    -fx-border-width: 1px;
+    -fx-padding: 8 14 8 14;
+    -fx-font-weight: 800;
+    -fx-font-size: 13px;
+    -fx-text-fill: #111111;
+    -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.45), 8, 0.0, 0, 2);
+    -fx-cursor: hand;
+}
+
+.controls-action:hover {
+    -fx-translate-y: -3;
+    -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.6), 16, 0.0, 0, 6);
+    -fx-background-color: linear-gradient(from 0% 0% to 0% 100%, #ffffff 0%, #eef4fa 50%, #e2eaf2 100%), linear-gradient(#ffffff, #e0e6ec);
+}
+
+.controls-action:pressed {
+    -fx-translate-y: 0;
+    -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.28), 6, 0.0, 0, 2);
+    -fx-scale-x: 0.995;
+    -fx-scale-y: 0.995;
+}
+
+.controls-action:focused {
+    -fx-border-color: linear-gradient(from 0% 0% to 100% 0%, #7feaff, #2fc1ff);
+    -fx-border-width: 2px;
+    -fx-effect: dropshadow(gaussian, rgba(47,193,255,0.24), 18, 0.0, 0, 8);
+}
+
 .menu-button.small {
     -fx-background-color: rgba(0,0,0,0.6);
     -fx-text-fill: white;
@@ -507,6 +550,14 @@
 .settings-option-body {
     -fx-background-color: rgba(26, 30, 41, 1);
     -fx-background-radius: 8px;
+    -fx-padding: 12px 18px;
+}
+
+.settings-option-body .menu-card-subtitle {
+    -fx-fill: #a0a0a0;
+    -fx-font-size:18px;
+    -fx-letter-spacing: 1.5px;
+    -fx-effect: null;
 }
 
 #settingsBackBtn .menu-card-body {
@@ -514,7 +565,7 @@
 }
 #settingsBackBtn .menu-card-icon-text {
     -fx-fill: #6060f0;
-    -fx-font-size: 86px;
+    -fx-font-size: 96px;
     -fx-font-weight: 800;
 }
 #settingsBackBtn .menu-card-title { 
@@ -526,4 +577,127 @@
     -fx-fill: #8080a0; 
     -fx-font-size: 18px; 
     -fx-letter-spacing: 1.5px;
+}
+
+/* --- STYLES FOR CONTROLS SUB-MENU BUTTONS --- */
+
+/* Sets the dark background for the HBox inside the new buttons */
+/* This targets any .menu-card-body INSIDE the button with the specified fx:id */
+#singlePlayerConfigBtn .menu-card-body,
+#multiPlayerConfigBtn .menu-card-body {
+    -fx-background-color: rgba(26, 30, 41, 1); /* Dark background */
+    -fx-padding: 12px 18px; /* Ensures padding is consistent */
+}
+
+/* Style for the "Single Player Configuration" text */
+.config-menu-text {
+    -fx-font-size: 28px; 
+    -fx-font-weight: 700;
+    -fx-fill: rgba(255, 255, 255, 0.85); 
+    -fx-letter-spacing: 1.5px;
+    -fx-effect: null;
+}
+
+/* Color override for the "1P" icon in the new menu */
+#singlePlayerConfigBtn .menu-card-icon-text {
+    -fx-fill: #7336ec !important; /* Purple from solo button */
+}
+
+/* Color override for the "MP" icon in the new menu */
+#multiPlayerConfigBtn .menu-card-icon-text {
+    -fx-fill: linear-gradient(from 0% 0% to 100% 100%, #ff6aa3 0%, #ff4f86 100%) !important; /* Pink from mp button */
+}
+
+/* --- (Keep styles for Settings Menu Buttons below if they are correct) --- */
+/* Apply the dark background to the specific HBox elements in the settings menu */
+#controlsBtnBody,
+#handlingBtnBody,
+#audioBtnBody {
+    -fx-background-color: rgba(26, 30, 41, 1); /* Dark background */
+    -fx-background-radius: 8px; /* Rounded corners */
+}
+
+/* Ensure the main text color for these buttons is white */
+#controlsBtnBody .settings-main-text,
+#handlingBtnBody .settings-main-text,
+#audioBtnBody .settings-main-text {
+    -fx-fill: rgba(255, 255, 255, 0.85); /* White text color */
+}
+
+/* Ensure the icon text color for these buttons is white */
+#controlsBtnBody .menu-card-icon-text,
+#handlingBtnBody .menu-card-icon-text,
+#audioBtnBody .menu-card-icon-text {
+    -fx-fill: white !important; /* Forces white text for icons */
+}
+
+/* Style for subtitles in the settings options */
+/* Target subtitles inside HBox elements with specific IDs */
+#controlsBtnBody .menu-card-subtitle,
+#handlingBtnBody .menu-card-subtitle,
+#audioBtnBody .menu-card-subtitle { 
+    -fx-fill: #a0a0a0; 
+    -fx-font-size: 18px; 
+    -fx-letter-spacing: 1.5px;
+    -fx-effect: null; 
+}
+
+#controlsBackBtn .menu-card-body {
+    -fx-background-color: #20203a;
+}
+#controlsBackBtn .menu-card-icon-text {
+    -fx-fill: #6060f0;
+    -fx-font-size: 96px;
+    -fx-font-weight: 800;
+}
+#controlsBackBtn .menu-card-title { 
+    -fx-fill: #a0a0f5; 
+    -fx-font-size: 40px; 
+    -fx-font-weight:700; 
+}
+#controlsBackBtn .menu-card-subtitle { 
+    -fx-fill: #8080a0; 
+    -fx-font-size: 18px; 
+    -fx-letter-spacing: 1.5px;
+}
+
+.keybind-button-default {
+    -fx-background-color: #1a1e25; /* Darker background */
+    -fx-text-fill: #6a7385;      /* Muted text */
+    -fx-border-color: rgba(255,255,255,0.02);
+    -fx-border-radius: 4;
+    -fx-background-radius: 4;
+    -fx-font-weight: 700;
+    -fx-opacity: 0.7; /* Make it slightly faded */
+    -fx-focus-color: transparent;
+    -fx-faint-focus-color: transparent;
+}
+
+.keybind-button-current {
+    -fx-background-color: #0e1114; /* Original background */
+    -fx-text-fill: #d7dde6;      /* Original text */
+    -fx-border-color: rgba(255,255,255,0.04);
+    -fx-border-radius: 4;
+    -fx-background-radius: 4;
+    -fx-font-weight: 700;
+    -fx-cursor: hand; /* Indicate clickable */
+    -fx-focus-color: transparent;
+    -fx-faint-focus-color: transparent;
+}
+
+/* Style for when a 'Current' button is capturing input */
+.keybind-button-current:focused {
+     -fx-border-color: #9fb0ff; /* Highlight border when capturing */
+     -fx-border-width: 2px;
+}
+
+/* subtle hover visual for interactive keybind buttons when JS toggles a class */
+.keybind-button-current.keybind-hover {
+    -fx-background-color: linear-gradient(from 0% 0% to 0% 100%, #131516, #1a1d20);
+    -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.45), 8, 0.0, 0, 2);
+}
+
+/* Ensure disabled default buttons don't look overly faded */
+.keybind-button-default:disabled {
+    -fx-opacity: 0.7;
 }

@@ -86,7 +86,6 @@
                         </VBox>
                     </left>
                     <right>
-
                         <StackPane fx:id="mediaContainer" alignment="CENTER" prefWidth="480" translateX="-30" BorderPane.alignment="CENTER">
                             <children>
                                 <MediaView fx:id="menuMediaView" preserveRatio="true"/>
@@ -300,6 +299,7 @@
                                 </VBox>
                             </children>
                         </VBox> 
+
                     </children>
                 </StackPane>
 
@@ -321,7 +321,7 @@
                                         
                                         <Button fx:id="controlsBtn" prefWidth="680" styleClass="menu-button menu-card" style="-fx-background-color: transparent; -fx-padding: 0;">
                                             <graphic>
-                                                <HBox alignment="CENTER_LEFT" prefWidth="680" spacing="12" styleClass="settings-option-body">
+                                                <HBox alignment="CENTER_LEFT" prefWidth="680" spacing="12" styleClass="menu-card-body" id="controlsBtnBody">
                                                     <children>
                                                         <StackPane prefHeight="56" prefWidth="96" styleClass="menu-card-icon">
                                                             <children>
@@ -332,6 +332,7 @@
                                                         <VBox alignment="CENTER_LEFT" spacing="4">
                                                             <children>
                                                                 <Text text="Controls" styleClass="settings-main-text" />
+                                                                <Text text="Manage keybinds for players" styleClass="menu-card-subtitle" />
                                                             </children>
                                                         </VBox>
                                                     </children>
@@ -341,7 +342,7 @@
 
                                         <Button fx:id="handlingBtn" prefWidth="680" styleClass="menu-button menu-card" style="-fx-background-color: transparent; -fx-padding: 0;">
                                             <graphic>
-                                                <HBox alignment="CENTER_LEFT" prefWidth="680" spacing="12" styleClass="settings-option-body">
+                                                <HBox alignment="CENTER_LEFT" prefWidth="680" spacing="12" styleClass="menu-card-body" id="handlingBtnBody">
                                                     <children>
                                                         <StackPane prefHeight="56" prefWidth="96" styleClass="menu-card-icon">
                                                             <children>
@@ -352,6 +353,7 @@
                                                         <VBox alignment="CENTER_LEFT" spacing="4">
                                                             <children>
                                                                 <Text text="Handling" styleClass="settings-main-text" />
+                                                                <Text text="Adjust move and rotation speed for blocks" styleClass="menu-card-subtitle" />
                                                             </children>
                                                         </VBox>
                                                     </children>
@@ -361,7 +363,7 @@
                                         
                                         <Button fx:id="audioBtn" prefWidth="680" styleClass="menu-button menu-card" style="-fx-background-color: transparent; -fx-padding: 0;">
                                             <graphic>
-                                                <HBox alignment="CENTER_LEFT" prefWidth="680" spacing="12" styleClass="settings-option-body">
+                                                <HBox alignment="CENTER_LEFT" prefWidth="680" spacing="12" styleClass="menu-card-body" id="audioBtnBody">
                                                     <children>
                                                         <StackPane prefHeight="56" prefWidth="96" styleClass="menu-card-icon">
                                                             <children>
@@ -372,6 +374,7 @@
                                                         <VBox alignment="CENTER_LEFT" spacing="4">
                                                             <children>
                                                                 <Text text="Audio" styleClass="settings-main-text" />
+                                                                <Text text="Change master, music, and SFX volume" styleClass="menu-card-subtitle" />
                                                             </children>
                                                         </VBox>
                                                     </children>
@@ -393,6 +396,89 @@
                                                             <children>
                                                                 <Text styleClass="menu-card-title" text="Back" />
                                                                 <Text styleClass="menu-card-subtitle" text="Return to main menu" />
+                                                            </children>
+                                                        </VBox>
+                                                    </children>
+                                                </HBox>
+                                            </graphic>
+                                        </Button>
+                                    </children>
+                                </VBox>
+                            </children>
+                        </VBox>
+                    </children>
+                </StackPane>
+                
+                <StackPane fx:id="controlsOptions" visible="false">
+                    <children>
+                        <VBox alignment="CENTER_LEFT" spacing="0" pickOnBounds="false" StackPane.alignment="CENTER_LEFT">
+                            <children>
+                                <HBox alignment="CENTER_LEFT" styleClass="submenu-header-bar-settings">
+                                    <children>
+                                        <Text text="CONTROLS" styleClass="submenu-header-title-settings" />
+                                    </children>
+                                </HBox>
+                                
+                                <VBox alignment="CENTER_LEFT" spacing="12" styleClass="menu-options-panel">
+                                    <padding>
+                                        <Insets bottom="16.0" left="16.0" right="16.0" top="16.0" />
+                                    </padding>
+                                    <children>
+                                        
+                                        <Button fx:id="singlePlayerConfigBtn" prefWidth="680" styleClass="menu-button menu-card" style="-fx-background-color: transparent; -fx-padding: 0;">
+                                            <graphic>
+                                                <HBox alignment="CENTER_LEFT" prefWidth="680" spacing="12" styleClass="menu-card-body">
+                                                    <children>
+                                                        <StackPane prefHeight="56" prefWidth="96" styleClass="menu-card-icon">
+                                                            <children>
+                                                                <Rectangle arcHeight="6" arcWidth="6" height="70" rotate="25" styleClass="menu-card-icon-diagonal" translateX="-20" translateY="-12" width="140" />
+                                                                <Text styleClass="menu-card-icon-text" text="1P" />
+                                                            </children>
+                                                        </StackPane>
+                                                        <VBox alignment="CENTER_LEFT" spacing="4">
+                                                            <children>
+                                                                <Text text="Single Player Configuration" styleClass="config-menu-text" />
+                                                            </children>
+                                                        </VBox>
+                                                    </children>
+                                                </HBox>
+                                            </graphic>
+                                        </Button>
+
+                                        <Button fx:id="multiPlayerConfigBtn" prefWidth="680" styleClass="menu-button menu-card" style="-fx-background-color: transparent; -fx-padding: 0;">
+                                            <graphic>
+                                                <HBox alignment="CENTER_LEFT" prefWidth="680" spacing="12" styleClass="menu-card-body">
+                                                    <children>
+                                                        <StackPane prefHeight="56" prefWidth="96" styleClass="menu-card-icon">
+                                                            <children>
+                                                                <Rectangle arcHeight="6" arcWidth="6" height="70" rotate="25" styleClass="menu-card-icon-diagonal" translateX="-20" translateY="-12" width="140" />
+                                                                <Text styleClass="menu-card-icon-text" text="MP" />
+                                                            </children>
+                                                        </StackPane>
+                                                        <VBox alignment="CENTER_LEFT" spacing="4">
+                                                            <children>
+                                                                <Text text="Multiplayer Configuration" styleClass="config-menu-text" />
+                                                            </children>
+                                                        </VBox>
+                                                    </children>
+                                                </HBox>
+                                            </graphic>
+                                        </Button>
+                                        
+                                        <Button fx:id="controlsBackBtn" prefWidth="680" styleClass="menu-button menu-card" style="-fx-background-color: transparent; -fx-padding: 0;">
+                                            <graphic>
+                                                <HBox alignment="CENTER_LEFT" prefWidth="680" spacing="12" styleClass="menu-card-body" id="backBtn">
+                                                    <children>
+                                                        <StackPane prefHeight="56" prefWidth="96" styleClass="menu-card-icon">
+                                                            <children>
+                                                                <Rectangle arcHeight="6" arcWidth="6" height="70" rotate="25" styleClass="menu-card-icon-diagonal" translateX="-20" translateY="-12" width="140" />
+                                                                <Text styleClass="menu-card-icon-text" text="BK" />
+                                                            </children>
+                                                        </StackPane>
+                                                        <VBox alignment="CENTER_LEFT" spacing="4">
+                                                            <children>
+                                                                <Text styleClass="menu-card-title" text="Back" />
+                                                                <Text styleClass="menu-card-subtitle" text="Return to settings" />
                                                             </children>
                                                         </VBox>
                                                     </children>
