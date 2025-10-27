@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?import javafx.geometry.*?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+<?import javafx.scene.text.*?>
+<StackPane xmlns="http://javafx.com/javafx/8" xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.comp2042.HandlingController" prefWidth="720" prefHeight="420">
+    <children>
+    <GridPane hgap="12" vgap="12" style="-fx-padding:18; -fx-background-color: linear-gradient(to bottom, rgba(18,20,24,0.92), rgba(18,20,24,0.88)); -fx-background-radius:10;">
+            <columnConstraints>
+                <ColumnConstraints percentWidth="40" />
+                <ColumnConstraints percentWidth="40" />
+                <ColumnConstraints percentWidth="20" />
+            </columnConstraints>
+
+            <!-- Header moved to the overlay top bar; remove duplicated internal header -->
+
+            <Label text="ARR (ms)" style="-fx-text-fill:#c9d1e8; -fx-font-size:18px; -fx-font-weight:600;" styleClass="handling-label" GridPane.rowIndex="1" GridPane.columnIndex="0" />
+            <Slider fx:id="sldArr" GridPane.rowIndex="1" GridPane.columnIndex="1" />
+            <TextField fx:id="tfArr" GridPane.rowIndex="1" GridPane.columnIndex="2" style="-fx-font-size:16px; -fx-font-family: 'Segoe UI', sans-serif; -fx-background-radius:6; -fx-padding:6;" styleClass="handling-value" />
+
+            <Label text="DAS (ms)" style="-fx-text-fill:#c9d1e8; -fx-font-size:18px; -fx-font-weight:600;" styleClass="handling-label" GridPane.rowIndex="2" GridPane.columnIndex="0" />
+            <Slider fx:id="sldDas" GridPane.rowIndex="2" GridPane.columnIndex="1" />
+            <TextField fx:id="tfDas" GridPane.rowIndex="2" GridPane.columnIndex="2" style="-fx-font-size:16px; -fx-font-family: 'Segoe UI', sans-serif; -fx-background-radius:6; -fx-padding:6;" styleClass="handling-value" />
+
+            <Label text="DCD (ms)" style="-fx-text-fill:#c9d1e8; -fx-font-size:18px; -fx-font-weight:600;" styleClass="handling-label" GridPane.rowIndex="3" GridPane.columnIndex="0" />
+            <Slider fx:id="sldDcd" GridPane.rowIndex="3" GridPane.columnIndex="1" />
+            <TextField fx:id="tfDcd" GridPane.rowIndex="3" GridPane.columnIndex="2" style="-fx-font-size:16px; -fx-font-family: 'Segoe UI', sans-serif; -fx-background-radius:6; -fx-padding:6;" styleClass="handling-value" />
+
+            <Label text="SDF (factor)" style="-fx-text-fill:#c9d1e8; -fx-font-size:18px; -fx-font-weight:600;" styleClass="handling-label" GridPane.rowIndex="4" GridPane.columnIndex="0" />
+            <Slider fx:id="sldSdf" GridPane.rowIndex="4" GridPane.columnIndex="1" />
+            <TextField fx:id="tfSdf" GridPane.rowIndex="4" GridPane.columnIndex="2" style="-fx-font-size:16px; -fx-font-family: 'Segoe UI', sans-serif; -fx-background-radius:6; -fx-padding:6;" styleClass="handling-value" />
+
+            <Label text="Enable Hard Drop" style="-fx-text-fill:#c9d1e8; -fx-font-size:18px; -fx-font-weight:600;" styleClass="handling-label" GridPane.rowIndex="5" GridPane.columnIndex="0" />
+            <CheckBox fx:id="chkHardDrop" GridPane.rowIndex="5" GridPane.columnIndex="1" style="-fx-scale-x:1.2; -fx-scale-y:1.2;" styleClass="handling-checkbox" />
+
+            <HBox spacing="10" alignment="CENTER_RIGHT" GridPane.rowIndex="6" GridPane.columnIndex="1" GridPane.columnSpan="2">
+                <Button fx:id="btnReset" text="Reset" styleClass="controls-action" />
+                <Button fx:id="btnCancel" text="Cancel" styleClass="controls-action" />
+                <Button fx:id="btnSave" text="Save" styleClass="controls-action" />
+            </HBox>
+        </GridPane>
+    </children>
+</StackPane>

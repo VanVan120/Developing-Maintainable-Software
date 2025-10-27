@@ -81,6 +81,13 @@ public class MainMenuController {
     private KeyCode spDown = null;
     private KeyCode spHard = null;
     private KeyCode spSwitch = null;
+
+    // --- Handling settings (stored) ---
+    private int settingArrMs = 50; // Auto Repeat Rate in ms
+    private int settingDasMs = 120; // Delayed Auto Shift in ms
+    private int settingDcdMs = 20; // DAS Cancel Delay in ms
+    private double settingSdf = 1.0; // Soft Drop Factor (multiplier)
+    private boolean settingHardDropEnabled = true; // hard drop enabled
     
     // stored multiplayer control overrides (left player = upper, right player = bottom)
     private KeyCode mpLeft_left = null;
@@ -259,8 +266,7 @@ public class MainMenuController {
             handlingBtn.setOnAction(new EventHandler<ActionEvent>() {
                 @Override
                 public void handle(ActionEvent event) {
-                    System.out.println("Handling button clicked - not implemented yet");
-                    // TODO: Create handlingOptions StackPane and transition to it
+                    loadHandlingControls();
                 }
             });
         }
@@ -489,6 +495,110 @@ public class MainMenuController {
             } catch (Exception ignored) {}
         });
     }
+
+    /**
+     * Load handling settings overlay: ARR, DAS, DCD, SDF and Hard Drop toggle.
+     */
+    private void loadHandlingControls() {
+        try {
+            URL loc = getClass().getClassLoader().getResource("handling.fxml");
+            if (loc == null) {
+                System.err.println("Cannot find handling.fxml");
+                return;
+            }
+
+            FXMLLoader fx = new FXMLLoader(loc);
+            javafx.scene.layout.StackPane pane = fx.load();
+            HandlingController hc = fx.getController();
+
+            // initialize with stored values
+            hc.init(settingArrMs, settingDasMs, settingDcdMs, settingSdf, settingHardDropEnabled);
+            try { hc.setHeaderText("Handling"); } catch (Exception ignored) {}
+            try { hc.hideActionButtons(); } catch (Exception ignored) {}
+
+            StackPane overlay = new StackPane();
+            overlay.setStyle("-fx-padding:0;");
+            Rectangle dark = new Rectangle();
+            dark.setFill(javafx.scene.paint.Color.rgb(8,8,10,0.82));
+            javafx.application.Platform.runLater(() -> {
+                try {
+                    if (overlay.getScene() != null) {
+                        dark.widthProperty().bind(overlay.getScene().widthProperty());
+                        dark.heightProperty().bind(overlay.getScene().heightProperty());
+                    }
+                } catch (Exception ignored) {}
+            });
+
+            BorderPane container = new BorderPane();
+            container.setMaxWidth(Double.MAX_VALUE);
+            container.setMaxHeight(Double.MAX_VALUE);
+            container.setStyle("-fx-padding:18;");
+
+            javafx.scene.text.Text header = new javafx.scene.text.Text("Handling");
+            header.setStyle("-fx-font-size:34px; -fx-fill: #9fb0ff; -fx-font-weight:700;");
+            BorderPane.setAlignment(header, javafx.geometry.Pos.CENTER_LEFT);
+
+            javafx.scene.layout.HBox actionBox = new javafx.scene.layout.HBox(10);
+            actionBox.setAlignment(javafx.geometry.Pos.CENTER_RIGHT);
+            javafx.scene.control.Button btnReset = new javafx.scene.control.Button("Reset");
+            javafx.scene.control.Button btnCancel = new javafx.scene.control.Button("Cancel");
+            javafx.scene.control.Button btnSave = new javafx.scene.control.Button("Save");
+            btnReset.getStyleClass().add("menu-button"); btnCancel.getStyleClass().add("menu-button"); btnSave.getStyleClass().add("menu-button");
+            actionBox.getChildren().addAll(btnReset, btnCancel, btnSave);
+
+            BorderPane topBar = new BorderPane();
+            topBar.setLeft(header);
+            topBar.setRight(actionBox);
+            topBar.setStyle("-fx-padding:8 18 18 18;");
+            container.setTop(topBar);
+
+            javafx.scene.layout.VBox center = new javafx.scene.layout.VBox(18);
+            center.setStyle("-fx-padding:12; -fx-background-color: transparent;");
+            center.getChildren().add(pane);
+            container.setCenter(center);
+
+            // Reset
+            btnReset.setOnAction(ev -> {
+                try { hc.resetToDefaults(); } catch (Exception ignored) {}
+            });
+
+            // Cancel
+            btnCancel.setOnAction(ev -> {
+                ev.consume();
+                closeOverlayWithAnimation(overlay, () -> {
+                    try { rootStack.getChildren().remove(overlay); } catch (Exception ignored) {}
+                    try {
+                        if (settingsOptions != null) {
+                            settingsOptions.setVisible(true);
+                            settingsOptions.setTranslateX(0);
+                            settingsOptions.setOpacity(1.0);
+                        }
+                    } catch (Exception ignored) {}
+                });
+            });
+
+            // Save persist settings
+            btnSave.setOnAction(ev -> {
+                ev.consume();
+                try {
+                    settingArrMs = hc.getArrMs();
+                    settingDasMs = hc.getDasMs();
+                    settingDcdMs = hc.getDcdMs();
+                    settingSdf = hc.getSdf();
+                    settingHardDropEnabled = hc.isHardDropEnabled();
+                    closeOverlayWithAnimation(overlay, () -> {
+                        try { rootStack.getChildren().remove(overlay); } catch (Exception ignored) {}
+                        try { if (settingsOptions != null) settingsOptions.setVisible(true); } catch (Exception ignored) {}
+                    });
+                } catch (Exception ex) { ex.printStackTrace(); }
+            });
+
+            overlay.getChildren().addAll(dark, container);
+            try { if (settingsOptions != null) settingsOptions.setVisible(false); rootStack.getChildren().add(overlay); } catch (Exception ignored) {}
+            transitionTo(overlay);
+
+        } catch (Exception ex) { ex.printStackTrace(); }
+    }
     
     /**
      * This method now loads the final controls.fxml overlay.
@@ -534,7 +644,7 @@ public class MainMenuController {
             container.setMaxHeight(Double.MAX_VALUE);
             container.setStyle("-fx-padding:18;");
 
-            javafx.scene.text.Text header = new javafx.scene.text.Text("Single Player Configuration");
+            javafx.scene.text.Text header = new javafx.scene.text.Text("Single Player");
             header.setStyle("-fx-font-size:34px; -fx-fill: #9fb0ff; -fx-font-weight:700;");
             BorderPane.setAlignment(header, javafx.geometry.Pos.CENTER_LEFT);
 
@@ -672,7 +782,7 @@ public class MainMenuController {
             container.setStyle("-fx-padding:18;");
 
             // Title (left)
-            javafx.scene.text.Text header = new javafx.scene.text.Text("Multiplayer Configuration");
+            javafx.scene.text.Text header = new javafx.scene.text.Text("Multiplayer");
             header.setStyle("-fx-font-size:34px; -fx-fill: #9fb0ff; -fx-font-weight:700;");
             BorderPane.setAlignment(header, javafx.geometry.Pos.CENTER_LEFT);
             container.setTop(new StackPane(header));
