@@ -12,8 +12,8 @@
                     <ColumnConstraints percentWidth="26" hgrow="ALWAYS"/>
                 </columnConstraints>
 
-                <Label text="Controls" style="-fx-text-fill: #9fb0ff; -fx-font-size:38px; -fx-font-weight:700; -fx-letter-spacing:2px;" GridPane.rowIndex="0" GridPane.columnIndex="0" GridPane.columnSpan="3" />
-                <Label text="Configure singleplayer key bindings" style="-fx-text-fill: #c9d1e8; -fx-font-size:12px;" GridPane.rowIndex="1" GridPane.columnIndex="0" GridPane.columnSpan="3" />
+                <Label fx:id="lblHeader" text="Controls" style="-fx-text-fill: #9fb0ff; -fx-font-size:38px; -fx-font-weight:700; -fx-letter-spacing:2px;" GridPane.rowIndex="0" GridPane.columnIndex="0" GridPane.columnSpan="3" />
+                <Label text="Configure your favourite key bindings" style="-fx-text-fill: #c9d1e8; -fx-font-size:12px;" GridPane.rowIndex="1" GridPane.columnIndex="0" GridPane.columnSpan="3" />
 
                 <Label text="Default" style="-fx-text-fill: #7f8a9e; -fx-font-size:14px; -fx-font-weight:bold;" GridPane.rowIndex="2" GridPane.columnIndex="1" alignment="CENTER"/>
                 <Label text="Current" style="-fx-text-fill: #7f8a9e; -fx-font-size:14px; -fx-font-weight:bold;" GridPane.rowIndex="2" GridPane.columnIndex="2" alignment="CENTER"/>
@@ -37,7 +37,11 @@
                 <Button fx:id="btnRotateDefault" text="[DEFAULT]" GridPane.rowIndex="8" GridPane.columnIndex="1" styleClass="keybind-button-default" maxWidth="Infinity"/>
                 <Button fx:id="btnRotateCurrent" text="[NOT SET]" GridPane.rowIndex="8" GridPane.columnIndex="2" styleClass="keybind-button-current" maxWidth="Infinity"/>
 
-                <Label fx:id="lblInfo" text="Click a button in the 'Current' column to change the key binding." style="-fx-text-fill: #c9d1e8; -fx-font-size:12px;" GridPane.rowIndex="9" GridPane.columnIndex="1" GridPane.columnSpan="2" />
+                <Label text="SWITCH BLOCK" style="-fx-text-fill:#9aa3b2; -fx-font-size:20px; -fx-font-family: 'Arial Black';" GridPane.rowIndex="9" GridPane.columnIndex="0" />
+                <Button fx:id="btnSwitchDefault" text="[DEFAULT]" GridPane.rowIndex="9" GridPane.columnIndex="1" styleClass="keybind-button-default" maxWidth="Infinity"/>
+                <Button fx:id="btnSwitchCurrent" text="[NOT SET]" GridPane.rowIndex="9" GridPane.columnIndex="2" styleClass="keybind-button-current" maxWidth="Infinity"/>
+
+                <Label fx:id="lblInfo" text="Click a button in the 'Current' column to change the key binding." style="-fx-text-fill: #c9d1e8; -fx-font-size:12px;" GridPane.rowIndex="10" GridPane.columnIndex="1" GridPane.columnSpan="2" />
 
                 <HBox GridPane.rowIndex="1" GridPane.columnIndex="2" alignment="CENTER_RIGHT" spacing="8">
                     <Button fx:id="btnReset" text="Reset" styleClass="controls-action" />

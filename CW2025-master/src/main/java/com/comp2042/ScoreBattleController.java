@@ -152,6 +152,15 @@ public class ScoreBattleController implements Initializable {
 
     // Called by Menu to initialize and start both games
     public void initBothGames() throws IOException {
+        // preserve backward compatibility: delegate to the new overload with null swaps
+        initBothGames(null, null);
+    }
+
+    /**
+     * Initialize both embedded games and apply per-player swap keys.
+     * If a swap key is null the controller will fall back to the previous defaults (Left: Q, Right: C).
+     */
+    public void initBothGames(javafx.scene.input.KeyCode leftSwap, javafx.scene.input.KeyCode rightSwap) throws IOException {
         // load left game layout
         URL gameLayout = getClass().getClassLoader().getResource("gameLayout.fxml");
         FXMLLoader leftLoader = new FXMLLoader(gameLayout);
@@ -358,12 +367,12 @@ public class ScoreBattleController implements Initializable {
         try {
             // left player: W=rotate, A=left, S=soft-drop, D=right, SHIFT=hard-drop
             leftGui.setControlKeys(javafx.scene.input.KeyCode.A, javafx.scene.input.KeyCode.D, javafx.scene.input.KeyCode.W, javafx.scene.input.KeyCode.S, javafx.scene.input.KeyCode.SHIFT);
-            // left player swap key = Q
-            leftGui.setSwapKey(javafx.scene.input.KeyCode.Q);
+            // left player swap key: use provided leftSwap or fall back to previous default Q
+            leftGui.setSwapKey(leftSwap != null ? leftSwap : javafx.scene.input.KeyCode.Q);
             // right player: Left=left, Right=right, Up=rotate, Down=soft-drop, Space=hard-drop
             rightGui.setControlKeys(javafx.scene.input.KeyCode.LEFT, javafx.scene.input.KeyCode.RIGHT, javafx.scene.input.KeyCode.UP, javafx.scene.input.KeyCode.DOWN, javafx.scene.input.KeyCode.SPACE);
-            // right player swap key = C
-            rightGui.setSwapKey(javafx.scene.input.KeyCode.C);
+            // right player swap key: use provided rightSwap or fall back to previous default C
+            rightGui.setSwapKey(rightSwap != null ? rightSwap : javafx.scene.input.KeyCode.C);
         } catch (Exception ignored) {}
 
         // create a centered overlay showing remaining time and combined scores

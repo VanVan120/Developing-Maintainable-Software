@@ -148,6 +148,15 @@ public class ClassicBattle implements Initializable {
 
     // Called by Menu to initialize and start both games
     public void initBothGames() throws IOException {
+        // delegate to new overload with null swap keys to preserve previous behaviour
+        initBothGames(null, null);
+    }
+
+    /**
+     * Initialize both embedded games and apply per-player swap keys.
+     * If a swap key is null the controller will fall back to the previous defaults (Left: Q, Right: C).
+     */
+    public void initBothGames(javafx.scene.input.KeyCode leftSwap, javafx.scene.input.KeyCode rightSwap) throws IOException {
         URL gameLayout = getClass().getClassLoader().getResource("gameLayout.fxml");
         FXMLLoader leftLoader = new FXMLLoader(gameLayout);
         Parent leftRoot = leftLoader.load();
@@ -320,9 +329,9 @@ public class ClassicBattle implements Initializable {
 
         try {
             leftGui.setControlKeys(javafx.scene.input.KeyCode.A, javafx.scene.input.KeyCode.D, javafx.scene.input.KeyCode.W, javafx.scene.input.KeyCode.S, javafx.scene.input.KeyCode.SHIFT);
-            leftGui.setSwapKey(javafx.scene.input.KeyCode.Q);
+            leftGui.setSwapKey(leftSwap != null ? leftSwap : javafx.scene.input.KeyCode.Q);
             rightGui.setControlKeys(javafx.scene.input.KeyCode.LEFT, javafx.scene.input.KeyCode.RIGHT, javafx.scene.input.KeyCode.UP, javafx.scene.input.KeyCode.DOWN, javafx.scene.input.KeyCode.SPACE);
-            rightGui.setSwapKey(javafx.scene.input.KeyCode.C);
+            rightGui.setSwapKey(rightSwap != null ? rightSwap : javafx.scene.input.KeyCode.C);
         } catch (Exception ignored) {}
 
         // Register clear-row handlers so when one player clears rows we transfer

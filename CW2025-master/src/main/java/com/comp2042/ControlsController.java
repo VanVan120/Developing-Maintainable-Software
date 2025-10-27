@@ -17,6 +17,7 @@ public class ControlsController {
     private static final KeyCode DEFAULT_SOFT = KeyCode.DOWN;
     private static final KeyCode DEFAULT_HARD = KeyCode.SPACE;
     private static final KeyCode DEFAULT_ROTATE = KeyCode.UP;
+    private static final KeyCode DEFAULT_SWITCH = KeyCode.C;
 
     // --- FXML Bindings ---
 
@@ -26,6 +27,7 @@ public class ControlsController {
     @FXML private Button btnSoftDefault;
     @FXML private Button btnHardDefault;
     @FXML private Button btnRotateDefault;
+    @FXML private Button btnSwitchDefault;
 
     // Current Buttons (Interactive)
     @FXML private Button btnLeftCurrent;
@@ -33,12 +35,14 @@ public class ControlsController {
     @FXML private Button btnSoftCurrent;
     @FXML private Button btnHardCurrent;
     @FXML private Button btnRotateCurrent;
+    @FXML private Button btnSwitchCurrent;
 
     // Other Controls
     @FXML private Button btnReset;
     @FXML private Button btnSave;
     @FXML private Button btnCancel;
     @FXML private Label lblInfo;
+    @FXML private Label lblHeader;
 
     // --- Current KeyCode Storage ---
     // Initialize current keys to defaults
@@ -47,6 +51,14 @@ public class ControlsController {
     private KeyCode currentSoft = DEFAULT_SOFT;
     private KeyCode currentHard = DEFAULT_HARD;
     private KeyCode currentRotate = DEFAULT_ROTATE;
+    private KeyCode currentSwitch = DEFAULT_SWITCH;
+    // Panel-specific "default" values (used when embedding controls for other players)
+    private KeyCode panelDefaultLeft = DEFAULT_LEFT;
+    private KeyCode panelDefaultRight = DEFAULT_RIGHT;
+    private KeyCode panelDefaultSoft = DEFAULT_SOFT;
+    private KeyCode panelDefaultHard = DEFAULT_HARD;
+    private KeyCode panelDefaultRotate = DEFAULT_ROTATE;
+    private KeyCode panelDefaultSwitch = DEFAULT_SWITCH;
 
     // --- State Variables ---
     private Button capturing = null; // Track which button is waiting for key input
@@ -56,32 +68,36 @@ public class ControlsController {
     @FXML
     public void initialize() {
         // 1. Populate Default Buttons (and make them non-interactive)
-        setButtonKey(btnLeftDefault, DEFAULT_LEFT, false);
-        setButtonKey(btnRightDefault, DEFAULT_RIGHT, false);
-        setButtonKey(btnSoftDefault, DEFAULT_SOFT, false);
-        setButtonKey(btnHardDefault, DEFAULT_HARD, false);
-        setButtonKey(btnRotateDefault, DEFAULT_ROTATE, false);
+    setButtonKey(btnLeftDefault, panelDefaultLeft, false);
+    setButtonKey(btnRightDefault, panelDefaultRight, false);
+    setButtonKey(btnSoftDefault, panelDefaultSoft, false);
+    setButtonKey(btnHardDefault, panelDefaultHard, false);
+    setButtonKey(btnRotateDefault, panelDefaultRotate, false);
+    setButtonKey(btnSwitchDefault, panelDefaultSwitch, false);
 
         // 2. Populate Current Buttons with initial values (defaults or loaded)
-        setButtonKey(btnLeftCurrent, currentLeft, true);
-        setButtonKey(btnRightCurrent, currentRight, true);
-        setButtonKey(btnSoftCurrent, currentSoft, true);
-        setButtonKey(btnHardCurrent, currentHard, true);
-        setButtonKey(btnRotateCurrent, currentRotate, true);
+    setButtonKey(btnLeftCurrent, currentLeft, true);
+    setButtonKey(btnRightCurrent, currentRight, true);
+    setButtonKey(btnSoftCurrent, currentSoft, true);
+    setButtonKey(btnHardCurrent, currentHard, true);
+    setButtonKey(btnRotateCurrent, currentRotate, true);
+    setButtonKey(btnSwitchCurrent, currentSwitch, true);
 
         // 3. Setup Capture Handlers for CURRENT buttons only
-        setupCapture(btnLeftCurrent);
-        setupCapture(btnRightCurrent);
-        setupCapture(btnSoftCurrent);
-        setupCapture(btnHardCurrent);
-        setupCapture(btnRotateCurrent);
+    setupCapture(btnLeftCurrent);
+    setupCapture(btnRightCurrent);
+    setupCapture(btnSoftCurrent);
+    setupCapture(btnHardCurrent);
+    setupCapture(btnRotateCurrent);
+    setupCapture(btnSwitchCurrent);
 
         // 3b. Add hover visual feedback for current buttons
-        addHoverEffect(btnLeftCurrent);
-        addHoverEffect(btnRightCurrent);
-        addHoverEffect(btnSoftCurrent);
-        addHoverEffect(btnHardCurrent);
-        addHoverEffect(btnRotateCurrent);
+    addHoverEffect(btnLeftCurrent);
+    addHoverEffect(btnRightCurrent);
+    addHoverEffect(btnSoftCurrent);
+    addHoverEffect(btnHardCurrent);
+    addHoverEffect(btnRotateCurrent);
+    addHoverEffect(btnSwitchCurrent);
 
         // Reset handler: restore defaults
         if (btnReset != null) {
@@ -126,6 +142,51 @@ public class ControlsController {
         setInfoText(""); // Initial info text
     }
 
+    /**
+     * Override the default column values for this Controls panel.
+     * Useful when embedding two Controls panes (eg. left/right players) so the "Default" column
+     * shows per-player defaults (WASD, arrows, etc) instead of the global application defaults.
+     */
+    public void setDefaultKeys(KeyCode left, KeyCode right, KeyCode rotate, KeyCode down, KeyCode hard) {
+        try {
+            if (left != null) panelDefaultLeft = left;
+            if (right != null) panelDefaultRight = right;
+            if (rotate != null) panelDefaultRotate = rotate;
+            if (down != null) panelDefaultSoft = down;
+            if (hard != null) panelDefaultHard = hard;
+            // Keep switch default as-is when caller doesn't provide one
+            if (panelDefaultSwitch == null) panelDefaultSwitch = DEFAULT_SWITCH;
+
+            // Update the UI default buttons to show these values
+            setButtonKey(btnLeftDefault, panelDefaultLeft, false);
+            setButtonKey(btnRightDefault, panelDefaultRight, false);
+            setButtonKey(btnSoftDefault, panelDefaultSoft, false);
+            setButtonKey(btnHardDefault, panelDefaultHard, false);
+            setButtonKey(btnRotateDefault, panelDefaultRotate, false);
+            setButtonKey(btnSwitchDefault, panelDefaultSwitch, false);
+        } catch (Exception ignored) {}
+    }
+
+    /** Overloaded setDefaultKeys that also accepts a Switch key value. */
+    public void setDefaultKeys(KeyCode left, KeyCode right, KeyCode rotate, KeyCode down, KeyCode hard, KeyCode sw) {
+        try {
+            if (left != null) panelDefaultLeft = left;
+            if (right != null) panelDefaultRight = right;
+            if (rotate != null) panelDefaultRotate = rotate;
+            if (down != null) panelDefaultSoft = down;
+            if (hard != null) panelDefaultHard = hard;
+            if (sw != null) panelDefaultSwitch = sw;
+
+            // Update the UI default buttons to show these values
+            setButtonKey(btnLeftDefault, panelDefaultLeft, false);
+            setButtonKey(btnRightDefault, panelDefaultRight, false);
+            setButtonKey(btnSoftDefault, panelDefaultSoft, false);
+            setButtonKey(btnHardDefault, panelDefaultHard, false);
+            setButtonKey(btnRotateDefault, panelDefaultRotate, false);
+            setButtonKey(btnSwitchDefault, panelDefaultSwitch, false);
+        } catch (Exception ignored) {}
+    }
+
     /** Adds a subtle hover effect by toggling a helper CSS class. */
     private void addHoverEffect(Button b) {
         if (b == null) return;
@@ -144,6 +205,7 @@ public class ControlsController {
         currentSoft = DEFAULT_SOFT;
         currentHard = DEFAULT_HARD;
         currentRotate = DEFAULT_ROTATE;
+        currentSwitch = DEFAULT_SWITCH;
 
         // Update current column buttons
         setButtonKey(btnLeftCurrent, currentLeft, true);
@@ -151,6 +213,7 @@ public class ControlsController {
         setButtonKey(btnSoftCurrent, currentSoft, true);
         setButtonKey(btnHardCurrent, currentHard, true);
         setButtonKey(btnRotateCurrent, currentRotate, true);
+    setButtonKey(btnSwitchCurrent, currentSwitch, true);
 
         setInfoText("Reset to defaults");
     }
@@ -239,6 +302,7 @@ public class ControlsController {
         else if (b == btnSoftCurrent) { currentSoft = code; }
         else if (b == btnHardCurrent) { currentHard = code; }
         else if (b == btnRotateCurrent) { currentRotate = code; }
+        else if (b == btnSwitchCurrent) { currentSwitch = code; }
         
         // Update the button's text
         setButtonKey(b, code, true);
@@ -251,6 +315,7 @@ public class ControlsController {
         if (b == btnSoftCurrent) return currentSoft;
         if (b == btnHardCurrent) return currentHard;
         if (b == btnRotateCurrent) return currentRotate;
+        if (b == btnSwitchCurrent) return currentSwitch;
         return null; // Should not happen for current buttons
     }
 
@@ -278,6 +343,7 @@ public class ControlsController {
         if (code.equals(currentSoft)) return "Soft Drop";
         if (code.equals(currentHard)) return "Hard Drop";
         if (code.equals(currentRotate)) return "Rotate";
+        if (code.equals(currentSwitch)) return "Switch";
         return null;
     }
 
@@ -293,6 +359,7 @@ public class ControlsController {
             case "Soft Drop": return capturingButton == btnSoftCurrent;
             case "Hard Drop": return capturingButton == btnHardCurrent;
             case "Rotate": return capturingButton == btnRotateCurrent;
+            case "Switch": return capturingButton == btnSwitchCurrent;
             default: return false;
         }
     }
@@ -310,6 +377,12 @@ public class ControlsController {
         if (hard != null) { currentHard = hard; setButtonKey(btnHardCurrent, hard, true); }
     }
 
+    /** Overloaded init to accept Switch key as well. */
+    public void init(KeyCode left, KeyCode right, KeyCode rotate, KeyCode down, KeyCode hard, KeyCode sw) {
+        init(left, right, rotate, down, hard);
+        if (sw != null) { currentSwitch = sw; setButtonKey(btnSwitchCurrent, sw, true); }
+    }
+
     /**
      * Sets the callback for when the Save/Cancel buttons are clicked.
      */
@@ -323,6 +396,34 @@ public class ControlsController {
     public KeyCode getRotate() { return currentRotate; }
     public KeyCode getDown() { return currentSoft; }
     public KeyCode getHard() { return currentHard; }
+    public KeyCode getSwitch() { return currentSwitch; }
+
+    /**
+     * Hide the action buttons (Reset/Save/Cancel) and info label.
+     * Useful when embedding this controller inside another overlay that provides its own actions.
+     */
+    public void hideActionButtons() {
+        try {
+            if (btnReset != null) { btnReset.setVisible(false); btnReset.setManaged(false); }
+            if (btnSave != null) { btnSave.setVisible(false); btnSave.setManaged(false); }
+            if (btnCancel != null) { btnCancel.setVisible(false); btnCancel.setManaged(false); }
+            if (lblInfo != null) { lblInfo.setVisible(false); lblInfo.setManaged(false); }
+        } catch (Exception ignored) {}
+    }
+
+    /** Public wrapper to reset all current keybindings to application defaults. */
+    public void resetToDefaults() {
+        try {
+            resetAllToDefaults();
+        } catch (Exception ignored) {}
+    }
+
+    /** Set the top header text in the controls panel (e.g. Single Player Controls). */
+    public void setHeaderText(String text) {
+        try {
+            if (lblHeader != null) lblHeader.setText(text != null ? text : "");
+        } catch (Exception ignored) {}
+    }
 
      /** Helper to safely set the info label text */
     private void setInfoText(String text) {

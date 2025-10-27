@@ -35,6 +35,8 @@ import javafx.scene.media.Media;
 import javafx.scene.media.MediaPlayer;
 import javafx.scene.media.MediaView;
 import javafx.scene.layout.StackPane;
+import javafx.scene.layout.BorderPane;
+import javafx.scene.shape.Rectangle;
 
 public class MainMenuController {
 
@@ -78,6 +80,22 @@ public class MainMenuController {
     private KeyCode spRotate = null;
     private KeyCode spDown = null;
     private KeyCode spHard = null;
+    private KeyCode spSwitch = null;
+    
+    // stored multiplayer control overrides (left player = upper, right player = bottom)
+    private KeyCode mpLeft_left = null;
+    private KeyCode mpLeft_right = null;
+    private KeyCode mpLeft_rotate = null;
+    private KeyCode mpLeft_down = null;
+    private KeyCode mpLeft_hard = null;
+    private KeyCode mpLeft_switch = null;
+
+    private KeyCode mpRight_left = null;
+    private KeyCode mpRight_right = null;
+    private KeyCode mpRight_rotate = null;
+    private KeyCode mpRight_down = null;
+    private KeyCode mpRight_hard = null;
+    private KeyCode mpRight_switch = null;
     
     @FXML
     public void initialize() {
@@ -277,8 +295,8 @@ public class MainMenuController {
         // "Multiplayer" button (placeholder)
         if (multiPlayerConfigBtn != null) {
             multiPlayerConfigBtn.setOnAction(e -> {
-                System.out.println("Multiplayer controls not implemented yet.");
-                // TODO: Load multiplayer controls FXML
+                // Open multiplayer controls overlay (two player configurator)
+                loadMultiplayerControls();
             });
         }
 
@@ -314,7 +332,7 @@ public class MainMenuController {
                                 if (full) Platform.runLater(() -> stage.setFullScreen(true));
                                 stage.show();
                             }
-                            controller.initBothGames();
+                            controller.initBothGames(mpLeft_switch, mpRight_switch);
                         } catch (IOException ex) {
                             ex.printStackTrace();
                         }
@@ -351,7 +369,7 @@ public class MainMenuController {
                             if (full) Platform.runLater(() -> stage.setFullScreen(true));
                             stage.show();
                         }
-                        controller.initBothGames();
+                        controller.initBothGames(mpLeft_switch, mpRight_switch);
                     } catch (IOException ex) {
                         ex.printStackTrace();
                     }
@@ -478,42 +496,289 @@ public class MainMenuController {
      */
     private void loadSinglePlayerControls() {
         try {
+            // Build a top-bar overlay that matches the multiplayer design but with a single Controls pane.
             URL loc = getClass().getClassLoader().getResource("controls.fxml");
             if (loc == null) {
                 System.err.println("Cannot find controls.fxml");
                 return;
             }
+
             FXMLLoader fx = new FXMLLoader(loc);
-            javafx.scene.layout.StackPane overlay = fx.load();
+            javafx.scene.layout.StackPane pane = fx.load();
             ControlsController cc = fx.getController();
-            
-            // initialize with current mappings
-            cc.init(spLeft, spRight, spRotate, spDown, spHard);
-            
-            // set close handler so we can hide/remove this overlay
-            cc.setCloseHandler(saved -> {
+
+            // Initialize with stored values including switch (if previously set)
+            cc.init(spLeft, spRight, spRotate, spDown, spHard, spSwitch);
+            try { cc.setHeaderText("Single Player Configuration"); } catch (Exception ignored) {}
+
+            // Hide the embedded controller's action buttons - we'll provide top-bar actions instead
+            try { cc.hideActionButtons(); } catch (Exception ignored) {}
+
+            // Create overlay shell similar to multiplayer overlay but for single pane
+            StackPane overlay = new StackPane();
+            overlay.setStyle("-fx-padding:0;");
+
+            Rectangle dark = new Rectangle();
+            dark.setFill(javafx.scene.paint.Color.rgb(8,8,10,0.82));
+            javafx.application.Platform.runLater(() -> {
                 try {
-                    if (saved) {
-                        KeyCode l = cc.getLeft();
-                        KeyCode r = cc.getRight();
-                        KeyCode rot = cc.getRotate();
-                        KeyCode d = cc.getDown();
-                        KeyCode h = cc.getHard();
-                        if (l != null) spLeft = l;
-                        if (r != null) spRight = r;
-                        if (rot != null) spRotate = rot;
-                        if (d != null) spDown = d;
-                        if (h != null) spHard = h;
+                    if (overlay.getScene() != null) {
+                        dark.widthProperty().bind(overlay.getScene().widthProperty());
+                        dark.heightProperty().bind(overlay.getScene().heightProperty());
                     }
                 } catch (Exception ignored) {}
-                // hide and remove the overlay
-                transitionFrom(overlay); // Use new transition
-                try { rootStack.getChildren().remove(overlay); } catch (Exception ignored) {}
             });
 
-            // add to scene overlay stack and show with same slide animation
-            try { rootStack.getChildren().add(overlay); } catch (Exception ignored) {}
-            transitionTo(overlay); // Use new transition
+            BorderPane container = new BorderPane();
+            container.setMaxWidth(Double.MAX_VALUE);
+            container.setMaxHeight(Double.MAX_VALUE);
+            container.setStyle("-fx-padding:18;");
+
+            javafx.scene.text.Text header = new javafx.scene.text.Text("Single Player Configuration");
+            header.setStyle("-fx-font-size:34px; -fx-fill: #9fb0ff; -fx-font-weight:700;");
+            BorderPane.setAlignment(header, javafx.geometry.Pos.CENTER_LEFT);
+
+            // Top-right action buttons
+            javafx.scene.layout.HBox actionBox = new javafx.scene.layout.HBox(10);
+            actionBox.setAlignment(javafx.geometry.Pos.CENTER_RIGHT);
+            javafx.scene.control.Button btnReset = new javafx.scene.control.Button("Reset");
+            javafx.scene.control.Button btnCancel = new javafx.scene.control.Button("Cancel");
+            javafx.scene.control.Button btnSave = new javafx.scene.control.Button("Save");
+            btnReset.getStyleClass().add("menu-button"); btnCancel.getStyleClass().add("menu-button"); btnSave.getStyleClass().add("menu-button");
+            actionBox.getChildren().addAll(btnReset, btnCancel, btnSave);
+
+            BorderPane topBar = new BorderPane();
+            topBar.setLeft(header);
+            topBar.setRight(actionBox);
+            topBar.setStyle("-fx-padding:8 18 18 18;");
+            container.setTop(topBar);
+
+            // Center: the single controls pane
+            javafx.scene.layout.VBox center = new javafx.scene.layout.VBox(18);
+            center.setStyle("-fx-padding:12; -fx-background-color: transparent;");
+            center.getChildren().add(pane);
+            container.setCenter(center);
+
+            // Wire Reset to restore defaults in the embedded controller
+            btnReset.setOnAction(ev -> {
+                try {
+                    // Use the public API to reset internal controls to defaults
+                    cc.resetToDefaults();
+                } catch (Exception ignored) {}
+            });
+
+            // Cancel should remove overlay and ensure controlsOptions is visible again
+            btnCancel.setOnAction(ev -> {
+                ev.consume();
+                closeOverlayWithAnimation(overlay, () -> {
+                    try { rootStack.getChildren().remove(overlay); } catch (Exception ignored) {}
+                    try {
+                        if (controlsOptions != null) {
+                            controlsOptions.setVisible(true);
+                            controlsOptions.setTranslateX(0);
+                            controlsOptions.setOpacity(1.0);
+                        }
+                    } catch (Exception ignored) {}
+                });
+            });
+
+            // Save should persist values into the MainMenuController fields and close
+            btnSave.setOnAction(ev -> {
+                ev.consume();
+                try {
+                    spLeft = cc.getLeft(); spRight = cc.getRight(); spRotate = cc.getRotate(); spDown = cc.getDown(); spHard = cc.getHard(); spSwitch = cc.getSwitch();
+                    closeOverlayWithAnimation(overlay, () -> {
+                        try { rootStack.getChildren().remove(overlay); } catch (Exception ignored) {}
+                        try { if (controlsOptions != null) controlsOptions.setVisible(true); } catch (Exception ignored) {}
+                    });
+                } catch (Exception ex) {
+                    ex.printStackTrace();
+                }
+            });
+
+            overlay.getChildren().addAll(dark, container);
+            try {
+                if (controlsOptions != null) controlsOptions.setVisible(false);
+                rootStack.getChildren().add(overlay);
+            } catch (Exception ignored) {}
+            transitionTo(overlay);
+        } catch (Exception ex) {
+            ex.printStackTrace();
+        }
+    }
+
+    /**
+     * Load multiplayer controls overlay: two instances of controls.fxml stacked vertically.
+     * Upper panel configures the left player, lower panel configures the right player.
+     * On Save we validate that no KeyCode is reused between the two players.
+     */
+    private void loadMultiplayerControls() {
+        try {
+            URL loc = getClass().getClassLoader().getResource("controls.fxml");
+            if (loc == null) {
+                System.err.println("Cannot find controls.fxml");
+                return;
+            }
+
+            // First controls pane (left / upper player)
+            FXMLLoader fx1 = new FXMLLoader(loc);
+            javafx.scene.layout.StackPane pane1 = fx1.load();
+            ControlsController cc1 = fx1.getController();
+            // initialize with stored values (may be null) — default to WASD + SHIFT for left player
+            KeyCode defaultLeft_left = (mpLeft_left != null) ? mpLeft_left : KeyCode.A;
+            KeyCode defaultLeft_right = (mpLeft_right != null) ? mpLeft_right : KeyCode.D;
+            KeyCode defaultLeft_rotate = (mpLeft_rotate != null) ? mpLeft_rotate : KeyCode.W;
+            KeyCode defaultLeft_down = (mpLeft_down != null) ? mpLeft_down : KeyCode.S;
+            KeyCode defaultLeft_hard = (mpLeft_hard != null) ? mpLeft_hard : KeyCode.SHIFT;
+            // Left-player default switch should be 'Q' (WASD player uses Q to swap)
+            KeyCode defaultLeft_switch = (mpLeft_switch != null) ? mpLeft_switch : KeyCode.Q;
+            cc1.init(defaultLeft_left, defaultLeft_right, defaultLeft_rotate, defaultLeft_down, defaultLeft_hard, defaultLeft_switch);
+            // set the per-panel defaults so the 'Default' column shows WASD for left player (include Switch)
+            try { cc1.setDefaultKeys(defaultLeft_left, defaultLeft_right, defaultLeft_rotate, defaultLeft_down, defaultLeft_hard, defaultLeft_switch); } catch (Exception ignored) {}
+            // hide per-panel action buttons — we use the top bar's Reset/Cancel/Save instead
+            try { cc1.hideActionButtons(); } catch (Exception ignored) {}
+            try { cc1.setHeaderText("Left Player Controls"); } catch (Exception ignored) {}
+
+            // Second controls pane (right / bottom player)
+            FXMLLoader fx2 = new FXMLLoader(loc);
+            javafx.scene.layout.StackPane pane2 = fx2.load();
+            ControlsController cc2 = fx2.getController();
+            KeyCode defaultRight_switch = (mpRight_switch != null) ? mpRight_switch : KeyCode.C;
+            cc2.init(mpRight_left, mpRight_right, mpRight_rotate, mpRight_down, mpRight_hard, defaultRight_switch);
+            try { cc2.setDefaultKeys(mpRight_left != null ? mpRight_left : KeyCode.LEFT, mpRight_right != null ? mpRight_right : KeyCode.RIGHT, mpRight_rotate != null ? mpRight_rotate : KeyCode.UP, mpRight_down != null ? mpRight_down : KeyCode.DOWN, mpRight_hard != null ? mpRight_hard : KeyCode.SPACE, defaultRight_switch); } catch (Exception ignored) {}
+            try { cc2.hideActionButtons(); } catch (Exception ignored) {}
+            try { cc2.setHeaderText("Right Player Controls"); } catch (Exception ignored) {}
+
+            // Build a full-screen overlay with a dark background and a top bar for title + buttons
+            StackPane overlay = new StackPane();
+            overlay.setStyle("-fx-padding:0;");
+
+            Rectangle dark = new Rectangle();
+            dark.setFill(javafx.scene.paint.Color.rgb(8,8,10,0.82));
+            // bind size to scene when available
+            javafx.application.Platform.runLater(() -> {
+                try {
+                    if (overlay.getScene() != null) {
+                        dark.widthProperty().bind(overlay.getScene().widthProperty());
+                        dark.heightProperty().bind(overlay.getScene().heightProperty());
+                    }
+                } catch (Exception ignored) {}
+            });
+
+            // Top bar with title and action buttons on the right (Reset, Cancel, Save)
+            BorderPane container = new BorderPane();
+            container.setMaxWidth(Double.MAX_VALUE);
+            container.setMaxHeight(Double.MAX_VALUE);
+            container.setStyle("-fx-padding:18;");
+
+            // Title (left)
+            javafx.scene.text.Text header = new javafx.scene.text.Text("Multiplayer Configuration");
+            header.setStyle("-fx-font-size:34px; -fx-fill: #9fb0ff; -fx-font-weight:700;");
+            BorderPane.setAlignment(header, javafx.geometry.Pos.CENTER_LEFT);
+            container.setTop(new StackPane(header));
+
+            // action buttons (right)
+            javafx.scene.layout.HBox actionBox = new javafx.scene.layout.HBox(10);
+            actionBox.setAlignment(javafx.geometry.Pos.CENTER_RIGHT);
+            javafx.scene.control.Button btnReset = new javafx.scene.control.Button("Reset");
+            javafx.scene.control.Button btnCancel = new javafx.scene.control.Button("Cancel");
+            javafx.scene.control.Button btnSave = new javafx.scene.control.Button("Save");
+            btnReset.getStyleClass().add("menu-button"); btnCancel.getStyleClass().add("menu-button"); btnSave.getStyleClass().add("menu-button");
+            actionBox.getChildren().addAll(btnReset, btnCancel, btnSave);
+
+            // place actionBox into a right-aligned container on the top bar
+            StackPane topRight = new StackPane(actionBox);
+            BorderPane.setAlignment(topRight, javafx.geometry.Pos.CENTER_RIGHT);
+            BorderPane topBar = new BorderPane();
+            topBar.setLeft(header);
+            topBar.setRight(actionBox);
+            topBar.setStyle("-fx-padding:8 18 18 18;");
+            container.setTop(topBar);
+
+            // Center area: stacked left (upper) and right (bottom) player control panes, each with a small label
+            javafx.scene.layout.VBox center = new javafx.scene.layout.VBox(18);
+            center.setStyle("-fx-padding:12; -fx-background-color: transparent;");
+
+            center.getChildren().addAll( pane1, pane2);
+
+            // Put center inside a scroll pane in case window is small
+            javafx.scene.control.ScrollPane sp = new javafx.scene.control.ScrollPane(center);
+            sp.setFitToWidth(true);
+            sp.setStyle("-fx-background-color: transparent; -fx-background: transparent; -fx-padding:12;");
+            container.setCenter(sp);
+
+            // Wire Reset to restore defaults in both embedded controllers
+            btnReset.setOnAction(ev -> {
+                try {
+                    // left player: WASD + SHIFT (use Q as default Switch for left player)
+                    cc1.init(KeyCode.A, KeyCode.D, KeyCode.W, KeyCode.S, KeyCode.SHIFT, KeyCode.Q);
+                    try { cc1.setDefaultKeys(KeyCode.A, KeyCode.D, KeyCode.W, KeyCode.S, KeyCode.SHIFT, KeyCode.C); } catch (Exception ignored) {}
+                    // right player: use ControlsController defaults (pass nulls)
+                    cc2.init(null, null, null, null, null);
+                } catch (Exception ignored) {}
+            });
+
+            // Cancel should remove overlay and ensure controlsOptions is visible again
+            btnCancel.setOnAction(ev -> {
+                ev.consume();
+                closeOverlayWithAnimation(overlay, () -> {
+                    try { rootStack.getChildren().remove(overlay); } catch (Exception ignored) {}
+                    try {
+                        if (controlsOptions != null) {
+                            controlsOptions.setVisible(true);
+                            controlsOptions.setTranslateX(0);
+                            controlsOptions.setOpacity(1.0);
+                        }
+                    } catch (Exception ignored) {}
+                });
+            });
+
+            // Save validates uniqueness and stores values
+            btnSave.setOnAction(ev -> {
+                ev.consume();
+                try {
+                    KeyCode[] keys = new KeyCode[] {
+                        cc1.getLeft(), cc1.getRight(), cc1.getRotate(), cc1.getDown(), cc1.getHard(), cc1.getSwitch(),
+                        cc2.getLeft(), cc2.getRight(), cc2.getRotate(), cc2.getDown(), cc2.getHard(), cc2.getSwitch()
+                    };
+                    java.util.Set<KeyCode> set = new java.util.HashSet<>();
+                    String dupFound = null;
+                    for (KeyCode k : keys) {
+                        if (k == null) continue;
+                        if (set.contains(k)) { dupFound = k.getName(); break; }
+                        set.add(k);
+                    }
+                    if (dupFound != null) {
+                        javafx.scene.control.Alert a = new javafx.scene.control.Alert(javafx.scene.control.Alert.AlertType.WARNING);
+                        a.setTitle("Duplicate Key");
+                        a.setHeaderText("Key already assigned");
+                        a.setContentText("The key '" + dupFound + "' is used multiple times across players. Please ensure each key is unique.");
+                        a.showAndWait();
+                        return;
+                    }
+
+                    // persist into fields
+                    mpLeft_left = cc1.getLeft(); mpLeft_right = cc1.getRight(); mpLeft_rotate = cc1.getRotate(); mpLeft_down = cc1.getDown(); mpLeft_hard = cc1.getHard(); mpLeft_switch = cc1.getSwitch();
+                    mpRight_left = cc2.getLeft(); mpRight_right = cc2.getRight(); mpRight_rotate = cc2.getRotate(); mpRight_down = cc2.getDown(); mpRight_hard = cc2.getHard(); mpRight_switch = cc2.getSwitch();
+
+                    // close overlay with animation and then restore controls pane
+                    closeOverlayWithAnimation(overlay, () -> {
+                        try { rootStack.getChildren().remove(overlay); } catch (Exception ignored) {}
+                        try { if (controlsOptions != null) controlsOptions.setVisible(true); } catch (Exception ignored) {}
+                    });
+                } catch (Exception ex) {
+                    ex.printStackTrace();
+                }
+            });
+
+            overlay.getChildren().addAll(dark, container);
+            try { 
+                // hide the underlying controls pane while the overlay is active to avoid duplicate animations
+                if (controlsOptions != null) controlsOptions.setVisible(false);
+                rootStack.getChildren().add(overlay); 
+            } catch (Exception ignored) {}
+            transitionTo(overlay);
+
         } catch (Exception ex) {
             ex.printStackTrace();
         }
@@ -657,6 +922,34 @@ public class MainMenuController {
                 tt.play();
             } catch (Exception ignored) {
                 try { fromPane.setVisible(false); } catch (Exception ignored2) {}
+            }
+        });
+    }
+
+    /**
+     * Animates an overlay pane OUT to the right and then runs the provided callback.
+     * The callback typically removes the overlay from the stack and restores the previous menu pane.
+     */
+    private void closeOverlayWithAnimation(StackPane fromPane, Runnable onFinished) {
+        if (fromPane == null) {
+            if (onFinished != null) Platform.runLater(onFinished);
+            return;
+        }
+        Platform.runLater(() -> {
+            try {
+                double endX = fromPane.getScene() != null ? fromPane.getScene().getWidth() : fromPane.getWidth();
+                TranslateTransition tt = new TranslateTransition(Duration.millis(220), fromPane);
+                tt.setFromX(fromPane.getTranslateX());
+                tt.setToX(endX);
+                tt.setInterpolator(Interpolator.EASE_BOTH);
+                tt.setOnFinished(ev -> {
+                    try { fromPane.setVisible(false); fromPane.setTranslateX(0); } catch (Exception ex1) {}
+                    try { if (onFinished != null) onFinished.run(); } catch (Exception ex2) {}
+                });
+                tt.play();
+            } catch (Exception ex3) {
+                try { fromPane.setVisible(false); } catch (Exception ex4) {}
+                try { if (onFinished != null) onFinished.run(); } catch (Exception ex5) {}
             }
         });
     }
