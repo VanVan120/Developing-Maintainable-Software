@@ -70,94 +70,94 @@ public class GuiController implements Initializable {
 
 
     @FXML
-    private GridPane gamePanel;
+    protected GridPane gamePanel;
 
     @FXML
-    private BorderPane gameBoard;
+    protected BorderPane gameBoard;
 
     @FXML
-    private Pane brickPanel;
+    protected Pane brickPanel;
 
     @FXML
-    private Pane ghostPanel;
+    protected Pane ghostPanel;
 
     @FXML
-    private Canvas bgCanvas;
+    protected Canvas bgCanvas;
 
     @FXML
-    private Group groupNotification;
+    protected Group groupNotification;
 
     @FXML
-    private GameOverPanel gameOverPanel;
+    protected GameOverPanel gameOverPanel;
 
     @FXML
-    private Text scoreValue;
+    protected Text scoreValue;
 
     @FXML
-    private Text highScoreValue;
+    protected Text highScoreValue;
 
     @FXML
-    private VBox scoreBox;
+    protected VBox scoreBox;
 
     @FXML
-    private javafx.scene.control.Button pauseBtn;
+    protected javafx.scene.control.Button pauseBtn;
 
     @FXML
-    private VBox nextBox; // right-hand preview container for upcoming bricks
+    protected VBox nextBox; // right-hand preview container for upcoming bricks
     @FXML
-    private VBox nextContent; // inner container that holds only the preview bricks
+    protected VBox nextContent; // inner container that holds only the preview bricks
     @FXML
-    private Rectangle gameBoardFrame;
+    protected Rectangle gameBoardFrame;
     @FXML
-    private Rectangle nextBoxFrame;
+    protected Rectangle nextBoxFrame;
     @FXML
-    private Pane particlePane;
+    protected Pane particlePane;
     @FXML
-    private VBox timeBox;
+    protected VBox timeBox;
     @FXML
-    private Text timeValue;
+    protected Text timeValue;
     @FXML
-    private VBox levelBox;
+    protected VBox levelBox;
     @FXML
-    private Text levelValue;
+    protected Text levelValue;
 
     // cache of upcoming bricks so we can re-render after grid measurement completes
-    private java.util.List<com.comp2042.logic.bricks.Brick> upcomingCache = null;
+    protected java.util.List<com.comp2042.logic.bricks.Brick> upcomingCache = null;
 
-    private Rectangle[][] displayMatrix;
+    protected Rectangle[][] displayMatrix;
 
-    private InputEventListener eventListener;
+    protected InputEventListener eventListener;
 
-    private Rectangle[][] rectangles;
+    protected Rectangle[][] rectangles;
 
     // ghost piece rectangles (same dimensions as moving brick)
-    private Rectangle[][] ghostRectangles;
+    protected Rectangle[][] ghostRectangles;
     // latest background matrix (including merged bricks) for ghost calculation
-    private int[][] currentBoardMatrix;
+    protected int[][] currentBoardMatrix;
     // most recent ViewData used to render the falling brick (kept so we can realign before start)
-    private ViewData currentViewData;
+    protected ViewData currentViewData;
 
-    private Timeline timeLine;
-    private Timeline clockTimeline;
+    protected Timeline timeLine;
+    protected Timeline clockTimeline;
     private long startTimeMs = 0;
     // accumulated elapsed milliseconds when clock is paused
     private long pausedElapsedMs = 0;
 
     // actual cell size measured from the background grid after layout
-    private double cellW = BRICK_SIZE;
-    private double cellH = BRICK_SIZE;
+    protected double cellW = BRICK_SIZE;
+    protected double cellH = BRICK_SIZE;
     // measured origin (top-left) of the visible grid within the containing StackPane
-    private double baseOffsetX = 0;
-    private double baseOffsetY = 0;
+    protected double baseOffsetX = 0;
+    protected double baseOffsetY = 0;
     // small adjustable nudge to compensate for border/stroke/device pixel differences
     // set these to +/-0.5 or +/-1.0 as needed on your display (change at runtime by editing these values)
-    private double nudgeX = 0.0;
-    private double nudgeY = 0.0;
+    protected double nudgeX = 0.0;
+    protected double nudgeY = 0.0;
 
     // block-only micro-adjust (affects only the real falling blocks)
     // change these to move the real pieces without moving the ghost
-    private double blockNudgeX = 0.0;
-    private double blockNudgeY = 0.0;
+    protected double blockNudgeX = 0.0;
+    protected double blockNudgeY = 0.0;
 
     // multiplayer mode flag - when true, only show lock effect for explicit hard-drops by the player
     private boolean isMultiplayer = false;
@@ -541,6 +541,12 @@ public class GuiController implements Initializable {
 
     // Key processing helpers attached to the Scene to ensure they receive events
     private void processKeyPressed(KeyEvent keyEvent) {
+        // When running in cooperative GUI, the CoopGuiController installs its own
+        // scene-level filters and should fully handle keys. Prevent the base
+        // single-player handler from running for coop mode to avoid duplicate
+        // processing (e.g., WASD affecting both players).
+        try { if (this instanceof CoopGuiController) return; } catch (Exception ignored) {}
+
         if (isPause.getValue() == Boolean.FALSE && isGameOver.getValue() == Boolean.FALSE) {
             KeyCode code = keyEvent.getCode();
             boolean handled = false;
@@ -644,6 +650,9 @@ public class GuiController implements Initializable {
     }
 
     private void processKeyReleased(KeyEvent keyEvent) {
+        // CoopGuiController manages its own key filters; avoid handling releases here.
+        try { if (this instanceof CoopGuiController) return; } catch (Exception ignored) {}
+
         KeyCode code = keyEvent.getCode();
         boolean hasCustom = (ctrlSoftDrop != null);
         if (hasCustom) {
@@ -1373,7 +1382,7 @@ public class GuiController implements Initializable {
      * @param end    the ViewData after the drop/lock (may be null)
      * @param intense when true use shorter/faster animation and higher opacity (for hard drops)
      */
-    private void playLockEffect(ViewData start, ViewData end, boolean intense) {
+    protected void playLockEffect(ViewData start, ViewData end, boolean intense) {
         if (start == null || end == null || particlePane == null) return;
         try {
             int[][] shape = start.getBrickData();
@@ -1472,7 +1481,7 @@ public class GuiController implements Initializable {
     }
 
     // Spawn explosions for cleared rows. If ClearRow contains explicit cleared row indices,
-    private void spawnExplosion(ClearRow clearRow, ViewData v) {
+    protected void spawnExplosion(ClearRow clearRow, ViewData v) {
         if (particlePane == null) return;
         try {
             if (clearRow != null && clearRow.getLinesRemoved() > 0) {
@@ -1504,7 +1513,7 @@ public class GuiController implements Initializable {
     }
 
     // Spawn small square particles for each brick in the cleared rows that then fall down and fade out.
-    private void spawnRowClearParticles(ClearRow clearRow) {
+    protected void spawnRowClearParticles(ClearRow clearRow) {
         if (clearRow == null || particlePane == null || displayMatrix == null) return;
         try {
             int[] rows = clearRow.getClearedRows();
@@ -1580,7 +1589,7 @@ public class GuiController implements Initializable {
     }
 
     // Show a brief flash rectangle at vertical position y (top of the row) with given width/height
-    private void flashRow(double topY, double width, double height) {
+    protected void flashRow(double topY, double width, double height) {
         if (particlePane == null) return;
         try {
             Rectangle flash = new Rectangle(Math.round(width), Math.round(height));
@@ -1610,7 +1619,7 @@ public class GuiController implements Initializable {
     }
 
     // Briefly shake the gameBoard to emphasize row clear.
-    private void shakeBoard() {
+    protected void shakeBoard() {
         if (gameBoard == null) return;
         try {
             final int magnitude = 8; // px
@@ -1640,7 +1649,7 @@ public class GuiController implements Initializable {
     }
 
     // compatibility fallback: spawn at the piece's landing position (old behaviour)
-    private void spawnExplosion(ViewData v) {
+    protected void spawnExplosion(ViewData v) {
         if (v == null || particlePane == null) return;
         int brickX = v.getxPosition();
         int brickY = v.getyPosition() - 2; // visible offset
@@ -1649,7 +1658,7 @@ public class GuiController implements Initializable {
         spawnParticlesAt(centerX, centerY, v.getBrickData());
     }
 
-    private void spawnParticlesAt(double centerX, double centerY, int[][] brickShape) {
+    protected void spawnParticlesAt(double centerX, double centerY, int[][] brickShape) {
         final int PARTICLE_COUNT = 18;
         final double MAX_SPEED = 220.0; // px/sec
         final double DURATION_MS = 600.0;

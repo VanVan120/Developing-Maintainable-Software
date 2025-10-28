@@ -386,7 +386,57 @@ public class MainMenuController {
             cooperateBattleBtn.setOnAction(new EventHandler<ActionEvent>() {
                 @Override
                 public void handle(ActionEvent event) {
-                    System.out.println("Cooperate Battle selected - not implemented yet");
+                    try {
+                        URL location = getClass().getClassLoader().getResource("gameLayout.fxml");
+                        if (location == null) return;
+                        FXMLLoader fxmlLoader = new FXMLLoader(location);
+                        // use our CoopGuiController instance as the controller so we can render two pieces
+                        CoopGuiController coopGui = new CoopGuiController();
+                        // The FXML already has fx:controller set to GuiController. Instead of calling
+                        // setController (which conflicts with fx:controller), provide a controller
+                        // factory that returns our CoopGuiController when the loader requests a
+                        // GuiController instance. For other controller types fall back to default
+                        // instantiation.
+                        fxmlLoader.setControllerFactory((Class<?> c) -> {
+                            if (c == GuiController.class) return coopGui;
+                            try {
+                                return c.getDeclaredConstructor().newInstance();
+                            } catch (Exception e) {
+                                throw new RuntimeException(e);
+                            }
+                        });
+                        Parent root = fxmlLoader.load();
+
+                        Stage stage = (Stage) cooperateBattleBtn.getScene().getWindow();
+                        double w = stage.getWidth();
+                        double h = stage.getHeight();
+                        boolean full = stage.isFullScreen();
+                        boolean max = stage.isMaximized();
+                        try {
+                            URL normalBg = getClass().getClassLoader().getResource("Normal.jpg");
+                            if (normalBg != null) root.setStyle("-fx-background-image: url('" + normalBg.toExternalForm() + "'); -fx-background-size: cover; -fx-background-position: center center;");
+                        } catch (Exception ignored) {}
+                        if (stage.getScene() != null) {
+                            stage.getScene().setRoot(root);
+                            stage.setMaximized(max);
+                            if (full) Platform.runLater(() -> stage.setFullScreen(true));
+                        } else {
+                            Scene scene = new Scene(root, Math.max(420, w), Math.max(700, h));
+                            stage.setScene(scene);
+                            stage.setMaximized(max);
+                            if (full) Platform.runLater(() -> stage.setFullScreen(true));
+                            stage.show();
+                        }
+
+                        // create coop model with same dimensions as single-player board
+                        CoopGameController coopModel = new CoopGameController(10, 25);
+                        coopModel.createNewGame();
+                        // initialize coop GUI with model
+                        coopGui.initCoop(coopModel);
+                        try { coopGui.setLevelText("Cooperate"); } catch (Exception ignored) {}
+                    } catch (IOException ex) {
+                        ex.printStackTrace();
+                    }
                 }
             });
         }
