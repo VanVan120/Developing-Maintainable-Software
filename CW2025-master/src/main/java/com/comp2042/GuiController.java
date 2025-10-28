@@ -50,6 +50,13 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 
 import java.net.URL;
+import javafx.scene.media.Media;
+import javafx.scene.media.MediaPlayer;
+import javafx.scene.media.AudioClip;
+import javafx.scene.input.MouseEvent;
+import java.awt.Toolkit;
+import javax.sound.sampled.AudioSystem;
+import javax.sound.sampled.AudioInputStream;
 import java.util.ResourceBundle;
 import java.util.prefs.Preferences;
 
@@ -171,6 +178,10 @@ public class GuiController implements Initializable {
     // in multiplayer mode can request a full match restart (both players) instead of just
     // restarting this single player's board.
     private Runnable multiplayerRestartHandler = null;
+    // Optional callback provided by a multiplayer manager so this embedded GUI can ask
+    // the coordinator to exit to the main menu (important: the coordinator is responsible
+    // for stopping any multiplayer-wide music players).
+    private Runnable multiplayerExitToMenuHandler = null;
     // Optional callback to notify a multiplayer coordinator when this GUI is paused/unpaused.
     // Accepts a Boolean: true => paused, false => resumed.
     private java.util.function.Consumer<Boolean> multiplayerPauseHandler = null;
@@ -199,6 +210,19 @@ public class GuiController implements Initializable {
     // becomes true when the start countdown (3..1..Start) finishes and gameplay begins
     private final BooleanProperty countdownFinished = new SimpleBooleanProperty(false);
 
+    // Audio clips for UI feedback (hover / click). Files should be placed under
+    // src/main/resources/sounds/hover.wav and src/main/resources/sounds/click.wav
+    private AudioClip hoverClip = null;
+    private AudioClip clickClip = null;
+    // Background music player for singleplayer mode (loops)
+    private MediaPlayer singleplayerMusicPlayer = null;
+    // Fallback using JRE's javax.sound.sampled (works for WAV). These are used if AudioClip
+    // couldn't be created (e.g., javafx-media not available at runtime).
+    private javax.sound.sampled.Clip hoverClipFallback = null;
+    private javax.sound.sampled.Clip clickClipFallback = null;
+    // When audio files are missing, optionally fallback to a simple system beep
+    private boolean fallbackToBeep = true;
+
     // animation reference for the single-player game-over title so we can stop it when overlay is removed
     private javafx.animation.Animation gameOverPulse = null;
 
@@ -222,6 +246,128 @@ public class GuiController implements Initializable {
         // Make sure key events are handled even if the GridPane loses focus by listening on the Scene.
         gamePanel.setFocusTraversable(true);
         gamePanel.requestFocus();
+
+        // Load UI audio clips (optional). Place your sound files under
+        // src/main/resources/sounds/hover.wav and src/main/resources/sounds/click.wav
+        try {
+            URL hoverUrl = getClass().getClassLoader().getResource("sounds/hover.wav");
+            if (hoverUrl != null) {
+                System.out.println("[GuiController] hover.wav resource URL=" + hoverUrl);
+                hoverClip = new AudioClip(hoverUrl.toExternalForm());
+                System.out.println("[GuiController] hoverClip created: " + hoverClip);
+            } else {
+                // try alternative lookup
+                URL hoverUrl2 = getClass().getResource("/sounds/hover.wav");
+                System.out.println("[GuiController] hover.wav not found via ClassLoader, try Class.getResource -> " + hoverUrl2);
+                if (hoverUrl2 != null) hoverClip = new AudioClip(hoverUrl2.toExternalForm());
+            }
+        } catch (Exception ex) {
+            System.err.println("[GuiController] failed to load hover.wav: " + ex);
+            ex.printStackTrace();
+        }
+        try {
+            URL clickUrl = getClass().getClassLoader().getResource("sounds/click.wav");
+            if (clickUrl != null) {
+                System.out.println("[GuiController] click.wav resource URL=" + clickUrl);
+                clickClip = new AudioClip(clickUrl.toExternalForm());
+                System.out.println("[GuiController] clickClip created: " + clickClip);
+            } else {
+                URL clickUrl2 = getClass().getResource("/sounds/click.wav");
+                System.out.println("[GuiController] click.wav not found via ClassLoader, try Class.getResource -> " + clickUrl2);
+                if (clickUrl2 != null) clickClip = new AudioClip(clickUrl2.toExternalForm());
+            }
+        } catch (Exception ex) {
+            System.err.println("[GuiController] failed to load click.wav: " + ex);
+            ex.printStackTrace();
+        }
+
+        // If JavaFX AudioClip couldn't be created, try loading WAV using javax.sound.sampled as a robust fallback
+        try {
+            if (hoverClip == null) {
+                URL hoverUrl = getClass().getClassLoader().getResource("sounds/hover.wav");
+                if (hoverUrl == null) hoverUrl = getClass().getResource("/sounds/hover.wav");
+                if (hoverUrl != null) {
+                    try (AudioInputStream ais = AudioSystem.getAudioInputStream(hoverUrl)) {
+                        javax.sound.sampled.Clip c = AudioSystem.getClip();
+                        c.open(ais);
+                        hoverClipFallback = c;
+                        System.out.println("[GuiController] hoverClipFallback created");
+                    }
+                }
+            }
+        } catch (Exception ex) {
+            System.err.println("[GuiController] failed to create hover fallback clip: " + ex);
+            ex.printStackTrace();
+        }
+        try {
+            if (clickClip == null) {
+                URL clickUrl = getClass().getClassLoader().getResource("sounds/click.wav");
+                if (clickUrl == null) clickUrl = getClass().getResource("/sounds/click.wav");
+                if (clickUrl != null) {
+                    try (AudioInputStream ais2 = AudioSystem.getAudioInputStream(clickUrl)) {
+                        javax.sound.sampled.Clip c2 = AudioSystem.getClip();
+                        c2.open(ais2);
+                        clickClipFallback = c2;
+                        System.out.println("[GuiController] clickClipFallback created");
+                    }
+                }
+            }
+        } catch (Exception ex) {
+            System.err.println("[GuiController] failed to create click fallback clip: " + ex);
+            ex.printStackTrace();
+        }
+
+        // Attach generic sound handlers to commonly-interacted controls (pause button etc.)
+        try { if (pauseBtn != null) attachButtonSoundHandlers(pauseBtn); } catch (Exception ignored) {}
+
+        // Start singleplayer background music once the countdown finishes (gameplay begins)
+        try {
+            countdownFinished.addListener((obs, oldV, newV) -> {
+                // reference unused params to satisfy static analyzers
+                java.util.Objects.requireNonNull(obs);
+                java.util.Objects.requireNonNull(oldV);
+                if (Boolean.TRUE.equals(newV)) {
+                    // Do not start singleplayer music when running in multiplayer mode
+                    if (isMultiplayer) {
+                        System.out.println("[GuiController] countdown finished but running in multiplayer mode; skipping singleplayer music");
+                        return;
+                    }
+                    try {
+                        URL mus = getClass().getClassLoader().getResource("sounds/Singleplayer.wav");
+                        if (mus == null) mus = getClass().getResource("/sounds/Singleplayer.wav");
+                        if (mus != null) {
+                            try {
+                                Media m = new Media(mus.toExternalForm());
+                                singleplayerMusicPlayer = new MediaPlayer(m);
+                                singleplayerMusicPlayer.setCycleCount(MediaPlayer.INDEFINITE);
+                                singleplayerMusicPlayer.setAutoPlay(true);
+                                singleplayerMusicPlayer.setVolume(0.6);
+                                singleplayerMusicPlayer.setOnError(() -> System.err.println("[GuiController] Singleplayer music error: " + singleplayerMusicPlayer.getError()));
+                                System.out.println("[GuiController] Singleplayer.wav loaded and playing: " + mus);
+                            } catch (Exception ex) {
+                                System.err.println("[GuiController] Failed to initialize singleplayer music: " + ex);
+                                ex.printStackTrace();
+                            }
+                        } else {
+                            System.out.println("[GuiController] Singleplayer.wav not found in resources (expected sounds/Singleplayer.wav)");
+                        }
+                    } catch (Exception ex) {
+                        System.err.println("[GuiController] Exception while loading singleplayer music: " + ex);
+                        ex.printStackTrace();
+                    }
+                }
+            });
+        } catch (Exception ignored) {}
+
+        // Stop singleplayer music when game is over
+        try {
+            isGameOver.addListener((obs, oldV, newV) -> {
+                // reference unused params to satisfy static analyzers
+                java.util.Objects.requireNonNull(obs);
+                java.util.Objects.requireNonNull(oldV);
+                if (Boolean.TRUE.equals(newV)) stopSingleplayerMusic();
+            });
+        } catch (Exception ignored) {}
 
         // Helper methods to process key events
         final EventHandler<KeyEvent> pressHandler = new EventHandler<>() {
@@ -442,6 +588,9 @@ public class GuiController implements Initializable {
                     Button settings = new Button("Settings");
                     resume.getStyleClass().add("menu-button");
                     settings.getStyleClass().add("menu-button");
+                    // attach hover/click sound handlers
+                    try { attachButtonSoundHandlers(resume); } catch (Exception ignored) {}
+                    try { attachButtonSoundHandlers(settings); } catch (Exception ignored) {}
 
                     resume.setOnAction(ev -> {
                         ev.consume();
@@ -530,6 +679,9 @@ public class GuiController implements Initializable {
                             javafx.scene.control.Button btnCancel2 = new javafx.scene.control.Button("Cancel");
                             javafx.scene.control.Button btnSave2 = new javafx.scene.control.Button("Save");
                             btnCancel2.getStyleClass().add("menu-button"); btnSave2.getStyleClass().add("menu-button");
+                            // attach sounds for these action buttons
+                            try { attachButtonSoundHandlers(btnCancel2); } catch (Exception ignored) {}
+                            try { attachButtonSoundHandlers(btnSave2); } catch (Exception ignored) {}
                             actionBox.getChildren().addAll(btnCancel2, btnSave2);
                             BorderPane topBar = new BorderPane();
                             topBar.setLeft(header);
@@ -1081,6 +1233,15 @@ public class GuiController implements Initializable {
     }
 
     /**
+     * Set a handler that the embedded GUI should call when the user requests to return to
+     * the Main Menu while running inside a multiplayer coordinator. The coordinator should
+     * perform any necessary cleanup (stop shared music players) and navigate the scene.
+     */
+    public void setMultiplayerExitToMenuHandler(Runnable handler) {
+        this.multiplayerExitToMenuHandler = handler;
+    }
+
+    /**
      * Start a countdown overlay (e.g. 3,2,1,Start) then begin the game timeline and clock.
      * This leaves the board visible but frozen until the countdown completes.
      */
@@ -1541,6 +1702,74 @@ public class GuiController implements Initializable {
         rectangle.setArcWidth(9);
     }
 
+    // ---------- UI sound helpers ----------
+    private void attachButtonSoundHandlers(javafx.scene.control.Button btn) {
+        if (btn == null) return;
+        try {
+            btn.addEventHandler(MouseEvent.MOUSE_ENTERED, e -> { e.getSource().toString(); playHoverSound(); });
+            // mouse press for immediate click feedback
+            btn.addEventHandler(MouseEvent.MOUSE_PRESSED, e -> { e.getSource().toString(); playClickSound(); });
+            // also listen for action events (keyboard activation)
+            btn.addEventHandler(javafx.event.ActionEvent.ACTION, e -> { e.getSource().toString(); playClickSound(); });
+        } catch (Exception ignored) {}
+    }
+
+    private void playHoverSound() {
+        try {
+            if (hoverClip != null) {
+                System.out.println("[GuiController] playHoverSound: playing hoverClip");
+                hoverClip.play();
+            } else {
+                System.out.println("[GuiController] playHoverSound: hoverClip is null");
+                if (hoverClipFallback != null) {
+                    // play fallback clip (reset to start)
+                    try {
+                        new Thread(() -> {
+                            try {
+                                synchronized (hoverClipFallback) {
+                                    hoverClipFallback.stop();
+                                    hoverClipFallback.setFramePosition(0);
+                                    hoverClipFallback.start();
+                                }
+                            } catch (Exception ex) { System.err.println("[GuiController] failed to play hoverClipFallback: " + ex); }
+                        }, "hover-sound").start();
+                    } catch (Exception ex) { System.err.println("[GuiController] hover fallback play exception: " + ex); }
+                } else if (fallbackToBeep) Toolkit.getDefaultToolkit().beep();
+            }
+        } catch (Exception ex) {
+            System.err.println("[GuiController] Exception while playing hoverClip: " + ex);
+            ex.printStackTrace();
+        }
+    }
+
+    private void playClickSound() {
+        try {
+            if (clickClip != null) {
+                System.out.println("[GuiController] playClickSound: playing clickClip");
+                clickClip.play();
+            } else {
+                System.out.println("[GuiController] playClickSound: clickClip is null");
+                if (clickClipFallback != null) {
+                    try {
+                        new Thread(() -> {
+                            try {
+                                synchronized (clickClipFallback) {
+                                    clickClipFallback.stop();
+                                    clickClipFallback.setFramePosition(0);
+                                    clickClipFallback.start();
+                                }
+                            } catch (Exception ex) { System.err.println("[GuiController] failed to play clickClipFallback: " + ex); }
+                        }, "click-sound").start();
+                    } catch (Exception ex) { System.err.println("[GuiController] click fallback play exception: " + ex); }
+                } else if (fallbackToBeep) Toolkit.getDefaultToolkit().beep();
+            }
+        } catch (Exception ex) {
+            System.err.println("[GuiController] Exception while playing clickClip: " + ex);
+            ex.printStackTrace();
+        }
+    }
+
+
     private void moveDown(MoveEvent event) {
         // If the game is over, ignore any further down events and make sure the timeline is stopped
         try {
@@ -1925,6 +2154,10 @@ public class GuiController implements Initializable {
      */
     public void setMultiplayerMode(boolean multiplayer) {
         this.isMultiplayer = multiplayer;
+        // If switching into multiplayer, ensure any singleplayer music is stopped to avoid overlap
+        if (multiplayer) {
+            try { stopSingleplayerMusic(); } catch (Exception ignored) {}
+        }
     }
 
     /** Enable or disable hard-drop for this GUI instance. When disabled, any hard-drop key presses are ignored. */
@@ -2207,6 +2440,8 @@ public class GuiController implements Initializable {
                 Button btnMenu = new Button("Main Menu");
                 btnRestart.getStyleClass().add("menu-button");
                 btnMenu.getStyleClass().add("menu-button");
+                try { attachButtonSoundHandlers(btnRestart); } catch (Exception ignored) {}
+                try { attachButtonSoundHandlers(btnMenu); } catch (Exception ignored) {}
 
                 // Restart behavior: if multiplayer, delegate to multiplayer restart handler, otherwise create new game and run countdown
                 btnRestart.setOnAction(ev -> {
@@ -2242,6 +2477,16 @@ public class GuiController implements Initializable {
                     try {
                         // stop any running title animation
                         try { if (gameOverPulse != null) { gameOverPulse.stop(); gameOverPulse = null; } } catch (Exception ignored) {}
+                        // If running as an embedded multiplayer GUI, delegate the 'Main Menu'
+                        // action to the multiplayer coordinator so it can stop shared music and
+                        // perform a coordinated scene change. Otherwise stop only singleplayer music
+                        // and navigate directly to the main menu.
+                        if (isMultiplayer && multiplayerExitToMenuHandler != null) {
+                            try { multiplayerExitToMenuHandler.run(); } catch (Exception ignored) {}
+                            return;
+                        }
+                        // stop singleplayer background music when returning to menu
+                        try { stopSingleplayerMusic(); } catch (Exception ignored) {}
                         URL loc = getClass().getClassLoader().getResource("mainMenu.fxml");
                         if (loc == null) return;
                         FXMLLoader loader = new FXMLLoader(loc);
@@ -2374,5 +2619,16 @@ public class GuiController implements Initializable {
         if (levelValue != null) {
             javafx.application.Platform.runLater(() -> levelValue.setText(text));
         }
+    }
+
+    /** Stop and dispose the singleplayer background music player if present. Safe to call multiple times. */
+    private void stopSingleplayerMusic() {
+        try {
+            if (singleplayerMusicPlayer != null) {
+                try { singleplayerMusicPlayer.stop(); } catch (Exception ignored) {}
+                try { singleplayerMusicPlayer.dispose(); } catch (Exception ignored) {}
+                singleplayerMusicPlayer = null;
+            }
+        } catch (Exception ignored) {}
     }
 }

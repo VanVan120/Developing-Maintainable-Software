@@ -38,6 +38,9 @@ import javafx.scene.media.MediaView;
 import javafx.scene.layout.StackPane;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.shape.Rectangle;
+import javafx.scene.media.AudioClip;
+import javafx.scene.input.MouseEvent;
+import java.awt.Toolkit;
 
 public class MainMenuController {
 
@@ -61,6 +64,12 @@ public class MainMenuController {
     @FXML private javafx.scene.layout.StackPane mediaContainer;
     @FXML private javafx.scene.layout.StackPane rootStack;
     private String menuMediaUrl;
+    // background music player for main menu
+    private MediaPlayer menuMusicPlayer = null;
+    // UI audio for menu (hover / click). Files should be in resources/sounds/
+    private AudioClip menuHoverClip = null;
+    private AudioClip menuClickClip = null;
+    private boolean menuFallbackBeep = true;
     
     // --- SETTINGS VARIABLES ---
     @FXML private javafx.scene.layout.StackPane settingsOptions;
@@ -177,6 +186,42 @@ public class MainMenuController {
         } catch (Exception e) {
             System.out.println("Failed to load preview media: " + e.getMessage());
         }
+
+        // Load and play looping main menu background music (MainMenu.wav)
+        try {
+            URL musicUrl = getClass().getClassLoader().getResource("sounds/MainMenu.wav");
+            if (musicUrl == null) musicUrl = getClass().getResource("/sounds/MainMenu.wav");
+            if (musicUrl != null) {
+                try {
+                    Media music = new Media(musicUrl.toExternalForm());
+                    menuMusicPlayer = new MediaPlayer(music);
+                    menuMusicPlayer.setCycleCount(MediaPlayer.INDEFINITE);
+                    menuMusicPlayer.setAutoPlay(true);
+                    // default pleasant volume
+                    menuMusicPlayer.setVolume(0.6);
+                    menuMusicPlayer.setOnError(() -> System.err.println("Menu music error: " + menuMusicPlayer.getError()));
+                    System.out.println("[MainMenuController] MainMenu.wav loaded and playing: " + musicUrl);
+                } catch (Exception ex) {
+                    System.err.println("[MainMenuController] Failed to initialize menu music: " + ex);
+                    ex.printStackTrace();
+                }
+            } else {
+                System.out.println("[MainMenuController] MainMenu.wav not found in resources (expected sounds/MainMenu.wav)");
+            }
+        } catch (Exception ex) {
+            System.err.println("[MainMenuController] Exception while loading menu music: " + ex);
+            ex.printStackTrace();
+        }
+
+        // Load menu UI sound clips (optional)
+        try {
+            URL h = getClass().getClassLoader().getResource("sounds/hover.wav");
+            if (h != null) menuHoverClip = new AudioClip(h.toExternalForm());
+        } catch (Exception ignored) {}
+        try {
+            URL c = getClass().getClassLoader().getResource("sounds/click.wav");
+            if (c != null) menuClickClip = new AudioClip(c.toExternalForm());
+        } catch (Exception ignored) {}
 
         try {
             if (menuMediaView != null) {
@@ -319,6 +364,7 @@ public class MainMenuController {
                 scoreBattleBtn.setOnAction(new EventHandler<ActionEvent>() {
                     @Override
                     public void handle(ActionEvent event) {
+                                stopMenuMusic();
                         try {
                             URL location = getClass().getClassLoader().getResource("scoreBattleLayout.fxml");
                             if (location == null) return;
@@ -356,6 +402,7 @@ public class MainMenuController {
             classicBattleBtn.setOnAction(new EventHandler<ActionEvent>() {
                 @Override
                 public void handle(ActionEvent event) {
+                            stopMenuMusic();
                     try {
                         URL location = getClass().getClassLoader().getResource("classicBattleLayout.fxml");
                         if (location == null) return;
@@ -393,6 +440,7 @@ public class MainMenuController {
             cooperateBattleBtn.setOnAction(new EventHandler<ActionEvent>() {
                 @Override
                 public void handle(ActionEvent event) {
+                            stopMenuMusic();
                     try {
                         URL location = getClass().getClassLoader().getResource("gameLayout.fxml");
                         if (location == null) return;
@@ -453,6 +501,7 @@ public class MainMenuController {
         normalBtn.setOnAction(new EventHandler<ActionEvent>() {
             @Override
             public void handle(ActionEvent event) {
+                stopMenuMusic();
             try {
                 URL location = getClass().getClassLoader().getResource("gameLayout.fxml");
                 FXMLLoader fxmlLoader = new FXMLLoader(location);
@@ -549,6 +598,24 @@ public class MainMenuController {
                 attachHoverEffects(singlePlayerConfigBtn, expansion);
                 attachHoverEffects(multiPlayerConfigBtn, expansion);
                 attachHoverEffects(controlsBackBtn, expansion);
+                // attach simple menu UI sounds (hover + click) to major buttons
+                try { attachButtonSoundHandlers(multiPlayerBtn); } catch (Exception ignored) {}
+                try { attachButtonSoundHandlers(singlePlayerBtn); } catch (Exception ignored) {}
+                try { attachButtonSoundHandlers(settingsBtn); } catch (Exception ignored) {}
+                try { attachButtonSoundHandlers(scoreBattleBtn); } catch (Exception ignored) {}
+                try { attachButtonSoundHandlers(classicBattleBtn); } catch (Exception ignored) {}
+                try { attachButtonSoundHandlers(cooperateBattleBtn); } catch (Exception ignored) {}
+                try { attachButtonSoundHandlers(easyBtn); } catch (Exception ignored) {}
+                try { attachButtonSoundHandlers(normalBtn); } catch (Exception ignored) {}
+                try { attachButtonSoundHandlers(hardBtn); } catch (Exception ignored) {}
+                try { attachButtonSoundHandlers(backBtn); } catch (Exception ignored) {}
+                try { attachButtonSoundHandlers(controlsBtn); } catch (Exception ignored) {}
+                try { attachButtonSoundHandlers(handlingBtn); } catch (Exception ignored) {}
+                try { attachButtonSoundHandlers(audioBtn); } catch (Exception ignored) {}
+                try { attachButtonSoundHandlers(settingsBackBtn); } catch (Exception ignored) {}
+                try { attachButtonSoundHandlers(singlePlayerConfigBtn); } catch (Exception ignored) {}
+                try { attachButtonSoundHandlers(multiPlayerConfigBtn); } catch (Exception ignored) {}
+                try { attachButtonSoundHandlers(controlsBackBtn); } catch (Exception ignored) {}
                 
             } catch (Exception ignored) {}
         });
@@ -1008,8 +1075,34 @@ public class MainMenuController {
         });
     }
 
+    // Simple menu sound helpers (hover + click)
+    private void attachButtonSoundHandlers(Button btn) {
+        if (btn == null) return;
+        try {
+            btn.addEventHandler(MouseEvent.MOUSE_ENTERED, e -> { e.getSource().toString(); playMenuHover(); });
+            btn.addEventHandler(MouseEvent.MOUSE_PRESSED, e -> { e.getSource().toString(); playMenuClick(); });
+            btn.addEventHandler(javafx.event.ActionEvent.ACTION, e -> { e.getSource().toString(); playMenuClick(); });
+        } catch (Exception ignored) {}
+    }
+
+    private void playMenuHover() {
+        try {
+            if (menuHoverClip != null) menuHoverClip.play();
+            else if (menuFallbackBeep) Toolkit.getDefaultToolkit().beep();
+        } catch (Exception ex) { System.err.println("Menu hover play failed: " + ex); }
+    }
+
+    private void playMenuClick() {
+        try {
+            if (menuClickClip != null) menuClickClip.play();
+            else if (menuFallbackBeep) Toolkit.getDefaultToolkit().beep();
+        } catch (Exception ex) { System.err.println("Menu click play failed: " + ex); }
+    }
+
     // Load game (remains unchanged)
     private void loadGame(String mode) {
+        // stop main menu music before entering a gameplay scene
+        stopMenuMusic();
         try {
             URL location = getClass().getClassLoader().getResource("gameLayout.fxml");
             FXMLLoader fxmlLoader = new FXMLLoader(location);
@@ -1174,6 +1267,17 @@ public class MainMenuController {
             }
         } catch (Exception ignored) {}
         try { if (mediaContainer != null) mediaContainer.setVisible(false); } catch (Exception ignored) {}
+    }
+
+    /** Stop and dispose the main menu background music player if present. Safe to call multiple times. */
+    private void stopMenuMusic() {
+        try {
+            if (menuMusicPlayer != null) {
+                try { menuMusicPlayer.stop(); } catch (Exception ignored) {}
+                try { menuMusicPlayer.dispose(); } catch (Exception ignored) {}
+                menuMusicPlayer = null;
+            }
+        } catch (Exception ignored) {}
     }
 
     private void hideOverlay(javafx.scene.layout.StackPane overlay) {

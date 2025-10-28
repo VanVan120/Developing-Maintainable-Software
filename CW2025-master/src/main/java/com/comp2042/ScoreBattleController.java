@@ -18,6 +18,8 @@ import java.util.prefs.Preferences;
 import javafx.stage.Stage;
 import javafx.event.ActionEvent;
 import javafx.scene.control.Button;
+import javafx.scene.media.Media;
+import javafx.scene.media.MediaPlayer;
 
 import java.io.IOException;
 import java.net.URL;
@@ -64,6 +66,9 @@ public class ScoreBattleController implements Initializable {
 
     // timeline to poll and update per-player next previews
     private javafx.animation.Timeline previewPoller;
+
+    // background music player for score battle
+    private MediaPlayer scoreBattleMusicPlayer = null;
 
     // flag to avoid showing multiple match-end overlays
     private volatile boolean matchEnded = false;
@@ -113,6 +118,8 @@ public class ScoreBattleController implements Initializable {
     private void showMultiplayerControlsOverlay(GuiController requester) {
         javafx.application.Platform.runLater(() -> {
             try {
+                // ensure music is stopped when showing the winner overlay
+                try { if (scoreBattleMusicPlayer != null) { scoreBattleMusicPlayer.stop(); scoreBattleMusicPlayer.dispose(); scoreBattleMusicPlayer = null; } } catch (Exception ignored) {}
                 Scene scene = leftHolder.getScene();
                 if (scene == null) return;
 
@@ -348,6 +355,8 @@ public class ScoreBattleController implements Initializable {
     public void restartMatch() {
         javafx.application.Platform.runLater(() -> {
             try {
+                // stop any playing match music before restarting
+                try { if (scoreBattleMusicPlayer != null) { scoreBattleMusicPlayer.stop(); scoreBattleMusicPlayer.dispose(); scoreBattleMusicPlayer = null; } } catch (Exception ignored) {}
                 // stop match timer and preview poller while restarting
                 try { if (matchTimer != null) matchTimer.stop(); } catch (Exception ignored) {}
                 try { if (previewPoller != null) previewPoller.stop(); } catch (Exception ignored) {}
@@ -564,6 +573,11 @@ public class ScoreBattleController implements Initializable {
             // register a restart handler so an embedded GuiController's Retry can request a full match restart
             try { leftGui.setMultiplayerRestartHandler(this::restartMatch); } catch (Exception ignored) {}
             try { rightGui.setMultiplayerRestartHandler(this::restartMatch); } catch (Exception ignored) {}
+            // register a handler so an embedded GuiController's Main Menu button can delegate
+            // the navigation to the multiplayer coordinator which is responsible for stopping
+            // the shared score-battle music player.
+            try { leftGui.setMultiplayerExitToMenuHandler(() -> onBack(null)); } catch (Exception ignored) {}
+            try { rightGui.setMultiplayerExitToMenuHandler(() -> onBack(null)); } catch (Exception ignored) {}
 
             // Register pause handlers so pausing one player pauses the other. Use applyExternalPause
             // to avoid reentrant notifications.
@@ -735,17 +749,47 @@ public class ScoreBattleController implements Initializable {
         try {
             final javafx.beans.property.BooleanProperty leftDone = leftGui.countdownFinishedProperty();
             final javafx.beans.property.BooleanProperty rightDone = rightGui.countdownFinishedProperty();
-            javafx.beans.InvalidationListener startWhenReady = _obs -> {
+            final javafx.beans.InvalidationListener[] startWhenReadyRef = new javafx.beans.InvalidationListener[1];
+            startWhenReadyRef[0] = _obs -> {
                 // reference parameter so linters/compiler don't complain about unused lambda args
                 java.util.Objects.requireNonNull(_obs);
                 try {
                     if (leftDone.get() && rightDone.get()) {
+                        // avoid duplicate starts: remove listeners and ensure only one player exists
+                        try { leftDone.removeListener(startWhenReadyRef[0]); } catch (Exception ignored) {}
+                        try { rightDone.removeListener(startWhenReadyRef[0]); } catch (Exception ignored) {}
                         matchTimer.play();
+                        // stop any existing player before creating a new one (prevents orphaned players)
+                        try { if (scoreBattleMusicPlayer != null) { scoreBattleMusicPlayer.stop(); scoreBattleMusicPlayer.dispose(); scoreBattleMusicPlayer = null; } } catch (Exception ignored) {}
+                        // start score-battle background music when match actually begins
+                        try {
+                            URL musicUrl = getClass().getClassLoader().getResource("sounds/ScoreBattle.wav");
+                            if (musicUrl == null) musicUrl = getClass().getResource("/sounds/ScoreBattle.wav");
+                            if (musicUrl != null) {
+                                try {
+                                    Media media = new Media(musicUrl.toExternalForm());
+                                    scoreBattleMusicPlayer = new MediaPlayer(media);
+                                    scoreBattleMusicPlayer.setCycleCount(MediaPlayer.INDEFINITE);
+                                    scoreBattleMusicPlayer.setAutoPlay(true);
+                                    scoreBattleMusicPlayer.setVolume(0.6);
+                                    scoreBattleMusicPlayer.setOnError(() -> System.err.println("[ScoreBattleController] ScoreBattle music error: " + scoreBattleMusicPlayer.getError()));
+                                    System.out.println("[ScoreBattleController] ScoreBattle.wav loaded and playing: " + musicUrl);
+                                } catch (Exception ex) {
+                                    System.err.println("[ScoreBattleController] Failed to initialize ScoreBattle music: " + ex);
+                                    ex.printStackTrace();
+                                }
+                            } else {
+                                System.out.println("[ScoreBattleController] ScoreBattle.wav not found in resources (expected sounds/ScoreBattle.wav)");
+                            }
+                        } catch (Exception ex) {
+                            System.err.println("[ScoreBattleController] Exception while loading ScoreBattle music: " + ex);
+                            ex.printStackTrace();
+                        }
                     }
                 } catch (Exception ignored) {}
             };
-            leftDone.addListener(startWhenReady);
-            rightDone.addListener(startWhenReady);
+            leftDone.addListener(startWhenReadyRef[0]);
+            rightDone.addListener(startWhenReadyRef[0]);
             // also check immediately in case both already finished
             if (leftDone.get() && rightDone.get()) matchTimer.play();
         } catch (Exception ignored) {
@@ -821,6 +865,7 @@ public class ScoreBattleController implements Initializable {
             ex.printStackTrace();
         }
         try { if (previewPoller != null) previewPoller.stop(); } catch (Exception ignored) {}
+        try { if (scoreBattleMusicPlayer != null) { scoreBattleMusicPlayer.stop(); scoreBattleMusicPlayer.dispose(); scoreBattleMusicPlayer = null; } } catch (Exception ignored) {}
     }
 
     private String formatTime(int seconds) {
@@ -838,6 +883,8 @@ public class ScoreBattleController implements Initializable {
     }
 
     private void endMatchAndAnnounceWinner() {
+        // stop any match music immediately
+        try { if (scoreBattleMusicPlayer != null) { scoreBattleMusicPlayer.stop(); scoreBattleMusicPlayer.dispose(); scoreBattleMusicPlayer = null; } } catch (Exception ignored) {}
         // stop both games
         try { if (leftGui != null) leftGui.gameOver(); } catch (Exception ignored) {}
         try { if (rightGui != null) rightGui.gameOver(); } catch (Exception ignored) {}
@@ -945,6 +992,8 @@ public class ScoreBattleController implements Initializable {
                 btnMenu.setOnAction(ev -> {
                     ev.consume();
                     try {
+                        // stop score battle music when returning to menu from the winner overlay
+                        try { if (scoreBattleMusicPlayer != null) { scoreBattleMusicPlayer.stop(); scoreBattleMusicPlayer.dispose(); scoreBattleMusicPlayer = null; } } catch (Exception ignored) {}
                         URL loc = getClass().getClassLoader().getResource("mainMenu.fxml");
                         if (loc == null) return;
                         FXMLLoader loader = new FXMLLoader(loc);
