@@ -51,6 +51,7 @@ import java.nio.file.Paths;
 
 import java.net.URL;
 import java.util.ResourceBundle;
+import java.util.prefs.Preferences;
 
 public class GuiController implements Initializable {
 
@@ -163,6 +164,8 @@ public class GuiController implements Initializable {
     private boolean isMultiplayer = false;
     // whether the last input was a hard drop (pressed by user)
     private boolean lastWasHardDrop = false;
+    // whether hard-drop is allowed for this GUI instance (can be disabled via Handling settings)
+    private boolean hardDropAllowed = true;
 
     // Optional callback provided by a multiplayer manager (ScoreBattleController) so a Retry
     // in multiplayer mode can request a full match restart (both players) instead of just
@@ -174,6 +177,13 @@ public class GuiController implements Initializable {
     // When applying a pause change that originated from the multiplayer coordinator we
     // set this flag to avoid re-notifying the coordinator and causing reentrant loops.
     private boolean suppressMultiplayerPauseNotify = false;
+
+    // Identifier for which multiplayer side this GUI represents. Expected values: "left" or "right".
+    // Used to persist the correct mpLeft_/mpRight_ preference keys when saving in-game.
+    private String multiplayerPlayerId = null;
+
+    // Request handler that asks the multiplayer coordinator to present controls UI for this player.
+    private java.util.function.Consumer<GuiController> multiplayerRequestControlsHandler = null;
 
     private int highScore = 0;
     private static final String HIGHSCORE_FILE = System.getProperty("user.home") + File.separator + ".tetris_highscore";
@@ -438,10 +448,212 @@ public class GuiController implements Initializable {
                         hidePauseOverlay();
                     });
 
-                    // Settings placeholder: for now just close overlay (or could open settings dialog)
+                    // Settings: open controls overlay so user can rebind keys. In multiplayer this will
+                    // open the per-player controls overlay (left/right) and return to the pause menu
+                    // after Save/Cancel (does not resume the game).
                     settings.setOnAction(ev -> {
                         ev.consume();
-                        hidePauseOverlay();
+                        try {
+                            // In multiplayer, delegate the controls UI request to the multiplayer
+                            // coordinator (ScoreBattleController) so it can show a dual-player
+                            // controls pane. If no coordinator is registered, fall back to
+                            // showing the single-player overlay locally.
+                            if (isMultiplayer && multiplayerRequestControlsHandler != null) {
+                                try { multiplayerRequestControlsHandler.accept(this); } catch (Exception ignored) {}
+                                return;
+                            }
+
+                            // Load controls.fxml and present it as a modal overlay above the pause dialog.
+                            URL loc = getClass().getClassLoader().getResource("controls.fxml");
+                            if (loc == null) {
+                                hidePauseOverlay();
+                                return;
+                            }
+                            FXMLLoader fx = new FXMLLoader(loc);
+                            javafx.scene.layout.StackPane pane = fx.load();
+                            com.comp2042.ControlsController cc = fx.getController();
+
+                            // initialize with current keys (use instance ctrl mappings or legacy defaults)
+                            KeyCode left = ctrlMoveLeft != null ? ctrlMoveLeft : KeyCode.A;
+                            KeyCode right = ctrlMoveRight != null ? ctrlMoveRight : KeyCode.D;
+                            KeyCode rotate = ctrlRotate != null ? ctrlRotate : KeyCode.W;
+                            KeyCode down = ctrlSoftDrop != null ? ctrlSoftDrop : KeyCode.S;
+                            KeyCode hard = ctrlHardDrop != null ? ctrlHardDrop : KeyCode.SHIFT;
+                            KeyCode sw = ctrlSwap != null ? ctrlSwap : KeyCode.C;
+                            try { cc.init(left, right, rotate, down, hard, sw); } catch (Exception ignored) {}
+                            // When embedded in multiplayer, show player-specific defaults and header so
+                            // the Default column reflects that player's typical keys (and Save persists
+                            // to mpLeft_/mpRight_ keys handled below).
+                            try {
+                                if (isMultiplayer && multiplayerPlayerId != null) {
+                                    if ("left".equalsIgnoreCase(multiplayerPlayerId)) {
+                                        // Left player defaults: A,D, W, S, SHIFT, swap=Q
+                                        cc.setDefaultKeys(KeyCode.A, KeyCode.D, KeyCode.W, KeyCode.S, KeyCode.SHIFT, KeyCode.Q);
+                                        cc.setHeaderText("Left Player Controls");
+                                    } else if ("right".equalsIgnoreCase(multiplayerPlayerId)) {
+                                        // Right player defaults: Numpad (4=left, 6=right, 8=rotate/up, 5=soft-drop), SPACE, swap=C
+                                        cc.setDefaultKeys(KeyCode.NUMPAD4, KeyCode.NUMPAD6, KeyCode.NUMPAD8, KeyCode.NUMPAD5, KeyCode.SPACE, KeyCode.C);
+                                        cc.setHeaderText("Right Player Controls");
+                                    } else {
+                                        // fallback to generic in-game defaults
+                                        cc.setDefaultKeys(KeyCode.A, KeyCode.D, KeyCode.W, KeyCode.S, KeyCode.SHIFT, KeyCode.C);
+                                        cc.setHeaderText("In-Game Controls");
+                                    }
+                                } else {
+                                    // single-player defaults
+                                    cc.setDefaultKeys(KeyCode.A, KeyCode.D, KeyCode.W, KeyCode.S, KeyCode.SHIFT, KeyCode.C);
+                                    cc.setHeaderText("In-Game Controls");
+                                }
+                            } catch (Exception ignored) {}
+                            // hide the embedded controller's own action buttons so we only show the top-bar Save/Cancel
+                            try { cc.hideActionButtons(); } catch (Exception ignored) {}
+                            try { cc.setHeaderText("In-Game Controls"); } catch (Exception ignored) {}
+                            // create overlay container
+                            StackPane overlay = new StackPane();
+                            overlay.setStyle("-fx-padding:0;");
+                            Rectangle dark2 = new Rectangle();
+                            Scene sceneLocal = gameBoard.getScene();
+                            if (sceneLocal != null) {
+                                dark2.widthProperty().bind(sceneLocal.widthProperty());
+                                dark2.heightProperty().bind(sceneLocal.heightProperty());
+                            }
+                            dark2.setFill(Color.rgb(8,8,10,0.82));
+                            BorderPane container = new BorderPane();
+                            container.setMaxWidth(Double.MAX_VALUE);
+                            container.setMaxHeight(Double.MAX_VALUE);
+                            container.setStyle("-fx-padding:18;");
+                            // top bar with title and action buttons
+                            javafx.scene.text.Text header = new javafx.scene.text.Text("Controls");
+                            header.setStyle("-fx-font-size:34px; -fx-fill: #9fb0ff; -fx-font-weight:700;");
+                            javafx.scene.layout.HBox actionBox = new javafx.scene.layout.HBox(10);
+                            actionBox.setAlignment(Pos.CENTER_RIGHT);
+                            javafx.scene.control.Button btnCancel2 = new javafx.scene.control.Button("Cancel");
+                            javafx.scene.control.Button btnSave2 = new javafx.scene.control.Button("Save");
+                            btnCancel2.getStyleClass().add("menu-button"); btnSave2.getStyleClass().add("menu-button");
+                            actionBox.getChildren().addAll(btnCancel2, btnSave2);
+                            BorderPane topBar = new BorderPane();
+                            topBar.setLeft(header);
+                            topBar.setRight(actionBox);
+                            topBar.setStyle("-fx-padding:8 18 18 18;");
+                            container.setTop(topBar);
+                            javafx.scene.layout.VBox center = new javafx.scene.layout.VBox(18);
+                            center.setStyle("-fx-padding:12; -fx-background-color: transparent;");
+                            center.getChildren().add(pane);
+                            container.setCenter(center);
+
+                            btnCancel2.setOnAction(ev2 -> {
+                                ev2.consume();
+                                // remove this controls overlay and restore pause overlay visibility
+                                try {
+                                    if (overlay.getParent() instanceof javafx.scene.layout.Pane) {
+                                        javafx.scene.layout.Pane root = (javafx.scene.layout.Pane) overlay.getParent();
+                                        root.getChildren().remove(overlay);
+                                    }
+                                } catch (Exception ignored) {}
+                                // restore any previously-hidden pause overlay nodes
+                                try {
+                                    Object o = overlay.getProperties().get("hiddenPauseNodes");
+                                    if (o instanceof java.util.List<?>) {
+                                        for (Object n : (java.util.List<?>) o) {
+                                            if (n instanceof javafx.scene.Node) ((javafx.scene.Node) n).setVisible(true);
+                                        }
+                                    }
+                                } catch (Exception ignored) {}
+                                // ensure the pause overlay flag is correct so UI remains paused
+                                try { isPauseOverlayVisible = true; isPause.setValue(Boolean.TRUE); } catch (Exception ignored) {}
+                            });
+
+                            btnSave2.setOnAction(ev2 -> {
+                                ev2.consume();
+                                try {
+                                    // update local control mappings so the running game uses new keys
+                                    ctrlMoveLeft = cc.getLeft();
+                                    ctrlMoveRight = cc.getRight();
+                                    ctrlRotate = cc.getRotate();
+                                    ctrlSoftDrop = cc.getDown();
+                                    ctrlHardDrop = cc.getHard();
+                                    ctrlSwap = cc.getSwitch();
+                                } catch (Exception ignored) {}
+                                // persist the updated control mappings so they survive game over and app restarts
+                                try {
+                                    Preferences prefs = Preferences.userNodeForPackage(com.comp2042.MainMenuController.class);
+                                    if (isMultiplayer && multiplayerPlayerId != null) {
+                                        if ("left".equalsIgnoreCase(multiplayerPlayerId)) {
+                                            prefs.put("mpLeft_left", ctrlMoveLeft != null ? ctrlMoveLeft.name() : "");
+                                            prefs.put("mpLeft_right", ctrlMoveRight != null ? ctrlMoveRight.name() : "");
+                                            prefs.put("mpLeft_rotate", ctrlRotate != null ? ctrlRotate.name() : "");
+                                            prefs.put("mpLeft_down", ctrlSoftDrop != null ? ctrlSoftDrop.name() : "");
+                                            prefs.put("mpLeft_hard", ctrlHardDrop != null ? ctrlHardDrop.name() : "");
+                                            prefs.put("mpLeft_switch", ctrlSwap != null ? ctrlSwap.name() : "");
+                                        } else if ("right".equalsIgnoreCase(multiplayerPlayerId)) {
+                                            prefs.put("mpRight_left", ctrlMoveLeft != null ? ctrlMoveLeft.name() : "");
+                                            prefs.put("mpRight_right", ctrlMoveRight != null ? ctrlMoveRight.name() : "");
+                                            prefs.put("mpRight_rotate", ctrlRotate != null ? ctrlRotate.name() : "");
+                                            prefs.put("mpRight_down", ctrlSoftDrop != null ? ctrlSoftDrop.name() : "");
+                                            prefs.put("mpRight_hard", ctrlHardDrop != null ? ctrlHardDrop.name() : "");
+                                            prefs.put("mpRight_switch", ctrlSwap != null ? ctrlSwap.name() : "");
+                                        } else {
+                                            // fallback to single-player keys if id unrecognized
+                                            prefs.put("spLeft", ctrlMoveLeft != null ? ctrlMoveLeft.name() : "");
+                                            prefs.put("spRight", ctrlMoveRight != null ? ctrlMoveRight.name() : "");
+                                            prefs.put("spRotate", ctrlRotate != null ? ctrlRotate.name() : "");
+                                            prefs.put("spDown", ctrlSoftDrop != null ? ctrlSoftDrop.name() : "");
+                                            prefs.put("spHard", ctrlHardDrop != null ? ctrlHardDrop.name() : "");
+                                            prefs.put("spSwitch", ctrlSwap != null ? ctrlSwap.name() : "");
+                                        }
+                                    } else {
+                                        prefs.put("spLeft", ctrlMoveLeft != null ? ctrlMoveLeft.name() : "");
+                                        prefs.put("spRight", ctrlMoveRight != null ? ctrlMoveRight.name() : "");
+                                        prefs.put("spRotate", ctrlRotate != null ? ctrlRotate.name() : "");
+                                        prefs.put("spDown", ctrlSoftDrop != null ? ctrlSoftDrop.name() : "");
+                                        prefs.put("spHard", ctrlHardDrop != null ? ctrlHardDrop.name() : "");
+                                        prefs.put("spSwitch", ctrlSwap != null ? ctrlSwap.name() : "");
+                                    }
+                                } catch (Exception ignored) {}
+                                // remove overlay and restore pause overlay nodes
+                                try {
+                                    if (overlay.getParent() instanceof javafx.scene.layout.Pane) {
+                                        javafx.scene.layout.Pane root = (javafx.scene.layout.Pane) overlay.getParent();
+                                        root.getChildren().remove(overlay);
+                                    }
+                                } catch (Exception ignored) {}
+                                try {
+                                    Object o = overlay.getProperties().get("hiddenPauseNodes");
+                                    if (o instanceof java.util.List<?>) {
+                                        for (Object n : (java.util.List<?>) o) {
+                                            if (n instanceof javafx.scene.Node) ((javafx.scene.Node) n).setVisible(true);
+                                        }
+                                    }
+                                } catch (Exception ignored) {}
+                                try { isPauseOverlayVisible = true; isPause.setValue(Boolean.TRUE); } catch (Exception ignored) {}
+                            });
+
+                            overlay.getChildren().addAll(dark2, container);
+                            // hide the pause overlay (it remains in memory) and show controls overlay
+                            try {
+                                // add overlay to scene root
+                                if (sceneLocal != null && sceneLocal.getRoot() instanceof javafx.scene.layout.Pane) {
+                                    javafx.scene.layout.Pane root = (javafx.scene.layout.Pane) sceneLocal.getRoot();
+                                    // Instead of removing the pause overlay, hide it so state remains consistent
+                                    try {
+                                        java.util.List<javafx.scene.Node> hidden = new java.util.ArrayList<>();
+                                        for (javafx.scene.Node n : root.getChildren()) {
+                                            if (n != null && "GLOBAL_PAUSE_OVERLAY".equals(n.getId())) {
+                                                n.setVisible(false);
+                                                hidden.add(n);
+                                            }
+                                        }
+                                        // store hidden nodes so we can restore them when controls overlay closes
+                                        overlay.getProperties().put("hiddenPauseNodes", hidden);
+                                    } catch (Exception ignored) {}
+                                    root.getChildren().add(overlay);
+                                }
+                            } catch (Exception ignored) {}
+
+                        } catch (Exception ex) {
+                            // fallback: just close pause overlay
+                            try { hidePauseOverlay(); } catch (Exception ignored) {}
+                        }
                     });
 
                     buttons.getChildren().addAll(resume, settings);
@@ -550,56 +762,47 @@ public class GuiController implements Initializable {
         if (isPause.getValue() == Boolean.FALSE && isGameOver.getValue() == Boolean.FALSE) {
             KeyCode code = keyEvent.getCode();
             boolean handled = false;
-            boolean hasCustom = (ctrlMoveLeft != null || ctrlMoveRight != null || ctrlRotate != null || ctrlSoftDrop != null || ctrlHardDrop != null);
-            if (hasCustom) {
-                if (ctrlMoveLeft != null && code == ctrlMoveLeft) {
-                    refreshBrick(eventListener.onLeftEvent(new MoveEvent(EventType.LEFT, EventSource.USER)));
-                    handled = true;
-                } else if (ctrlMoveRight != null && code == ctrlMoveRight) {
-                    refreshBrick(eventListener.onRightEvent(new MoveEvent(EventType.RIGHT, EventSource.USER)));
-                    handled = true;
-                } else if (ctrlRotate != null && code == ctrlRotate) {
-                    refreshBrick(eventListener.onRotateEvent(new MoveEvent(EventType.ROTATE, EventSource.USER)));
-                    handled = true;
-                } else if (ctrlSoftDrop != null && code == ctrlSoftDrop) {
-                    if (timeLine != null) timeLine.setRate(SOFT_DROP_RATE);
-                    moveDown(new MoveEvent(EventType.DOWN, EventSource.USER));
-                    handled = true;
-                } else if (ctrlHardDrop != null && code == ctrlHardDrop) {
-                    // mark that user used hard-drop via configured hard-drop key
+            // Handle each action independently. If a custom key is configured for the
+            // action, honor it; otherwise fall back to the legacy key set for that action.
+            // This prevents a partially-configured custom mapping (some null ctrl* values)
+            // from disabling all legacy keys.
+
+            // Move Left
+            if ((ctrlMoveLeft != null && code == ctrlMoveLeft) || (ctrlMoveLeft == null && (code == KeyCode.LEFT || code == KeyCode.A))) {
+                refreshBrick(eventListener.onLeftEvent(new MoveEvent(EventType.LEFT, EventSource.USER)));
+                handled = true;
+            }
+            // Move Right
+            else if ((ctrlMoveRight != null && code == ctrlMoveRight) || (ctrlMoveRight == null && (code == KeyCode.RIGHT || code == KeyCode.D))) {
+                refreshBrick(eventListener.onRightEvent(new MoveEvent(EventType.RIGHT, EventSource.USER)));
+                handled = true;
+            }
+            // Rotate
+            else if ((ctrlRotate != null && code == ctrlRotate) || (ctrlRotate == null && (code == KeyCode.UP || code == KeyCode.W))) {
+                refreshBrick(eventListener.onRotateEvent(new MoveEvent(EventType.ROTATE, EventSource.USER)));
+                handled = true;
+            }
+            // Soft Drop
+            else if ((ctrlSoftDrop != null && code == ctrlSoftDrop) || (ctrlSoftDrop == null && (code == KeyCode.DOWN || code == KeyCode.S))) {
+                if (timeLine != null) timeLine.setRate(SOFT_DROP_RATE);
+                moveDown(new MoveEvent(EventType.DOWN, EventSource.USER));
+                handled = true;
+            }
+            // Hard Drop (only when explicitly configured OR when legacy keys are pressed and no custom hard-drop exists)
+            else if ((ctrlHardDrop != null && code == ctrlHardDrop) || (ctrlHardDrop == null && (code == KeyCode.SPACE || code == KeyCode.SHIFT))) {
+                // Respect the hard-drop enable setting: if disabled, ignore hard-drop keys
+                if (hardDropAllowed) {
                     lastWasHardDrop = true;
                     hardDrop();
                     handled = true;
-                } else if (ctrlSwap != null && code == ctrlSwap) {
-                    try { if (eventListener != null) eventListener.onSwapEvent(); } catch (Exception ignored) {}
-                    handled = true;
+                } else {
+                    // explicitly do nothing; leave handled=false so other key handling (if any) can proceed
                 }
-            } else {
-                // legacy behavior: accept both arrow keys and WASD/space
-                if (code == KeyCode.LEFT || code == KeyCode.A) {
-                    refreshBrick(eventListener.onLeftEvent(new MoveEvent(EventType.LEFT, EventSource.USER)));
-                    handled = true;
-                } else if (code == KeyCode.RIGHT || code == KeyCode.D) {
-                    refreshBrick(eventListener.onRightEvent(new MoveEvent(EventType.RIGHT, EventSource.USER)));
-                    handled = true;
-                } else if (code == KeyCode.UP || code == KeyCode.W) {
-                    refreshBrick(eventListener.onRotateEvent(new MoveEvent(EventType.ROTATE, EventSource.USER)));
-                    handled = true;
-                } else if (code == KeyCode.DOWN || code == KeyCode.S) {
-                    if (timeLine != null) timeLine.setRate(SOFT_DROP_RATE);
-                    moveDown(new MoveEvent(EventType.DOWN, EventSource.USER));
-                    handled = true;
-                } else if (code == KeyCode.SPACE || code == KeyCode.SHIFT) {
-                    // mark that user used hard-drop via space or shift
-                    lastWasHardDrop = true;
-                    hardDrop();
-                    handled = true;
-                }
-                // even in legacy mode allow a dedicated swap key if configured
-                if (!handled && ctrlSwap != null && code == ctrlSwap) {
-                    try { if (eventListener != null) eventListener.onSwapEvent(); } catch (Exception ignored) {}
-                    handled = true;
-                }
+            }
+            // Swap key (always respect explicit swap mapping)
+            if (!handled && ctrlSwap != null && code == ctrlSwap) {
+                try { if (eventListener != null) eventListener.onSwapEvent(); } catch (Exception ignored) {}
+                handled = true;
             }
             if (handled) keyEvent.consume();
         }
@@ -1724,6 +1927,11 @@ public class GuiController implements Initializable {
         this.isMultiplayer = multiplayer;
     }
 
+    /** Enable or disable hard-drop for this GUI instance. When disabled, any hard-drop key presses are ignored. */
+    public void setHardDropEnabled(boolean enabled) {
+        this.hardDropAllowed = enabled;
+    }
+
     /** Register a restart handler callable provided by the multiplayer controller. */
     public void setMultiplayerRestartHandler(Runnable handler) {
         this.multiplayerRestartHandler = handler;
@@ -1738,6 +1946,26 @@ public class GuiController implements Initializable {
         this.multiplayerPauseHandler = handler;
         if (handler != null) this.isMultiplayer = true;
     }
+
+    /** Set an identifier for this GUI when running in multiplayer so saves persist the correct keys. */
+    public void setMultiplayerPlayerId(String id) {
+        this.multiplayerPlayerId = id;
+        if (id != null) this.isMultiplayer = true;
+    }
+
+    /** Register a handler that will be called when this GUI requests multiplayer controls UI. */
+    public void setMultiplayerRequestControlsHandler(java.util.function.Consumer<GuiController> handler) {
+        this.multiplayerRequestControlsHandler = handler;
+        if (handler != null) this.isMultiplayer = true;
+    }
+
+    // Expose current control key values so external coordinators can populate Controls panes
+    public KeyCode getCtrlMoveLeft() { return this.ctrlMoveLeft; }
+    public KeyCode getCtrlMoveRight() { return this.ctrlMoveRight; }
+    public KeyCode getCtrlRotate() { return this.ctrlRotate; }
+    public KeyCode getCtrlSoftDrop() { return this.ctrlSoftDrop; }
+    public KeyCode getCtrlHardDrop() { return this.ctrlHardDrop; }
+    public KeyCode getCtrlSwap() { return this.ctrlSwap; }
 
     /**
      * Apply a pause/unpause request that originated externally (from the multiplayer coordinator).

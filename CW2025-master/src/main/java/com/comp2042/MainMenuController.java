@@ -16,6 +16,7 @@ import java.io.IOException;
 import java.net.URL;
 import javafx.application.Platform;
 import javafx.scene.input.KeyCode;
+import java.util.prefs.Preferences;
 import javafx.animation.KeyFrame;
 import javafx.animation.KeyValue;
 import javafx.animation.Timeline;
@@ -82,6 +83,9 @@ public class MainMenuController {
     private KeyCode spHard = null;
     private KeyCode spSwitch = null;
 
+    // Preferences node for persisting settings
+    private final Preferences prefs = Preferences.userNodeForPackage(MainMenuController.class);
+
     // --- Handling settings (stored) ---
     private int settingArrMs = 50; // Auto Repeat Rate in ms
     private int settingDasMs = 120; // Delayed Auto Shift in ms
@@ -106,6 +110,9 @@ public class MainMenuController {
     
     @FXML
     public void initialize() {
+        // load persisted settings if available
+        try { loadHandlingSettings(); } catch (Exception ignored) {}
+        try { loadControlSettings(); } catch (Exception ignored) {}
         // set a background if available
         try {
             URL bg = getClass().getClassLoader().getResource("GUI.jpg");
@@ -432,6 +439,7 @@ public class MainMenuController {
                         CoopGameController coopModel = new CoopGameController(10, 25);
                         coopModel.createNewGame();
                         // initialize coop GUI with model
+                        try { coopGui.setHardDropEnabled(settingHardDropEnabled); } catch (Exception ignored) {}
                         coopGui.initCoop(coopModel);
                         try { coopGui.setLevelText("Cooperate"); } catch (Exception ignored) {}
                     } catch (IOException ex) {
@@ -636,6 +644,8 @@ public class MainMenuController {
                     settingDcdMs = hc.getDcdMs();
                     settingSdf = hc.getSdf();
                     settingHardDropEnabled = hc.isHardDropEnabled();
+                    // persist handling settings
+                    try { saveHandlingSettings(); } catch (Exception ignored) {}
                     closeOverlayWithAnimation(overlay, () -> {
                         try { rootStack.getChildren().remove(overlay); } catch (Exception ignored) {}
                         try { if (settingsOptions != null) settingsOptions.setVisible(true); } catch (Exception ignored) {}
@@ -747,6 +757,8 @@ public class MainMenuController {
                 ev.consume();
                 try {
                     spLeft = cc.getLeft(); spRight = cc.getRight(); spRotate = cc.getRotate(); spDown = cc.getDown(); spHard = cc.getHard(); spSwitch = cc.getSwitch();
+                    // persist control settings
+                    try { saveControlSettings(); } catch (Exception ignored) {}
                     closeOverlayWithAnimation(overlay, () -> {
                         try { rootStack.getChildren().remove(overlay); } catch (Exception ignored) {}
                         try { if (controlsOptions != null) controlsOptions.setVisible(true); } catch (Exception ignored) {}
@@ -921,6 +933,9 @@ public class MainMenuController {
                     mpLeft_left = cc1.getLeft(); mpLeft_right = cc1.getRight(); mpLeft_rotate = cc1.getRotate(); mpLeft_down = cc1.getDown(); mpLeft_hard = cc1.getHard(); mpLeft_switch = cc1.getSwitch();
                     mpRight_left = cc2.getLeft(); mpRight_right = cc2.getRight(); mpRight_rotate = cc2.getRotate(); mpRight_down = cc2.getDown(); mpRight_hard = cc2.getHard(); mpRight_switch = cc2.getSwitch();
 
+                    // persist multiplayer control settings
+                    try { saveControlSettings(); } catch (Exception ignored) {}
+
                     // close overlay with animation and then restore controls pane
                     closeOverlayWithAnimation(overlay, () -> {
                         try { rootStack.getChildren().remove(overlay); } catch (Exception ignored) {}
@@ -1030,6 +1045,7 @@ public class MainMenuController {
             try {
                 controller.setControlKeys(spLeft, spRight, spRotate, spDown, spHard);
             } catch (Exception ignored) {}
+            try { controller.setHardDropEnabled(settingHardDropEnabled); } catch (Exception ignored) {}
             new GameController(controller);
             controller.setLevelText(mode);
             try {
@@ -1184,6 +1200,102 @@ public class MainMenuController {
             try { overlay.setVisible(false); } catch (Exception ignored) {}
             try { mainButtons.setVisible(true); } catch (Exception ignored) {}
             try { if (titleText != null) titleText.setVisible(true); } catch (Exception ignored) {}
+        }
+    }
+
+    // ---------------------- Preferences persistence helpers ----------------------
+
+    /** Save control key settings (single-player and multiplayer) to Preferences. */
+    private void saveControlSettings() {
+        try {
+            prefs.put("spLeft", spLeft != null ? spLeft.name() : "");
+            prefs.put("spRight", spRight != null ? spRight.name() : "");
+            prefs.put("spRotate", spRotate != null ? spRotate.name() : "");
+            prefs.put("spDown", spDown != null ? spDown.name() : "");
+            prefs.put("spHard", spHard != null ? spHard.name() : "");
+            prefs.put("spSwitch", spSwitch != null ? spSwitch.name() : "");
+
+            prefs.put("mpLeft_left", mpLeft_left != null ? mpLeft_left.name() : "");
+            prefs.put("mpLeft_right", mpLeft_right != null ? mpLeft_right.name() : "");
+            prefs.put("mpLeft_rotate", mpLeft_rotate != null ? mpLeft_rotate.name() : "");
+            prefs.put("mpLeft_down", mpLeft_down != null ? mpLeft_down.name() : "");
+            prefs.put("mpLeft_hard", mpLeft_hard != null ? mpLeft_hard.name() : "");
+            prefs.put("mpLeft_switch", mpLeft_switch != null ? mpLeft_switch.name() : "");
+
+            prefs.put("mpRight_left", mpRight_left != null ? mpRight_left.name() : "");
+            prefs.put("mpRight_right", mpRight_right != null ? mpRight_right.name() : "");
+            prefs.put("mpRight_rotate", mpRight_rotate != null ? mpRight_rotate.name() : "");
+            prefs.put("mpRight_down", mpRight_down != null ? mpRight_down.name() : "");
+            prefs.put("mpRight_hard", mpRight_hard != null ? mpRight_hard.name() : "");
+            prefs.put("mpRight_switch", mpRight_switch != null ? mpRight_switch.name() : "");
+        } catch (Exception ex) {
+            // don't fail the UI on persistence error
+            try { System.err.println("Failed to save control settings: " + ex.getMessage()); } catch (Exception ignored) {}
+        }
+    }
+
+    /** Load control key settings (single-player and multiplayer) from Preferences. */
+    private void loadControlSettings() {
+        try {
+            String s;
+            s = prefs.get("spLeft", ""); spLeft = s.isEmpty() ? null : safeKeyCodeOf(s);
+            s = prefs.get("spRight", ""); spRight = s.isEmpty() ? null : safeKeyCodeOf(s);
+            s = prefs.get("spRotate", ""); spRotate = s.isEmpty() ? null : safeKeyCodeOf(s);
+            s = prefs.get("spDown", ""); spDown = s.isEmpty() ? null : safeKeyCodeOf(s);
+            s = prefs.get("spHard", ""); spHard = s.isEmpty() ? null : safeKeyCodeOf(s);
+            s = prefs.get("spSwitch", ""); spSwitch = s.isEmpty() ? null : safeKeyCodeOf(s);
+
+            s = prefs.get("mpLeft_left", ""); mpLeft_left = s.isEmpty() ? null : safeKeyCodeOf(s);
+            s = prefs.get("mpLeft_right", ""); mpLeft_right = s.isEmpty() ? null : safeKeyCodeOf(s);
+            s = prefs.get("mpLeft_rotate", ""); mpLeft_rotate = s.isEmpty() ? null : safeKeyCodeOf(s);
+            s = prefs.get("mpLeft_down", ""); mpLeft_down = s.isEmpty() ? null : safeKeyCodeOf(s);
+            s = prefs.get("mpLeft_hard", ""); mpLeft_hard = s.isEmpty() ? null : safeKeyCodeOf(s);
+            s = prefs.get("mpLeft_switch", ""); mpLeft_switch = s.isEmpty() ? null : safeKeyCodeOf(s);
+
+            s = prefs.get("mpRight_left", ""); mpRight_left = s.isEmpty() ? null : safeKeyCodeOf(s);
+            s = prefs.get("mpRight_right", ""); mpRight_right = s.isEmpty() ? null : safeKeyCodeOf(s);
+            s = prefs.get("mpRight_rotate", ""); mpRight_rotate = s.isEmpty() ? null : safeKeyCodeOf(s);
+            s = prefs.get("mpRight_down", ""); mpRight_down = s.isEmpty() ? null : safeKeyCodeOf(s);
+            s = prefs.get("mpRight_hard", ""); mpRight_hard = s.isEmpty() ? null : safeKeyCodeOf(s);
+            s = prefs.get("mpRight_switch", ""); mpRight_switch = s.isEmpty() ? null : safeKeyCodeOf(s);
+        } catch (Exception ex) {
+            try { System.err.println("Failed to load control settings: " + ex.getMessage()); } catch (Exception ignored) {}
+        }
+    }
+
+    /** Save handling settings (timings, soft drop factor, hard-drop enabled) to Preferences. */
+    private void saveHandlingSettings() {
+        try {
+            prefs.putInt("settingArrMs", settingArrMs);
+            prefs.putInt("settingDasMs", settingDasMs);
+            prefs.putInt("settingDcdMs", settingDcdMs);
+            prefs.putDouble("settingSdf", settingSdf);
+            prefs.putBoolean("settingHardDropEnabled", settingHardDropEnabled);
+        } catch (Exception ex) {
+            try { System.err.println("Failed to save handling settings: " + ex.getMessage()); } catch (Exception ignored) {}
+        }
+    }
+
+    /** Load handling settings from Preferences. */
+    private void loadHandlingSettings() {
+        try {
+            settingArrMs = prefs.getInt("settingArrMs", settingArrMs);
+            settingDasMs = prefs.getInt("settingDasMs", settingDasMs);
+            settingDcdMs = prefs.getInt("settingDcdMs", settingDcdMs);
+            settingSdf = prefs.getDouble("settingSdf", settingSdf);
+            settingHardDropEnabled = prefs.getBoolean("settingHardDropEnabled", settingHardDropEnabled);
+        } catch (Exception ex) {
+            try { System.err.println("Failed to load handling settings: " + ex.getMessage()); } catch (Exception ignored) {}
+        }
+    }
+
+    /** Helper: safely convert a stored String back to a KeyCode, returning null on error. */
+    private KeyCode safeKeyCodeOf(String name) {
+        if (name == null || name.isEmpty()) return null;
+        try {
+            return KeyCode.valueOf(name);
+        } catch (IllegalArgumentException ex) {
+            return null;
         }
     }
 }

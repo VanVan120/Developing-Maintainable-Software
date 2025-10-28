@@ -73,13 +73,37 @@ public class SimpleBoard implements Board {
     public boolean rotateLeftBrick() {
         int[][] currentMatrix = MatrixOperations.copy(currentGameMatrix);
         NextShapeInfo nextShape = brickRotator.getNextShape();
-        boolean conflict = MatrixOperations.intersect(currentMatrix, nextShape.getShape(), (int) currentOffset.getX(), (int) currentOffset.getY());
-        if (conflict) {
-            return false;
-        } else {
+        // first try rotation at current offset
+        int baseX = (int) currentOffset.getX();
+        int baseY = (int) currentOffset.getY();
+        boolean conflict = MatrixOperations.intersect(currentMatrix, nextShape.getShape(), baseX, baseY);
+        if (!conflict) {
             brickRotator.setCurrentShape(nextShape.getPosition());
             return true;
         }
+
+        // Simple wall-kick: try small horizontal translations to accommodate rotation.
+        // Try offsets in order: +1, -1, +2, -2 (right then left then wider kicks).
+        int[] kicks = new int[]{1, -1, 2, -2};
+        for (int dx : kicks) {
+            int tryX = baseX + dx;
+            if (!MatrixOperations.intersect(currentMatrix, nextShape.getShape(), tryX, baseY)) {
+                // found a valid translation for rotation
+                currentOffset.translate(dx, 0);
+                brickRotator.setCurrentShape(nextShape.getPosition());
+                return true;
+            }
+        }
+
+        // Optionally try a small upward kick (one row up) for floor collisions
+        if (!MatrixOperations.intersect(currentMatrix, nextShape.getShape(), baseX, baseY - 1)) {
+            currentOffset.translate(0, -1);
+            brickRotator.setCurrentShape(nextShape.getPosition());
+            return true;
+        }
+
+        // rotation blocked
+        return false;
     }
 
     @Override

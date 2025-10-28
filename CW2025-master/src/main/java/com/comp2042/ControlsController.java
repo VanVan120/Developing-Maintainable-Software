@@ -418,6 +418,27 @@ public class ControlsController {
         } catch (Exception ignored) {}
     }
 
+    /** Reset current keybindings to the panel-specific defaults (useful when embedded for players). */
+    public void resetToPanelDefaults() {
+        try {
+            currentLeft = (panelDefaultLeft != null) ? panelDefaultLeft : DEFAULT_LEFT;
+            currentRight = (panelDefaultRight != null) ? panelDefaultRight : DEFAULT_RIGHT;
+            currentSoft = (panelDefaultSoft != null) ? panelDefaultSoft : DEFAULT_SOFT;
+            currentHard = (panelDefaultHard != null) ? panelDefaultHard : DEFAULT_HARD;
+            currentRotate = (panelDefaultRotate != null) ? panelDefaultRotate : DEFAULT_ROTATE;
+            currentSwitch = (panelDefaultSwitch != null) ? panelDefaultSwitch : DEFAULT_SWITCH;
+
+            // Update the current column buttons to reflect panel defaults
+            setButtonKey(btnLeftCurrent, currentLeft, true);
+            setButtonKey(btnRightCurrent, currentRight, true);
+            setButtonKey(btnSoftCurrent, currentSoft, true);
+            setButtonKey(btnHardCurrent, currentHard, true);
+            setButtonKey(btnRotateCurrent, currentRotate, true);
+            setButtonKey(btnSwitchCurrent, currentSwitch, true);
+            setInfoText("Reset to panel defaults");
+        } catch (Exception ignored) {}
+    }
+
     /** Set the top header text in the controls panel (e.g. Single Player Controls). */
     public void setHeaderText(String text) {
         try {
