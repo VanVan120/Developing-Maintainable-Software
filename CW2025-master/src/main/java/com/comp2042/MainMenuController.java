@@ -752,6 +752,7 @@ public class MainMenuController {
             try { cc.hideActionButtons(); } catch (Exception ignored) {}
 
             // Create overlay shell similar to multiplayer overlay but for single pane
+
             StackPane overlay = new StackPane();
             overlay.setStyle("-fx-padding:0;");
 
@@ -887,6 +888,23 @@ public class MainMenuController {
             try { cc2.setDefaultKeys(mpRight_left != null ? mpRight_left : KeyCode.LEFT, mpRight_right != null ? mpRight_right : KeyCode.RIGHT, mpRight_rotate != null ? mpRight_rotate : KeyCode.UP, mpRight_down != null ? mpRight_down : KeyCode.DOWN, mpRight_hard != null ? mpRight_hard : KeyCode.SPACE, defaultRight_switch); } catch (Exception ignored) {}
             try { cc2.hideActionButtons(); } catch (Exception ignored) {}
             try { cc2.setHeaderText("Right Player Controls"); } catch (Exception ignored) {}
+
+            // Cross-panel key availability check: prevent assigning a key that the other player already uses
+            try {
+                cc1.setKeyAvailabilityChecker((code, btn) -> {
+                    if (code == null) return true;
+                    try {
+                        return !(code.equals(cc2.getLeft()) || code.equals(cc2.getRight()) || code.equals(cc2.getRotate()) || code.equals(cc2.getDown()) || code.equals(cc2.getHard()) || code.equals(cc2.getSwitch()));
+                    } catch (Exception ignored) { return true; }
+                });
+
+                cc2.setKeyAvailabilityChecker((code, btn) -> {
+                    if (code == null) return true;
+                    try {
+                        return !(code.equals(cc1.getLeft()) || code.equals(cc1.getRight()) || code.equals(cc1.getRotate()) || code.equals(cc1.getDown()) || code.equals(cc1.getHard()) || code.equals(cc1.getSwitch()));
+                    } catch (Exception ignored) { return true; }
+                });
+            } catch (Exception ignored) {}
 
             // Build a full-screen overlay with a dark background and a top bar for title + buttons
             StackPane overlay = new StackPane();

@@ -59,6 +59,7 @@ import javax.sound.sampled.AudioSystem;
 import javax.sound.sampled.AudioInputStream;
 import java.util.ResourceBundle;
 import java.util.prefs.Preferences;
+import java.util.concurrent.atomic.AtomicInteger;
 
 public class GuiController implements Initializable {
 
@@ -220,6 +221,15 @@ public class GuiController implements Initializable {
     // couldn't be created (e.g., javafx-media not available at runtime).
     private javax.sound.sampled.Clip hoverClipFallback = null;
     private javax.sound.sampled.Clip clickClipFallback = null;
+    // Scene-level handlers stored so they can be removed during cleanup
+    private javafx.event.EventHandler<KeyEvent> globalPressHandler = null;
+    private javafx.event.EventHandler<KeyEvent> globalReleaseHandler = null;
+    private javafx.event.EventHandler<KeyEvent> escHandler = null;
+    // the Scene these handlers were attached to (may be different from gamePanel.getScene() once node is detached)
+    private Scene attachedScene = null;
+    // instance id for debugging
+    private static final AtomicInteger __INSTANCE_COUNTER = new AtomicInteger(0);
+    private final String controllerId = "Gui#" + __INSTANCE_COUNTER.incrementAndGet();
     // When audio files are missing, optionally fallback to a simple system beep
     private boolean fallbackToBeep = true;
 
@@ -327,9 +337,9 @@ public class GuiController implements Initializable {
                 java.util.Objects.requireNonNull(obs);
                 java.util.Objects.requireNonNull(oldV);
                 if (Boolean.TRUE.equals(newV)) {
-                    // Do not start singleplayer music when running in multiplayer mode
-                    if (isMultiplayer) {
-                        System.out.println("[GuiController] countdown finished but running in multiplayer mode; skipping singleplayer music");
+                    // Allow subclasses to control whether singleplayer music should auto-start
+                    if (!shouldStartSingleplayerMusic()) {
+                        System.out.println("[GuiController] countdown finished but singleplayer music suppressed by subclass or multiplayer mode; skipping singleplayer music");
                         return;
                     }
                     try {
@@ -369,46 +379,49 @@ public class GuiController implements Initializable {
             });
         } catch (Exception ignored) {}
 
-        // Helper methods to process key events
-        final EventHandler<KeyEvent> pressHandler = new EventHandler<>() {
-            @Override
-            public void handle(KeyEvent keyEvent) {
-                processKeyPressed(keyEvent);
-            }
-        };
-
-        final EventHandler<KeyEvent> releaseHandler = new EventHandler<>() {
-            @Override
-            public void handle(KeyEvent keyEvent) {
-                processKeyReleased(keyEvent);
-            }
-        };
-
-        // Attach to the scene when available, otherwise listen for scene property
+    // Attach to the scene when available, otherwise listen for scene property
+        // Handlers are created once and stored so they can be removed later by cleanup().
         javafx.application.Platform.runLater(() -> {
-            if (gamePanel.getScene() != null) {
-                gamePanel.getScene().addEventHandler(KeyEvent.KEY_PRESSED, pressHandler);
-                gamePanel.getScene().addEventHandler(KeyEvent.KEY_RELEASED, releaseHandler);
-                // also listen for Esc to toggle pause
-                gamePanel.getScene().addEventHandler(KeyEvent.KEY_PRESSED, e -> {
+            globalPressHandler = new javafx.event.EventHandler<KeyEvent>() {
+                @Override public void handle(KeyEvent keyEvent) { processKeyPressed(keyEvent); }
+            };
+            globalReleaseHandler = new javafx.event.EventHandler<KeyEvent>() {
+                @Override public void handle(KeyEvent keyEvent) { processKeyReleased(keyEvent); }
+            };
+            escHandler = new javafx.event.EventHandler<KeyEvent>() {
+                @Override public void handle(KeyEvent e) {
                     if (e.getCode() == KeyCode.ESCAPE) {
                         togglePauseOverlay();
                         e.consume();
                     }
-                });
+                }
+            };
+
+            if (gamePanel.getScene() != null) {
+                Scene s = gamePanel.getScene();
+                attachedScene = s;
+                s.addEventHandler(KeyEvent.KEY_PRESSED, globalPressHandler);
+                s.addEventHandler(KeyEvent.KEY_RELEASED, globalReleaseHandler);
+                s.addEventHandler(KeyEvent.KEY_PRESSED, escHandler);
+                System.out.println("[" + controllerId + "] attached global handlers to scene=" + s.hashCode());
             } else {
                 gamePanel.sceneProperty().addListener(new javafx.beans.value.ChangeListener<>() {
                     @Override
                     public void changed(javafx.beans.value.ObservableValue<? extends javafx.scene.Scene> observable, javafx.scene.Scene oldScene, javafx.scene.Scene newScene) {
+                        if (oldScene != null) {
+                            try { oldScene.removeEventHandler(KeyEvent.KEY_PRESSED, globalPressHandler); } catch (Exception ignored) {}
+                            try { oldScene.removeEventHandler(KeyEvent.KEY_RELEASED, globalReleaseHandler); } catch (Exception ignored) {}
+                            try { oldScene.removeEventHandler(KeyEvent.KEY_PRESSED, escHandler); } catch (Exception ignored) {}
+                            System.out.println("[" + controllerId + "] removed handlers from oldScene=" + oldScene.hashCode());
+                            // clear attachedScene if it referenced the oldScene
+                            try { if (attachedScene == oldScene) attachedScene = null; } catch (Exception ignored) {}
+                        }
                         if (newScene != null) {
-                            newScene.addEventHandler(KeyEvent.KEY_PRESSED, pressHandler);
-                            newScene.addEventHandler(KeyEvent.KEY_RELEASED, releaseHandler);
-                            newScene.addEventHandler(KeyEvent.KEY_PRESSED, e -> {
-                                if (e.getCode() == KeyCode.ESCAPE) {
-                                    togglePauseOverlay();
-                                    e.consume();
-                                }
-                            });
+                            newScene.addEventHandler(KeyEvent.KEY_PRESSED, globalPressHandler);
+                            newScene.addEventHandler(KeyEvent.KEY_RELEASED, globalReleaseHandler);
+                            newScene.addEventHandler(KeyEvent.KEY_PRESSED, escHandler);
+                            attachedScene = newScene;
+                            System.out.println("[" + controllerId + "] attached global handlers to newScene=" + newScene.hashCode());
                         }
                     }
                 });
@@ -603,11 +616,12 @@ public class GuiController implements Initializable {
                     settings.setOnAction(ev -> {
                         ev.consume();
                         try {
-                            // In multiplayer, delegate the controls UI request to the multiplayer
-                            // coordinator (ScoreBattleController) so it can show a dual-player
-                            // controls pane. If no coordinator is registered, fall back to
-                            // showing the single-player overlay locally.
-                            if (isMultiplayer && multiplayerRequestControlsHandler != null) {
+                            // If a multiplayer coordinator (or local handler) registered a
+                            // multiplayer controls handler, prefer that overlay. This allows
+                            // modes that keep isMultiplayer=false (e.g. coop single-root UI)
+                            // to still present a two-player controls pane by registering
+                            // a handler without changing game-over behavior.
+                            if (multiplayerRequestControlsHandler != null) {
                                 try { multiplayerRequestControlsHandler.accept(this); } catch (Exception ignored) {}
                                 return;
                             }
@@ -901,6 +915,53 @@ public class GuiController implements Initializable {
                 try { gamePanel.requestFocus(); } catch (Exception ignored) {}
             } catch (Exception ignored) {}
         });
+    }
+
+    /**
+     * Remove any scene-level key handlers that this controller installed.
+     * Subclasses may override onSceneDetach() to remove any filters they installed.
+     */
+    private void detachSceneKeyHandlers() {
+        try {
+            javafx.application.Platform.runLater(() -> {
+                System.out.println("[" + controllerId + "] detachSceneKeyHandlers invoked");
+                try {
+                    if (gamePanel != null && gamePanel.getScene() != null) {
+                        javafx.scene.Scene s = gamePanel.getScene();
+                        System.out.println("[" + controllerId + "] removing handlers from scene=" + s.hashCode());
+                        try { if (globalPressHandler != null) s.removeEventHandler(KeyEvent.KEY_PRESSED, globalPressHandler); } catch (Exception ignored) {}
+                        try { if (globalReleaseHandler != null) s.removeEventHandler(KeyEvent.KEY_RELEASED, globalReleaseHandler); } catch (Exception ignored) {}
+                        try { if (escHandler != null) s.removeEventHandler(KeyEvent.KEY_PRESSED, escHandler); } catch (Exception ignored) {}
+                    }
+                    // give subclasses a chance to remove their own filters
+                    try { onSceneDetach(); System.out.println("[" + controllerId + "] onSceneDetach completed"); } catch (Exception ignored) {}
+                } catch (Exception ignored) {}
+            });
+        } catch (Exception ignored) {}
+    }
+
+    /**
+     * Hook for subclasses to remove any scene filters or other resources when this view is torn down.
+     */
+    protected void onSceneDetach() {
+        // default no-op; subclasses (e.g., CoopGuiController) can override
+    }
+
+    /**
+     * Perform a best-effort cleanup of long-lived resources before the scene root is replaced.
+     */
+    public void cleanup() {
+        try {
+            System.out.println("[" + controllerId + "] cleanup called");
+            // stop timelines
+            try { if (timeLine != null) timeLine.stop(); } catch (Exception ignored) {}
+            try { if (clockTimeline != null) clockTimeline.stop(); } catch (Exception ignored) {}
+            // stop music
+            try { stopSingleplayerMusic(); } catch (Exception ignored) {}
+            // detach handlers and allow subclasses to remove filters
+            try { detachSceneKeyHandlers(); } catch (Exception ignored) {}
+            System.out.println("[" + controllerId + "] cleanup finished");
+        } catch (Exception ignored) {}
     }
 
     // Key processing helpers attached to the Scene to ensure they receive events
@@ -2160,6 +2221,16 @@ public class GuiController implements Initializable {
         }
     }
 
+    /**
+     * Hook for subclasses to control whether the base controller should auto-start
+     * the singleplayer background music when the countdown finishes. By default
+     * we only auto-start when not in multiplayer mode. Subclasses (e.g. coop)
+     * may override to suppress the base behaviour and manage music themselves.
+     */
+    protected boolean shouldStartSingleplayerMusic() {
+        return !isMultiplayer;
+    }
+
     /** Enable or disable hard-drop for this GUI instance. When disabled, any hard-drop key presses are ignored. */
     public void setHardDropEnabled(boolean enabled) {
         this.hardDropAllowed = enabled;
@@ -2482,11 +2553,13 @@ public class GuiController implements Initializable {
                         // perform a coordinated scene change. Otherwise stop only singleplayer music
                         // and navigate directly to the main menu.
                         if (isMultiplayer && multiplayerExitToMenuHandler != null) {
-                            try { multiplayerExitToMenuHandler.run(); } catch (Exception ignored) {}
+                                    try { detachSceneKeyHandlers(); } catch (Exception ignored) {}
+                                    try { multiplayerExitToMenuHandler.run(); } catch (Exception ignored) {}
                             return;
                         }
                         // stop singleplayer background music when returning to menu
-                        try { stopSingleplayerMusic(); } catch (Exception ignored) {}
+                                try { detachSceneKeyHandlers(); } catch (Exception ignored) {}
+                                try { stopSingleplayerMusic(); } catch (Exception ignored) {}
                         URL loc = getClass().getClassLoader().getResource("mainMenu.fxml");
                         if (loc == null) return;
                         FXMLLoader loader = new FXMLLoader(loc);

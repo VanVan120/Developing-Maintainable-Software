@@ -11,6 +11,8 @@ import javafx.geometry.Pos;
 import javafx.scene.layout.Pane;
 import javafx.scene.layout.VBox;
 import javafx.scene.layout.StackPane;
+import javafx.scene.layout.BorderPane;
+import javafx.scene.shape.Rectangle;
 import javafx.stage.Stage;
 import javafx.event.ActionEvent;
 import javafx.scene.control.Button;
@@ -66,6 +68,9 @@ public class ClassicBattle implements Initializable {
     // timeline to poll and update per-player next previews
     private javafx.animation.Timeline previewPoller;
 
+    // background music player for classic battle
+    private javafx.scene.media.MediaPlayer classicBattleMusicPlayer = null;
+
     // flag to avoid showing multiple match-end overlays
     private volatile boolean matchEnded = false;
     // reference to the currently shown overlay so we can remove it deterministically
@@ -111,6 +116,8 @@ public class ClassicBattle implements Initializable {
     public void restartMatch() {
         javafx.application.Platform.runLater(() -> {
             try {
+                // stop any playing match music before restarting
+                try { if (classicBattleMusicPlayer != null) { classicBattleMusicPlayer.stop(); classicBattleMusicPlayer.dispose(); classicBattleMusicPlayer = null; } } catch (Exception ignored) {}
                 try { if (matchTimer != null) matchTimer.stop(); } catch (Exception ignored) {}
                 try { if (previewPoller != null) previewPoller.stop(); } catch (Exception ignored) {}
 
@@ -250,6 +257,8 @@ public class ClassicBattle implements Initializable {
                     // Ensure both GUIs are transitioned to game-over so their timelines and input handlers stop
                     try { if (leftGui != null) leftGui.gameOver(); } catch (Exception ignored) {}
                     try { if (rightGui != null) rightGui.gameOver(); } catch (Exception ignored) {}
+                    // stop match music immediately so we can play a game-over track later
+                    try { if (classicBattleMusicPlayer != null) { classicBattleMusicPlayer.stop(); classicBattleMusicPlayer.dispose(); classicBattleMusicPlayer = null; } } catch (Exception ignored) {}
                     int lscore = (leftController != null ? leftController.getScoreProperty().get() : 0);
                     int rscore = (rightController != null ? rightController.getScoreProperty().get() : 0);
                     String reason = "Winner by survival (opponent lost)";
@@ -269,6 +278,8 @@ public class ClassicBattle implements Initializable {
                     // Ensure both GUIs are transitioned to game-over so their timelines and input handlers stop
                     try { if (leftGui != null) leftGui.gameOver(); } catch (Exception ignored) {}
                     try { if (rightGui != null) rightGui.gameOver(); } catch (Exception ignored) {}
+                    // stop match music immediately so we can play a game-over track later
+                    try { if (classicBattleMusicPlayer != null) { classicBattleMusicPlayer.stop(); classicBattleMusicPlayer.dispose(); classicBattleMusicPlayer = null; } } catch (Exception ignored) {}
                     int lscore = (leftController != null ? leftController.getScoreProperty().get() : 0);
                     int rscore = (rightController != null ? rightController.getScoreProperty().get() : 0);
                     String reason = "Winner by survival (opponent lost)";
@@ -280,6 +291,10 @@ public class ClassicBattle implements Initializable {
 
         try { leftGui.setMultiplayerMode(true); } catch (Exception ignored) {}
         try { rightGui.setMultiplayerMode(true); } catch (Exception ignored) {}
+
+            // Allow the coordinator to present a combined multiplayer controls UI like ScoreBattle
+            try { leftGui.setMultiplayerRequestControlsHandler(this::showMultiplayerControlsOverlay); } catch (Exception ignored) {}
+            try { rightGui.setMultiplayerRequestControlsHandler(this::showMultiplayerControlsOverlay); } catch (Exception ignored) {}
 
     // For Classic Battle we intentionally hide per-player score/time UI so the
     // center match UI is the only visible scoring/time indicator.
@@ -330,7 +345,8 @@ public class ClassicBattle implements Initializable {
         try {
             leftGui.setControlKeys(javafx.scene.input.KeyCode.A, javafx.scene.input.KeyCode.D, javafx.scene.input.KeyCode.W, javafx.scene.input.KeyCode.S, javafx.scene.input.KeyCode.SHIFT);
             leftGui.setSwapKey(leftSwap != null ? leftSwap : javafx.scene.input.KeyCode.Q);
-            rightGui.setControlKeys(javafx.scene.input.KeyCode.LEFT, javafx.scene.input.KeyCode.RIGHT, javafx.scene.input.KeyCode.UP, javafx.scene.input.KeyCode.DOWN, javafx.scene.input.KeyCode.SPACE);
+            // Use Numpad defaults for right player (Numpad4 = left, Numpad6 = right, Numpad8 = rotate, Numpad5 = soft drop)
+            rightGui.setControlKeys(javafx.scene.input.KeyCode.NUMPAD4, javafx.scene.input.KeyCode.NUMPAD6, javafx.scene.input.KeyCode.NUMPAD8, javafx.scene.input.KeyCode.NUMPAD5, javafx.scene.input.KeyCode.SPACE);
             rightGui.setSwapKey(rightSwap != null ? rightSwap : javafx.scene.input.KeyCode.C);
         } catch (Exception ignored) {}
 
@@ -404,6 +420,23 @@ public class ClassicBattle implements Initializable {
                 try {
                     if (leftDone.get() && rightDone.get()) {
                         matchTimer.play();
+                        // start or resume classic battle music and ensure it loops indefinitely
+                        try {
+                            if (classicBattleMusicPlayer == null) {
+                                URL musicUrl = getClass().getClassLoader().getResource("sounds/ClassicBattle.wav");
+                                if (musicUrl == null) musicUrl = getClass().getClassLoader().getResource("sounds/ClassicBattle.mp3");
+                                if (musicUrl != null) {
+                                    javafx.scene.media.Media m = new javafx.scene.media.Media(musicUrl.toExternalForm());
+                                    classicBattleMusicPlayer = new javafx.scene.media.MediaPlayer(m);
+                                    classicBattleMusicPlayer.setCycleCount(javafx.scene.media.MediaPlayer.INDEFINITE);
+                                    classicBattleMusicPlayer.setAutoPlay(true);
+                                }
+                            } else {
+                                try { classicBattleMusicPlayer.play(); } catch (Exception ignored) {}
+                            }
+                        } catch (Exception e) {
+                            e.printStackTrace();
+                        }
                     }
                 } catch (Exception ignored) {}
             };
@@ -457,6 +490,9 @@ public class ClassicBattle implements Initializable {
             Parent menuRoot = loader.load();
             Stage stage = (Stage) backBtn.getScene().getWindow();
             if (stage.getScene() != null) {
+                // cleanup embedded GUIs before replacing the scene root
+                try { if (leftGui != null) leftGui.cleanup(); } catch (Exception ignored) {}
+                try { if (rightGui != null) rightGui.cleanup(); } catch (Exception ignored) {}
                 stage.getScene().setRoot(menuRoot);
                 try {
                     String css = getClass().getClassLoader().getResource("menu.css").toExternalForm();
@@ -474,6 +510,7 @@ public class ClassicBattle implements Initializable {
             ex.printStackTrace();
         }
         try { if (previewPoller != null) previewPoller.stop(); } catch (Exception ignored) {}
+        try { if (classicBattleMusicPlayer != null) { classicBattleMusicPlayer.stop(); classicBattleMusicPlayer.dispose(); classicBattleMusicPlayer = null; } } catch (Exception ignored) {}
     }
 
     private String formatTime(int seconds) {
@@ -490,7 +527,226 @@ public class ClassicBattle implements Initializable {
         } catch (Exception ignored) {}
     }
 
+    /**
+     * Show a combined controls overlay allowing both players to edit their keybindings.
+     * The requesting GuiController is provided so we can keep pause state consistent.
+     */
+    private void showMultiplayerControlsOverlay(GuiController requester) {
+        javafx.application.Platform.runLater(() -> {
+            try {
+                Scene scene = leftHolder.getScene();
+                if (scene == null) return;
+
+                StackPane overlay = new StackPane();
+                overlay.setPickOnBounds(true);
+                Rectangle dark = new Rectangle();
+                dark.widthProperty().bind(scene.widthProperty());
+                dark.heightProperty().bind(scene.heightProperty());
+                dark.setFill(javafx.scene.paint.Color.rgb(8,8,10,0.82));
+
+                BorderPane container = new BorderPane();
+                container.setStyle("-fx-padding:18;");
+
+                // Top bar with title and Save/Cancel
+                javafx.scene.text.Text header = new javafx.scene.text.Text("Controls");
+                header.setStyle("-fx-font-size:34px; -fx-fill: #9fb0ff; -fx-font-weight:700;");
+                javafx.scene.layout.HBox actionBox = new javafx.scene.layout.HBox(10);
+                actionBox.setAlignment(Pos.CENTER_RIGHT);
+                javafx.scene.control.Button btnResetTop = new javafx.scene.control.Button("Reset");
+                javafx.scene.control.Button btnCancel = new javafx.scene.control.Button("Cancel");
+                javafx.scene.control.Button btnSave = new javafx.scene.control.Button("Save");
+                btnResetTop.getStyleClass().add("menu-button"); btnCancel.getStyleClass().add("menu-button"); btnSave.getStyleClass().add("menu-button");
+                actionBox.getChildren().addAll(btnResetTop, btnCancel, btnSave);
+                BorderPane topBar = new BorderPane();
+                topBar.setLeft(header);
+                topBar.setRight(actionBox);
+                topBar.setStyle("-fx-padding:8 18 18 18;");
+                container.setTop(topBar);
+
+                javafx.scene.layout.HBox center = new javafx.scene.layout.HBox(120);
+                center.setStyle("-fx-padding:12; -fx-background-color: transparent;");
+                center.setAlignment(Pos.CENTER);
+
+                FXMLLoader leftFx = new FXMLLoader(getClass().getClassLoader().getResource("controls.fxml"));
+                javafx.scene.layout.StackPane leftPane = leftFx.load();
+                ControlsController leftCC = leftFx.getController();
+
+                FXMLLoader rightFx = new FXMLLoader(getClass().getClassLoader().getResource("controls.fxml"));
+                javafx.scene.layout.StackPane rightPane = rightFx.load();
+                ControlsController rightCC = rightFx.getController();
+
+                // Initialize each controls pane with the current keys from their GuiControllers
+                java.util.prefs.Preferences overlayPrefs = java.util.prefs.Preferences.userNodeForPackage(com.comp2042.MainMenuController.class);
+                try {
+                    leftCC.init(leftGui.getCtrlMoveLeft() != null ? leftGui.getCtrlMoveLeft() : javafx.scene.input.KeyCode.A,
+                                leftGui.getCtrlMoveRight() != null ? leftGui.getCtrlMoveRight() : javafx.scene.input.KeyCode.D,
+                                leftGui.getCtrlRotate() != null ? leftGui.getCtrlRotate() : javafx.scene.input.KeyCode.W,
+                                leftGui.getCtrlSoftDrop() != null ? leftGui.getCtrlSoftDrop() : javafx.scene.input.KeyCode.S,
+                                leftGui.getCtrlHardDrop() != null ? leftGui.getCtrlHardDrop() : javafx.scene.input.KeyCode.SHIFT,
+                                leftGui.getCtrlSwap() != null ? leftGui.getCtrlSwap() : javafx.scene.input.KeyCode.Q);
+
+                    // determine defaults from preferences
+                    javafx.scene.input.KeyCode defLLeft = null;
+                    try { String s = overlayPrefs.get("mpLeft_left", ""); if (!s.isEmpty()) defLLeft = javafx.scene.input.KeyCode.valueOf(s); } catch (Exception ignored) {}
+                    leftCC.setDefaultKeys(
+                        defLLeft != null ? defLLeft : javafx.scene.input.KeyCode.A,
+                        javafx.scene.input.KeyCode.D,
+                        javafx.scene.input.KeyCode.W,
+                        javafx.scene.input.KeyCode.S,
+                        javafx.scene.input.KeyCode.SHIFT,
+                        javafx.scene.input.KeyCode.Q
+                    );
+                    leftCC.setHeaderText("Left Player Controls");
+                } catch (Exception ignored) {}
+
+                try {
+                    rightCC.init(rightGui.getCtrlMoveLeft() != null ? rightGui.getCtrlMoveLeft() : javafx.scene.input.KeyCode.NUMPAD4,
+                                 rightGui.getCtrlMoveRight() != null ? rightGui.getCtrlMoveRight() : javafx.scene.input.KeyCode.NUMPAD6,
+                                 rightGui.getCtrlRotate() != null ? rightGui.getCtrlRotate() : javafx.scene.input.KeyCode.NUMPAD8,
+                                 rightGui.getCtrlSoftDrop() != null ? rightGui.getCtrlSoftDrop() : javafx.scene.input.KeyCode.NUMPAD5,
+                                 rightGui.getCtrlHardDrop() != null ? rightGui.getCtrlHardDrop() : javafx.scene.input.KeyCode.SPACE,
+                                 rightGui.getCtrlSwap() != null ? rightGui.getCtrlSwap() : javafx.scene.input.KeyCode.C);
+                    rightCC.setHeaderText("Right Player Controls");
+                // Prevent duplicate key assignments between the two panels: consult the other pane's current keys
+                try {
+                    leftCC.setKeyAvailabilityChecker((code, btn) -> {
+                        try {
+                            // use btn to satisfy static analysis (not otherwise required)
+                            java.util.Objects.requireNonNull(btn);
+                            if (code == null) return true;
+                            return !(code.equals(rightCC.getLeft())
+                                    || code.equals(rightCC.getRight())
+                                    || code.equals(rightCC.getRotate())
+                                    || code.equals(rightCC.getDown())
+                                    || code.equals(rightCC.getHard())
+                                    || code.equals(rightCC.getSwitch()));
+                        } catch (Exception ignored) {
+                            return true;
+                        }
+                    });
+                } catch (Exception ignored) {}
+                try {
+                    rightCC.setKeyAvailabilityChecker((code, btn) -> {
+                        try {
+                            java.util.Objects.requireNonNull(btn);
+                            if (code == null) return true;
+                            return !(code.equals(leftCC.getLeft())
+                                    || code.equals(leftCC.getRight())
+                                    || code.equals(leftCC.getRotate())
+                                    || code.equals(leftCC.getDown())
+                                    || code.equals(leftCC.getHard())
+                                    || code.equals(leftCC.getSwitch()));
+                        } catch (Exception ignored) {
+                            return true;
+                        }
+                    });
+                } catch (Exception ignored) {}
+                } catch (Exception ignored) {}
+
+                try { leftCC.hideActionButtons(); } catch (Exception ignored) {}
+                try { rightCC.hideActionButtons(); } catch (Exception ignored) {}
+
+                try { leftPane.setPrefWidth(520); } catch (Exception ignored) {}
+                try { rightPane.setPrefWidth(520); } catch (Exception ignored) {}
+                center.getChildren().addAll(leftPane, rightPane);
+                container.setCenter(center);
+
+                overlay.getChildren().addAll(dark, container);
+
+                if (scene.getRoot() instanceof javafx.scene.layout.Pane) {
+                    javafx.scene.layout.Pane root = (javafx.scene.layout.Pane) scene.getRoot();
+                    java.util.List<javafx.scene.Node> hidden = new java.util.ArrayList<>();
+                    for (javafx.scene.Node n : new java.util.ArrayList<>(root.getChildren())) {
+                        if (n != null && "GLOBAL_PAUSE_OVERLAY".equals(n.getId())) {
+                            n.setVisible(false);
+                            hidden.add(n);
+                        }
+                    }
+                    overlay.getProperties().put("hiddenPauseNodes", hidden);
+                    root.getChildren().add(overlay);
+                }
+
+                btnResetTop.setOnAction(ev -> {
+                    ev.consume();
+                    try { leftCC.resetToPanelDefaults(); } catch (Exception ignored) {}
+                    try { rightCC.resetToPanelDefaults(); } catch (Exception ignored) {}
+                });
+
+                btnSave.setOnAction(ev -> {
+                    ev.consume();
+                    try {
+                        try {
+                            javafx.scene.input.KeyCode lLeft = leftCC.getLeft();
+                            javafx.scene.input.KeyCode lRight = leftCC.getRight();
+                            javafx.scene.input.KeyCode lRotate = leftCC.getRotate();
+                            javafx.scene.input.KeyCode lDown = leftCC.getDown();
+                            javafx.scene.input.KeyCode lHard = leftCC.getHard();
+                            javafx.scene.input.KeyCode lSwap = leftCC.getSwitch();
+                            leftGui.setControlKeys(lLeft, lRight, lRotate, lDown, lHard);
+                            leftGui.setSwapKey(lSwap);
+                            java.util.prefs.Preferences prefs = java.util.prefs.Preferences.userNodeForPackage(com.comp2042.MainMenuController.class);
+                            prefs.put("mpLeft_left", lLeft != null ? lLeft.name() : "");
+                            prefs.put("mpLeft_right", lRight != null ? lRight.name() : "");
+                            prefs.put("mpLeft_rotate", lRotate != null ? lRotate.name() : "");
+                            prefs.put("mpLeft_down", lDown != null ? lDown.name() : "");
+                            prefs.put("mpLeft_hard", lHard != null ? lHard.name() : "");
+                            prefs.put("mpLeft_switch", lSwap != null ? lSwap.name() : "");
+                        } catch (Exception ignored) {}
+                        try {
+                            javafx.scene.input.KeyCode rLeft = rightCC.getLeft();
+                            javafx.scene.input.KeyCode rRight = rightCC.getRight();
+                            javafx.scene.input.KeyCode rRotate = rightCC.getRotate();
+                            javafx.scene.input.KeyCode rDown = rightCC.getDown();
+                            javafx.scene.input.KeyCode rHard = rightCC.getHard();
+                            javafx.scene.input.KeyCode rSwap = rightCC.getSwitch();
+                            rightGui.setControlKeys(rLeft, rRight, rRotate, rDown, rHard);
+                            rightGui.setSwapKey(rSwap);
+                            java.util.prefs.Preferences prefs = java.util.prefs.Preferences.userNodeForPackage(com.comp2042.MainMenuController.class);
+                            prefs.put("mpRight_left", rLeft != null ? rLeft.name() : "");
+                            prefs.put("mpRight_right", rRight != null ? rRight.name() : "");
+                            prefs.put("mpRight_rotate", rRotate != null ? rRotate.name() : "");
+                            prefs.put("mpRight_down", rDown != null ? rDown.name() : "");
+                            prefs.put("mpRight_hard", rHard != null ? rHard.name() : "");
+                            prefs.put("mpRight_switch", rSwap != null ? rSwap.name() : "");
+                        } catch (Exception ignored) {}
+                    } catch (Exception ignored) {}
+                    try {
+                        if (overlay.getParent() instanceof javafx.scene.layout.Pane) {
+                            javafx.scene.layout.Pane root = (javafx.scene.layout.Pane) overlay.getParent();
+                            root.getChildren().remove(overlay);
+                        }
+                        Object o = overlay.getProperties().get("hiddenPauseNodes");
+                        if (o instanceof java.util.List<?>) {
+                            for (Object n : (java.util.List<?>) o) {
+                                if (n instanceof javafx.scene.Node) ((javafx.scene.Node) n).setVisible(true);
+                            }
+                        }
+                    } catch (Exception ignored) {}
+                });
+
+                btnCancel.setOnAction(ev -> {
+                    ev.consume();
+                    try {
+                        if (overlay.getParent() instanceof javafx.scene.layout.Pane) {
+                            javafx.scene.layout.Pane root = (javafx.scene.layout.Pane) overlay.getParent();
+                            root.getChildren().remove(overlay);
+                        }
+                        Object o = overlay.getProperties().get("hiddenPauseNodes");
+                        if (o instanceof java.util.List<?>) {
+                            for (Object n : (java.util.List<?>) o) {
+                                if (n instanceof javafx.scene.Node) ((javafx.scene.Node) n).setVisible(true);
+                            }
+                        }
+                    } catch (Exception ignored) {}
+                });
+
+            } catch (Exception ignored) {}
+        });
+    }
+
     private void endMatchAndAnnounceWinner() {
+        // stop any match music immediately
+        try { if (classicBattleMusicPlayer != null) { classicBattleMusicPlayer.stop(); classicBattleMusicPlayer.dispose(); classicBattleMusicPlayer = null; } } catch (Exception ignored) {}
         try { if (leftGui != null) leftGui.gameOver(); } catch (Exception ignored) {}
         try { if (rightGui != null) rightGui.gameOver(); } catch (Exception ignored) {}
         try { if (previewPoller != null) previewPoller.stop(); } catch (Exception ignored) {}
@@ -624,6 +880,8 @@ public class ClassicBattle implements Initializable {
                         Parent menuRoot = loader.load();
                         Stage stage = (Stage) scene.getWindow();
                         if (stage.getScene() != null) {
+                            try { if (leftGui != null) leftGui.cleanup(); } catch (Exception ignored) {}
+                            try { if (rightGui != null) rightGui.cleanup(); } catch (Exception ignored) {}
                             stage.getScene().setRoot(menuRoot);
                         } else {
                             Scene s2 = new Scene(menuRoot, Math.max(420, stage.getWidth()), Math.max(700, stage.getHeight()));

@@ -3,10 +3,12 @@ package com.comp2042;
 import javafx.fxml.FXML;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
+import javafx.scene.control.Alert;
 import javafx.scene.input.KeyCode;
 import javafx.scene.input.KeyEvent;
 import javafx.animation.KeyFrame;
 import javafx.animation.Timeline;
+import javafx.stage.Modality;
 import javafx.util.Duration;
 
 public class ControlsController {
@@ -64,6 +66,10 @@ public class ControlsController {
     private Button capturing = null; // Track which button is waiting for key input
     private java.util.function.Consumer<Boolean> closeHandler = null; // Callback for MainMenuController
     private Timeline warningTimeline = null; // used to clear inline warnings after a delay
+    // Optional cross-panel key availability checker. Return true if the key is allowed to be assigned.
+    // The BiPredicate receives (candidateKey, capturingButton) so the checker can allow re-assigning
+    // the same key to the same button without flagging it as duplicate.
+    private java.util.function.BiPredicate<javafx.scene.input.KeyCode, javafx.scene.control.Button> keyAvailabilityChecker = null;
 
     @FXML
     public void initialize() {
@@ -128,13 +134,16 @@ public class ControlsController {
         // 5. Add Scene-Level Key Listener for capturing input
         // Use btnSave as it's guaranteed to be part of the scene initially
         if (btnSave != null) {
+            // Use an event filter on the Scene so we capture key presses before other
+            // controls may consume them. This ensures capture mode reliably receives
+            // the user's key even if a focused Button or other node handles the event.
             btnSave.sceneProperty().addListener((obs, oldS, newS) -> {
                 if (newS != null) {
-                    newS.addEventHandler(KeyEvent.KEY_PRESSED, this::onKeyPressed);
+                    newS.addEventFilter(KeyEvent.KEY_PRESSED, this::onKeyPressed);
                 }
-                // Optional: Remove handler from old scene if needed
+                // Optional: Remove filter from old scene if needed
                 // if (oldS != null) {
-                //    oldS.removeEventHandler(KeyEvent.KEY_PRESSED, this::onKeyPressed);
+                //    oldS.removeEventFilter(KeyEvent.KEY_PRESSED, this::onKeyPressed);
                 // }
             });
         }
@@ -185,6 +194,15 @@ public class ControlsController {
             setButtonKey(btnRotateDefault, panelDefaultRotate, false);
             setButtonKey(btnSwitchDefault, panelDefaultSwitch, false);
         } catch (Exception ignored) {}
+    }
+
+    /**
+     * Set an optional predicate to validate whether a KeyCode may be assigned.
+     * This is useful when two ControlsController instances are shown (multiplayer)
+     * so a panel can reject keys that are already used by the other player.
+     */
+    public void setKeyAvailabilityChecker(java.util.function.BiPredicate<KeyCode, Button> checker) {
+        this.keyAvailabilityChecker = checker;
     }
 
     /** Adds a subtle hover effect by toggling a helper CSS class. */
@@ -284,6 +302,24 @@ public class ControlsController {
             return;
         }
 
+        // External cross-panel checker: reject keys already used by the other Controls panel
+        if (keyAvailabilityChecker != null) {
+            try {
+                // allow if user pressed the same key that is already assigned to this capturing button
+                KeyCode existingForThisButton = getCurrentKeyCodeForButton(capturing);
+                if (!(existingForThisButton != null && existingForThisButton.equals(code))) {
+                    boolean ok = keyAvailabilityChecker.test(code, capturing);
+                    if (!ok) {
+                        showInlineWarning("Key already assigned to the other player. Please choose a different key.");
+                        setButtonKey(capturing, getCurrentKeyCodeForButton(capturing), true);
+                        capturing = null;
+                        ev.consume();
+                        return;
+                    }
+                }
+            } catch (Exception ignored) {}
+        }
+
         assignToCurrentSlot(capturing, code); // Update the internal variable and button text
         setInfoText(""); // Clear info text
         capturing = null; // Exit capture mode
@@ -327,12 +363,35 @@ public class ControlsController {
 
         // Restart/replace any existing timeline
         if (warningTimeline != null) warningTimeline.stop();
-        warningTimeline = new Timeline(new KeyFrame(Duration.seconds(3), ev -> {
+        warningTimeline = new Timeline(new KeyFrame(Duration.seconds(3), event -> {
             lblInfo.getStyleClass().remove("warning");
             setInfoText("");
         }));
         warningTimeline.setCycleCount(1);
         warningTimeline.play();
+
+        // Also show a centered modal alert so the player notices immediately
+        try {
+            javafx.application.Platform.runLater(() -> {
+                try {
+                    java.awt.EventQueue.invokeLater(() -> {}); // noop - ensure AWT thread doesn't interfere
+                } catch (Exception ignored) {}
+                try {
+                    Alert a = new Alert(Alert.AlertType.WARNING);
+                    // Try to attach to the overlay window if possible so the dialog is centered
+                    try {
+                        if (lblInfo.getScene() != null && lblInfo.getScene().getWindow() != null) {
+                            a.initOwner(lblInfo.getScene().getWindow());
+                        }
+                    } catch (Exception ignored) {}
+                    a.initModality(Modality.APPLICATION_MODAL);
+                    a.setTitle("Key already assigned");
+                    a.setHeaderText("Key already assigned");
+                    a.setContentText(message);
+                    a.showAndWait();
+                } catch (Exception ignored) {}
+            });
+        } catch (Exception ignored) {}
     }
 
     /** Find which action (if any) is already using the given KeyCode. Returns a human-readable action name or null. */

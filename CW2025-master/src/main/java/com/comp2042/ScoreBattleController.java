@@ -117,10 +117,9 @@ public class ScoreBattleController implements Initializable {
      */
     private void showMultiplayerControlsOverlay(GuiController requester) {
         javafx.application.Platform.runLater(() -> {
-            try {
-                // ensure music is stopped when showing the winner overlay
-                try { if (scoreBattleMusicPlayer != null) { scoreBattleMusicPlayer.stop(); scoreBattleMusicPlayer.dispose(); scoreBattleMusicPlayer = null; } } catch (Exception ignored) {}
-                Scene scene = leftHolder.getScene();
+                try {
+                    // Do NOT stop match music when opening the Controls overlay; allow music to continue playing
+                    Scene scene = leftHolder.getScene();
                 if (scene == null) return;
 
                 StackPane overlay = new StackPane();
@@ -232,6 +231,40 @@ public class ScoreBattleController implements Initializable {
                         defRSwap != null ? defRSwap : javafx.scene.input.KeyCode.C
                     );
                     rightCC.setHeaderText("Right Player Controls");
+                // Prevent duplicate key assignments between the two panels: consult the other pane's current keys
+                try {
+                    leftCC.setKeyAvailabilityChecker((code, btn) -> {
+                        try {
+                            // reference btn to satisfy static analyzers
+                            java.util.Objects.requireNonNull(btn);
+                            if (code == null) return true;
+                            return !(code.equals(rightCC.getLeft())
+                                    || code.equals(rightCC.getRight())
+                                    || code.equals(rightCC.getRotate())
+                                    || code.equals(rightCC.getDown())
+                                    || code.equals(rightCC.getHard())
+                                    || code.equals(rightCC.getSwitch()));
+                        } catch (Exception ignored) {
+                            return true;
+                        }
+                    });
+                } catch (Exception ignored) {}
+                try {
+                    rightCC.setKeyAvailabilityChecker((code, btn) -> {
+                        try {
+                            java.util.Objects.requireNonNull(btn);
+                            if (code == null) return true;
+                            return !(code.equals(leftCC.getLeft())
+                                    || code.equals(leftCC.getRight())
+                                    || code.equals(leftCC.getRotate())
+                                    || code.equals(leftCC.getDown())
+                                    || code.equals(leftCC.getHard())
+                                    || code.equals(leftCC.getSwitch()));
+                        } catch (Exception ignored) {
+                            return true;
+                        }
+                    });
+                } catch (Exception ignored) {}
                 } catch (Exception ignored) {}
 
                 // Hide embedded action buttons since we provide top Save/Cancel
@@ -528,6 +561,8 @@ public class ScoreBattleController implements Initializable {
                     // Ensure both GUIs are transitioned to game-over so their timelines and input handlers stop
                     try { if (leftGui != null) leftGui.gameOver(); } catch (Exception ignored) {}
                     try { if (rightGui != null) rightGui.gameOver(); } catch (Exception ignored) {}
+                        // stop match music immediately so we can play a game-over track later
+                        try { if (scoreBattleMusicPlayer != null) { scoreBattleMusicPlayer.stop(); scoreBattleMusicPlayer.dispose(); scoreBattleMusicPlayer = null; } } catch (Exception ignored) {}
                     int lscore = (leftController != null ? leftController.getScoreProperty().get() : 0);
                     int rscore = (rightController != null ? rightController.getScoreProperty().get() : 0);
                     String reason = "Winner by survival (opponent lost)";
@@ -550,6 +585,8 @@ public class ScoreBattleController implements Initializable {
                     // Ensure both GUIs are transitioned to game-over so their timelines and input handlers stop
                     try { if (leftGui != null) leftGui.gameOver(); } catch (Exception ignored) {}
                     try { if (rightGui != null) rightGui.gameOver(); } catch (Exception ignored) {}
+                        // stop match music immediately so we can play a game-over track later
+                        try { if (scoreBattleMusicPlayer != null) { scoreBattleMusicPlayer.stop(); scoreBattleMusicPlayer.dispose(); scoreBattleMusicPlayer = null; } } catch (Exception ignored) {}
                     int lscore = (leftController != null ? leftController.getScoreProperty().get() : 0);
                     int rscore = (rightController != null ? rightController.getScoreProperty().get() : 0);
                     String reason = "Winner by survival (opponent lost)";
@@ -745,57 +782,8 @@ public class ScoreBattleController implements Initializable {
         }));
         matchTimer.setCycleCount(javafx.animation.Animation.INDEFINITE);
 
-        // Only play the match timer once both embedded UIs have finished their start countdowns
-        try {
-            final javafx.beans.property.BooleanProperty leftDone = leftGui.countdownFinishedProperty();
-            final javafx.beans.property.BooleanProperty rightDone = rightGui.countdownFinishedProperty();
-            final javafx.beans.InvalidationListener[] startWhenReadyRef = new javafx.beans.InvalidationListener[1];
-            startWhenReadyRef[0] = _obs -> {
-                // reference parameter so linters/compiler don't complain about unused lambda args
-                java.util.Objects.requireNonNull(_obs);
-                try {
-                    if (leftDone.get() && rightDone.get()) {
-                        // avoid duplicate starts: remove listeners and ensure only one player exists
-                        try { leftDone.removeListener(startWhenReadyRef[0]); } catch (Exception ignored) {}
-                        try { rightDone.removeListener(startWhenReadyRef[0]); } catch (Exception ignored) {}
-                        matchTimer.play();
-                        // stop any existing player before creating a new one (prevents orphaned players)
-                        try { if (scoreBattleMusicPlayer != null) { scoreBattleMusicPlayer.stop(); scoreBattleMusicPlayer.dispose(); scoreBattleMusicPlayer = null; } } catch (Exception ignored) {}
-                        // start score-battle background music when match actually begins
-                        try {
-                            URL musicUrl = getClass().getClassLoader().getResource("sounds/ScoreBattle.wav");
-                            if (musicUrl == null) musicUrl = getClass().getResource("/sounds/ScoreBattle.wav");
-                            if (musicUrl != null) {
-                                try {
-                                    Media media = new Media(musicUrl.toExternalForm());
-                                    scoreBattleMusicPlayer = new MediaPlayer(media);
-                                    scoreBattleMusicPlayer.setCycleCount(MediaPlayer.INDEFINITE);
-                                    scoreBattleMusicPlayer.setAutoPlay(true);
-                                    scoreBattleMusicPlayer.setVolume(0.6);
-                                    scoreBattleMusicPlayer.setOnError(() -> System.err.println("[ScoreBattleController] ScoreBattle music error: " + scoreBattleMusicPlayer.getError()));
-                                    System.out.println("[ScoreBattleController] ScoreBattle.wav loaded and playing: " + musicUrl);
-                                } catch (Exception ex) {
-                                    System.err.println("[ScoreBattleController] Failed to initialize ScoreBattle music: " + ex);
-                                    ex.printStackTrace();
-                                }
-                            } else {
-                                System.out.println("[ScoreBattleController] ScoreBattle.wav not found in resources (expected sounds/ScoreBattle.wav)");
-                            }
-                        } catch (Exception ex) {
-                            System.err.println("[ScoreBattleController] Exception while loading ScoreBattle music: " + ex);
-                            ex.printStackTrace();
-                        }
-                    }
-                } catch (Exception ignored) {}
-            };
-            leftDone.addListener(startWhenReadyRef[0]);
-            rightDone.addListener(startWhenReadyRef[0]);
-            // also check immediately in case both already finished
-            if (leftDone.get() && rightDone.get()) matchTimer.play();
-        } catch (Exception ignored) {
-            // fallback: start immediately
-            matchTimer.play();
-        }
+        // Ensure match music starts when both countdowns finish (and only then)
+        scheduleStartMusicWhenCountdownsDone();
 
         // start a small poller to refresh each player's next-three previews from their GameController
         try {
@@ -847,6 +835,9 @@ public class ScoreBattleController implements Initializable {
             Parent menuRoot = loader.load();
             Stage stage = (Stage) backBtn.getScene().getWindow();
             if (stage.getScene() != null) {
+                // cleanup embedded GUIs so they detach their scene handlers and stop timelines/music
+                try { if (leftGui != null) leftGui.cleanup(); } catch (Exception ignored) {}
+                try { if (rightGui != null) rightGui.cleanup(); } catch (Exception ignored) {}
                 stage.getScene().setRoot(menuRoot);
                 // restore shared menu stylesheet (if available) so buttons keep their look
                 try {
@@ -879,6 +870,66 @@ public class ScoreBattleController implements Initializable {
             int ls = (leftController != null) ? leftController.getScoreProperty().get() : 0;
             int rs = (rightController != null) ? rightController.getScoreProperty().get() : 0;
             if (matchScoreText != null) matchScoreText.setText(String.format("%d  —  %d", ls, rs));
+        } catch (Exception ignored) {}
+    }
+
+    /**
+     * Ensure the match timer and background music start only once both embedded GUI countdowns finish.
+     * This method attaches listeners to each GUI's countdownFinishedProperty and will start the
+     * match timer and create/play a looping MediaPlayer when both are ready. Listeners remain
+     * attached so restarting a match (which restarts countdowns) will also restart music/timer.
+     */
+    private void scheduleStartMusicWhenCountdownsDone() {
+        try {
+            if (leftGui == null || rightGui == null) return;
+
+            final javafx.beans.value.ChangeListener<Boolean> bothFinishedListener = (obs, oldV, newV) -> {
+                try {
+                    java.util.Objects.requireNonNull(obs);
+                    java.util.Objects.requireNonNull(oldV);
+                    java.util.Objects.requireNonNull(newV);
+                    boolean l = false, r = false;
+                    try { l = leftGui.countdownFinishedProperty().get(); } catch (Exception ignored) {}
+                    try { r = rightGui.countdownFinishedProperty().get(); } catch (Exception ignored) {}
+                    if (l && r) {
+                        // start match timer if not already running
+                        try {
+                            if (matchTimer != null && matchTimer.getStatus() != javafx.animation.Animation.Status.RUNNING) {
+                                matchTimer.play();
+                            }
+                        } catch (Exception ignored) {}
+
+                        // start or resume match music and ensure it loops indefinitely
+                        try {
+                            if (scoreBattleMusicPlayer == null) {
+                                URL musicUrl = getClass().getClassLoader().getResource("sounds/ScoreBattle.wav");
+                                if (musicUrl == null) musicUrl = getClass().getClassLoader().getResource("sounds/ScoreBattle.mp3");
+                                if (musicUrl != null) {
+                                    Media m = new Media(musicUrl.toExternalForm());
+                                    scoreBattleMusicPlayer = new MediaPlayer(m);
+                                    scoreBattleMusicPlayer.setCycleCount(MediaPlayer.INDEFINITE);
+                                    scoreBattleMusicPlayer.setAutoPlay(true);
+                                }
+                            } else {
+                                try { scoreBattleMusicPlayer.play(); } catch (Exception ignored) {}
+                            }
+                        } catch (Exception e) {
+                            e.printStackTrace();
+                        }
+                    }
+                } catch (Exception ignored) {}
+            };
+
+            // attach listener to both countdownFinished properties
+            try { leftGui.countdownFinishedProperty().addListener(bothFinishedListener); } catch (Exception ignored) {}
+            try { rightGui.countdownFinishedProperty().addListener(bothFinishedListener); } catch (Exception ignored) {}
+
+            // If both already finished (edge case), trigger immediately
+            try {
+                if (leftGui.countdownFinishedProperty().get() && rightGui.countdownFinishedProperty().get()) {
+                    bothFinishedListener.changed(null, Boolean.FALSE, Boolean.TRUE);
+                }
+            } catch (Exception ignored) {}
         } catch (Exception ignored) {}
     }
 
@@ -1000,6 +1051,8 @@ public class ScoreBattleController implements Initializable {
                         Parent menuRoot = loader.load();
                         Stage stage = (Stage) scene.getWindow();
                         if (stage.getScene() != null) {
+                            try { if (leftGui != null) leftGui.cleanup(); } catch (Exception ignored) {}
+                            try { if (rightGui != null) rightGui.cleanup(); } catch (Exception ignored) {}
                             stage.getScene().setRoot(menuRoot);
                         } else {
                             Scene s2 = new Scene(menuRoot, Math.max(420, stage.getWidth()), Math.max(700, stage.getHeight()));

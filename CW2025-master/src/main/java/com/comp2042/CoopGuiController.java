@@ -5,6 +5,9 @@ import javafx.animation.Timeline;
 import javafx.scene.input.KeyCode;
 import javafx.scene.input.KeyEvent;
 import javafx.scene.layout.Pane;
+import javafx.fxml.FXMLLoader;
+import javafx.scene.layout.StackPane;
+import javafx.scene.Scene;
 import javafx.scene.paint.Color;
 import javafx.scene.shape.Rectangle;
 import javafx.scene.text.Text;
@@ -17,8 +20,36 @@ import javafx.util.Duration;
 public class CoopGuiController extends GuiController {
 
     private CoopGameController coop;
+    // configurable keys for left/right players (initialized from preferences)
+    private javafx.scene.input.KeyCode leftMoveLeftKey = javafx.scene.input.KeyCode.A;
+    private javafx.scene.input.KeyCode leftMoveRightKey = javafx.scene.input.KeyCode.D;
+    private javafx.scene.input.KeyCode leftRotateKey = javafx.scene.input.KeyCode.W;
+    private javafx.scene.input.KeyCode leftDownKey = javafx.scene.input.KeyCode.S;
+    private javafx.scene.input.KeyCode leftHardKey = javafx.scene.input.KeyCode.SHIFT;
+    private javafx.scene.input.KeyCode leftSwapKey = javafx.scene.input.KeyCode.Q;
+
+    private javafx.scene.input.KeyCode rightMoveLeftKey = javafx.scene.input.KeyCode.LEFT;
+    private javafx.scene.input.KeyCode rightMoveRightKey = javafx.scene.input.KeyCode.RIGHT;
+    private javafx.scene.input.KeyCode rightRotateKey = javafx.scene.input.KeyCode.UP;
+    private javafx.scene.input.KeyCode rightDownKey = javafx.scene.input.KeyCode.DOWN;
+    private javafx.scene.input.KeyCode rightHardKey = javafx.scene.input.KeyCode.SPACE;
+    private javafx.scene.input.KeyCode rightSwapKey = javafx.scene.input.KeyCode.C;
     // timeline used specifically for cooperative tick; keep separate from GuiController.timeLine
     private Timeline coopTimeline = null;
+    // stored scene filters so they can be removed when the view is torn down
+    private javafx.event.EventHandler<KeyEvent> coopPressFilter = null;
+    private javafx.event.EventHandler<KeyEvent> coopReleaseFilter = null;
+    // the Scene these filters were attached to (so they can be removed even if the node is detached)
+    private Scene coopScene = null;
+    // cooperative background music player (loops). Managed by this controller.
+    private javafx.scene.media.MediaPlayer coopMusicPlayer = null;
+
+    @Override
+    protected boolean shouldStartSingleplayerMusic() {
+        // Coop mode manages its own music (CorporateBattle) and therefore
+        // suppresses the base controller's auto-start of the singleplayer track.
+        return false;
+    }
 
     // second-player visuals
     private Pane secondBrickPanel = new Pane();
@@ -43,6 +74,23 @@ public class CoopGuiController extends GuiController {
      */
     public void initCoop(CoopGameController coopController) {
         this.coop = coopController;
+        // Load persisted multiplayer key overrides if present so controls overlay edits apply immediately
+        try {
+            java.util.prefs.Preferences prefs = java.util.prefs.Preferences.userNodeForPackage(com.comp2042.MainMenuController.class);
+            try { String s = prefs.get("mpLeft_left", ""); if (!s.isEmpty()) leftMoveLeftKey = javafx.scene.input.KeyCode.valueOf(s); } catch (Exception ignored) {}
+            try { String s = prefs.get("mpLeft_right", ""); if (!s.isEmpty()) leftMoveRightKey = javafx.scene.input.KeyCode.valueOf(s); } catch (Exception ignored) {}
+            try { String s = prefs.get("mpLeft_rotate", ""); if (!s.isEmpty()) leftRotateKey = javafx.scene.input.KeyCode.valueOf(s); } catch (Exception ignored) {}
+            try { String s = prefs.get("mpLeft_down", ""); if (!s.isEmpty()) leftDownKey = javafx.scene.input.KeyCode.valueOf(s); } catch (Exception ignored) {}
+            try { String s = prefs.get("mpLeft_hard", ""); if (!s.isEmpty()) leftHardKey = javafx.scene.input.KeyCode.valueOf(s); } catch (Exception ignored) {}
+            try { String s = prefs.get("mpLeft_switch", ""); if (!s.isEmpty()) leftSwapKey = javafx.scene.input.KeyCode.valueOf(s); } catch (Exception ignored) {}
+
+            try { String s = prefs.get("mpRight_left", ""); if (!s.isEmpty()) rightMoveLeftKey = javafx.scene.input.KeyCode.valueOf(s); } catch (Exception ignored) {}
+            try { String s = prefs.get("mpRight_right", ""); if (!s.isEmpty()) rightMoveRightKey = javafx.scene.input.KeyCode.valueOf(s); } catch (Exception ignored) {}
+            try { String s = prefs.get("mpRight_rotate", ""); if (!s.isEmpty()) rightRotateKey = javafx.scene.input.KeyCode.valueOf(s); } catch (Exception ignored) {}
+            try { String s = prefs.get("mpRight_down", ""); if (!s.isEmpty()) rightDownKey = javafx.scene.input.KeyCode.valueOf(s); } catch (Exception ignored) {}
+            try { String s = prefs.get("mpRight_hard", ""); if (!s.isEmpty()) rightHardKey = javafx.scene.input.KeyCode.valueOf(s); } catch (Exception ignored) {}
+            try { String s = prefs.get("mpRight_switch", ""); if (!s.isEmpty()) rightSwapKey = javafx.scene.input.KeyCode.valueOf(s); } catch (Exception ignored) {}
+        } catch (Exception ignored) {}
         // initialize using left player's view as primary so base measurements are established
         ViewData leftView = coop.getViewDataLeft();
         ViewData rightView = coop.getViewDataRight();
@@ -216,6 +264,14 @@ public class CoopGuiController extends GuiController {
                         try {
                             // stop any running coop timeline
                             try { if (coopTimeline != null) coopTimeline.stop(); } catch (Exception ignored) {}
+                            // stop and dispose coop music so it restarts cleanly on the next countdown
+                            try {
+                                if (coopMusicPlayer != null) {
+                                    try { coopMusicPlayer.stop(); } catch (Exception ignored) {}
+                                    try { coopMusicPlayer.dispose(); } catch (Exception ignored) {}
+                                    coopMusicPlayer = null;
+                                }
+                            } catch (Exception ignored) {}
                             // refresh visuals
                             try { refreshGameBackground(coop.getBoardMatrix()); } catch (Exception ignored) {}
                             // hide both active-piece panels during countdown so pieces don't appear before Start
@@ -236,8 +292,12 @@ public class CoopGuiController extends GuiController {
         // attach key filter to route inputs to left/right players
         javafx.application.Platform.runLater(() -> {
             if (gamePanel.getScene() != null) {
-                gamePanel.getScene().addEventFilter(KeyEvent.KEY_PRESSED, this::onKeyPressed);
-                gamePanel.getScene().addEventFilter(KeyEvent.KEY_RELEASED, this::onKeyReleased);
+                coopPressFilter = new javafx.event.EventHandler<KeyEvent>() { @Override public void handle(KeyEvent e) { onKeyPressed(e); } };
+                coopReleaseFilter = new javafx.event.EventHandler<KeyEvent>() { @Override public void handle(KeyEvent e) { onKeyReleased(e); } };
+                Scene s = gamePanel.getScene();
+                coopScene = s;
+                s.addEventFilter(KeyEvent.KEY_PRESSED, coopPressFilter);
+                s.addEventFilter(KeyEvent.KEY_RELEASED, coopReleaseFilter);
             }
             // refresh initial views now that layout is available so pieces start from the top
             try { refreshGameBackground(coop.getBoardMatrix()); } catch (Exception ignored) {}
@@ -263,6 +323,32 @@ public class CoopGuiController extends GuiController {
                                 try { secondBrickPanel.setVisible(true); secondGhostPanel.setVisible(true); } catch (Exception ignored) {}
                                 // start the coop timeline now that countdown is complete
                                 try { if (coopTimeline != null) coopTimeline.play(); } catch (Exception ignored) {}
+
+                                // Start cooperative background music (looping). Managed here to ensure
+                                // the correct CorporateBattle.wav is used instead of singleplayer music.
+                                try {
+                                    if (coopMusicPlayer == null) {
+                                        java.net.URL mus = getClass().getClassLoader().getResource("sounds/CorporateBattle.wav");
+                                        if (mus == null) mus = getClass().getResource("/sounds/CorporateBattle.wav");
+                                        if (mus != null) {
+                                            try {
+                                                javafx.scene.media.Media mm = new javafx.scene.media.Media(mus.toExternalForm());
+                                                coopMusicPlayer = new javafx.scene.media.MediaPlayer(mm);
+                                                coopMusicPlayer.setCycleCount(javafx.scene.media.MediaPlayer.INDEFINITE);
+                                                coopMusicPlayer.setAutoPlay(true);
+                                                coopMusicPlayer.setVolume(0.6);
+                                                coopMusicPlayer.setOnError(() -> System.err.println("[CoopGuiController] CorporateBattle music error: " + coopMusicPlayer.getError()));
+                                                System.out.println("[CoopGuiController] CorporateBattle.wav loaded and playing: " + mus);
+                                            } catch (Exception ex) {
+                                                System.err.println("[CoopGuiController] Failed to initialize CorporateBattle music: " + ex);
+                                            }
+                                        } else {
+                                            System.out.println("[CoopGuiController] CorporateBattle.wav not found in resources (expected sounds/CorporateBattle.wav)");
+                                        }
+                                    } else {
+                                        try { coopMusicPlayer.play(); } catch (Exception ignored) {}
+                                    }
+                                } catch (Exception ignored) {}
                             }
                         } catch (Exception ignored) {}
                     }
@@ -283,9 +369,11 @@ public class CoopGuiController extends GuiController {
                         }
                     } catch (Exception ignored) {}
                 });
-                // We registered a local pause handler above which would mark this GUI as "multiplayer".
+                // Also register a multiplayer controls handler so pause->Settings can show a two-pane overlay
+                try { setMultiplayerRequestControlsHandler(this::showMultiplayerControlsOverlay); } catch (Exception ignored) {}
+                // We registered a local pause/request handler which would normally mark this GUI as "multiplayer".
                 // For cooperative single-window mode we still want the standard game-over overlay to appear,
-                // so ensure multiplayer mode flag is false.
+                // so ensure multiplayer mode flag remains false while preserving the registered handlers.
                 try { setMultiplayerMode(false); } catch (Exception ignored) {}
             } catch (Exception ignored) {}
 
@@ -461,11 +549,11 @@ public class CoopGuiController extends GuiController {
                     return;
                 }
             } catch (Exception ignored) {}
-            // Left player: A D W S SHIFT Q
-            if (code == KeyCode.A) { consumed = coop.moveLeftPlayerLeft(); }
-            else if (code == KeyCode.D) { consumed = coop.moveLeftPlayerRight(); }
-            else if (code == KeyCode.W) { consumed = coop.rotateLeftPlayer(); }
-            else if (code == KeyCode.S) {
+            // Left player: configurable keys
+            if (code == leftMoveLeftKey) { consumed = coop.moveLeftPlayerLeft(); }
+            else if (code == leftMoveRightKey) { consumed = coop.moveLeftPlayerRight(); }
+            else if (code == leftRotateKey) { consumed = coop.rotateLeftPlayer(); }
+            else if (code == leftDownKey) {
                 try {
                     DownData dd = coop.onLeftDown();
                     if (dd != null && dd.getClearRow() != null && dd.getClearRow().getLinesRemoved() > 0) {
@@ -477,7 +565,7 @@ public class CoopGuiController extends GuiController {
                 } catch (Exception ignored) {}
                 consumed = true;
             }
-            else if (code == KeyCode.SHIFT) { // hard drop
+            else if (code == leftHardKey) { // hard drop
                 try {
                     ViewData startView = coop.getViewDataLeft();
                     int safety = 0;
@@ -492,13 +580,13 @@ public class CoopGuiController extends GuiController {
                     }
                 } catch (Exception ignored) {}
                 consumed = true;
-            } else if (code == KeyCode.Q) { consumed = coop.swapLeft(); }
+            } else if (code == leftSwapKey) { consumed = coop.swapLeft(); }
 
-            // Right player: arrows, space, C
-            else if (code == KeyCode.LEFT) { consumed = coop.moveRightPlayerLeft(); }
-            else if (code == KeyCode.RIGHT) { consumed = coop.moveRightPlayerRight(); }
-            else if (code == KeyCode.UP) { consumed = coop.rotateRightPlayer(); }
-            else if (code == KeyCode.DOWN) {
+            // Right player: configurable keys
+            else if (code == rightMoveLeftKey) { consumed = coop.moveRightPlayerLeft(); }
+            else if (code == rightMoveRightKey) { consumed = coop.moveRightPlayerRight(); }
+            else if (code == rightRotateKey) { consumed = coop.rotateRightPlayer(); }
+            else if (code == rightDownKey) {
                 try {
                     DownData dd = coop.onRightDown();
                     if (dd != null && dd.getClearRow() != null && dd.getClearRow().getLinesRemoved() > 0) {
@@ -510,7 +598,7 @@ public class CoopGuiController extends GuiController {
                 } catch (Exception ignored) {}
                 consumed = true;
             }
-            else if (code == KeyCode.SPACE) {
+            else if (code == rightHardKey) {
                 try {
                     ViewData startView = coop.getViewDataRight();
                     int safety = 0;
@@ -522,7 +610,7 @@ public class CoopGuiController extends GuiController {
                     }
                 } catch (Exception ignored) {}
                 consumed = true; }
-            else if (code == KeyCode.C) { consumed = coop.swapRight(); }
+            else if (code == rightSwapKey) { consumed = coop.swapRight(); }
         } catch (Exception ignored) {}
 
         if (consumed) {
@@ -536,6 +624,260 @@ public class CoopGuiController extends GuiController {
 
     private void onKeyReleased(KeyEvent e) {
         // no-op for now; leave for future soft-drop handling
+    }
+
+    /**
+     * Show a combined controls overlay allowing both players to edit their keybindings in coop mode.
+     * The requesting GuiController is provided so we can keep pause state consistent.
+     */
+    private void showMultiplayerControlsOverlay(GuiController requester) {
+        javafx.application.Platform.runLater(() -> {
+            try {
+                Scene scene = gameBoard.getScene();
+                if (scene == null) return;
+
+                StackPane overlay = new StackPane();
+                overlay.setPickOnBounds(true);
+                Rectangle dark = new Rectangle();
+                dark.widthProperty().bind(scene.widthProperty());
+                dark.heightProperty().bind(scene.heightProperty());
+                dark.setFill(javafx.scene.paint.Color.rgb(8,8,10,0.82));
+
+                javafx.scene.layout.BorderPane container = new javafx.scene.layout.BorderPane();
+                container.setStyle("-fx-padding:18;");
+
+                javafx.scene.text.Text header = new javafx.scene.text.Text("Controls");
+                header.setStyle("-fx-font-size:34px; -fx-fill: #9fb0ff; -fx-font-weight:700;");
+                javafx.scene.layout.HBox actionBox = new javafx.scene.layout.HBox(10);
+                actionBox.setAlignment(javafx.geometry.Pos.CENTER_RIGHT);
+                javafx.scene.control.Button btnResetTop = new javafx.scene.control.Button("Reset");
+                javafx.scene.control.Button btnCancel = new javafx.scene.control.Button("Cancel");
+                javafx.scene.control.Button btnSave = new javafx.scene.control.Button("Save");
+                btnResetTop.getStyleClass().add("menu-button"); btnCancel.getStyleClass().add("menu-button"); btnSave.getStyleClass().add("menu-button");
+                actionBox.getChildren().addAll(btnResetTop, btnCancel, btnSave);
+                javafx.scene.layout.BorderPane topBar = new javafx.scene.layout.BorderPane();
+                topBar.setLeft(header);
+                topBar.setRight(actionBox);
+                topBar.setStyle("-fx-padding:8 18 18 18;");
+                container.setTop(topBar);
+
+                javafx.scene.layout.HBox center = new javafx.scene.layout.HBox(120);
+                center.setStyle("-fx-padding:12; -fx-background-color: transparent;");
+                center.setAlignment(javafx.geometry.Pos.CENTER);
+
+                FXMLLoader leftFx = new FXMLLoader(getClass().getClassLoader().getResource("controls.fxml"));
+                javafx.scene.layout.StackPane leftPane = leftFx.load();
+                ControlsController leftCC = leftFx.getController();
+
+                FXMLLoader rightFx = new FXMLLoader(getClass().getClassLoader().getResource("controls.fxml"));
+                javafx.scene.layout.StackPane rightPane = rightFx.load();
+                ControlsController rightCC = rightFx.getController();
+
+                // initialize with current keys (use coop-configurable keys)
+                try { leftCC.init(leftMoveLeftKey, leftMoveRightKey, leftRotateKey, leftDownKey, leftHardKey, leftSwapKey); } catch (Exception ignored) {}
+                try { rightCC.init(rightMoveLeftKey, rightMoveRightKey, rightRotateKey, rightDownKey, rightHardKey, rightSwapKey); } catch (Exception ignored) {}
+
+                // Ensure the Default column reflects persisted preferences (fall back to sensible defaults):
+                // Left defaults: A, D, W, S, SHIFT, Q
+                // Right defaults: NUMPAD4 (left), NUMPAD6 (right), NUMPAD8 (rotate), NUMPAD5 (down), SPACE (hard), NUMPAD7 (swap)
+                try {
+                    java.util.prefs.Preferences overlayPrefs = java.util.prefs.Preferences.userNodeForPackage(com.comp2042.MainMenuController.class);
+                    // left defaults
+                    javafx.scene.input.KeyCode defLLeft = null;
+                    javafx.scene.input.KeyCode defLRight = null;
+                    javafx.scene.input.KeyCode defLRotate = null;
+                    javafx.scene.input.KeyCode defLDown = null;
+                    javafx.scene.input.KeyCode defLHard = null;
+                    javafx.scene.input.KeyCode defLSwap = null;
+                    try { String s = overlayPrefs.get("mpLeft_left", ""); if (!s.isEmpty()) defLLeft = javafx.scene.input.KeyCode.valueOf(s); } catch (Exception ignored) {}
+                    try { String s = overlayPrefs.get("mpLeft_right", ""); if (!s.isEmpty()) defLRight = javafx.scene.input.KeyCode.valueOf(s); } catch (Exception ignored) {}
+                    try { String s = overlayPrefs.get("mpLeft_rotate", ""); if (!s.isEmpty()) defLRotate = javafx.scene.input.KeyCode.valueOf(s); } catch (Exception ignored) {}
+                    try { String s = overlayPrefs.get("mpLeft_down", ""); if (!s.isEmpty()) defLDown = javafx.scene.input.KeyCode.valueOf(s); } catch (Exception ignored) {}
+                    try { String s = overlayPrefs.get("mpLeft_hard", ""); if (!s.isEmpty()) defLHard = javafx.scene.input.KeyCode.valueOf(s); } catch (Exception ignored) {}
+                    try { String s = overlayPrefs.get("mpLeft_switch", ""); if (!s.isEmpty()) defLSwap = javafx.scene.input.KeyCode.valueOf(s); } catch (Exception ignored) {}
+                    leftCC.setDefaultKeys(
+                        defLLeft != null ? defLLeft : javafx.scene.input.KeyCode.A,
+                        defLRight != null ? defLRight : javafx.scene.input.KeyCode.D,
+                        defLRotate != null ? defLRotate : javafx.scene.input.KeyCode.W,
+                        defLDown != null ? defLDown : javafx.scene.input.KeyCode.S,
+                        defLHard != null ? defLHard : javafx.scene.input.KeyCode.SHIFT,
+                        defLSwap != null ? defLSwap : javafx.scene.input.KeyCode.Q
+                    );
+
+                    // right defaults
+                    javafx.scene.input.KeyCode defRLeft = null;
+                    javafx.scene.input.KeyCode defRRight = null;
+                    javafx.scene.input.KeyCode defRRotate = null;
+                    javafx.scene.input.KeyCode defRDown = null;
+                    javafx.scene.input.KeyCode defRHard = null;
+                    javafx.scene.input.KeyCode defRSwap = null;
+                    try { String s = overlayPrefs.get("mpRight_left", ""); if (!s.isEmpty()) defRLeft = javafx.scene.input.KeyCode.valueOf(s); } catch (Exception ignored) {}
+                    try { String s = overlayPrefs.get("mpRight_right", ""); if (!s.isEmpty()) defRRight = javafx.scene.input.KeyCode.valueOf(s); } catch (Exception ignored) {}
+                    try { String s = overlayPrefs.get("mpRight_rotate", ""); if (!s.isEmpty()) defRRotate = javafx.scene.input.KeyCode.valueOf(s); } catch (Exception ignored) {}
+                    try { String s = overlayPrefs.get("mpRight_down", ""); if (!s.isEmpty()) defRDown = javafx.scene.input.KeyCode.valueOf(s); } catch (Exception ignored) {}
+                    try { String s = overlayPrefs.get("mpRight_hard", ""); if (!s.isEmpty()) defRHard = javafx.scene.input.KeyCode.valueOf(s); } catch (Exception ignored) {}
+                    try { String s = overlayPrefs.get("mpRight_switch", ""); if (!s.isEmpty()) defRSwap = javafx.scene.input.KeyCode.valueOf(s); } catch (Exception ignored) {}
+                    rightCC.setDefaultKeys(
+                        defRLeft != null ? defRLeft : javafx.scene.input.KeyCode.NUMPAD4,
+                        defRRight != null ? defRRight : javafx.scene.input.KeyCode.NUMPAD6,
+                        defRRotate != null ? defRRotate : javafx.scene.input.KeyCode.NUMPAD8,
+                        defRDown != null ? defRDown : javafx.scene.input.KeyCode.NUMPAD5,
+                        defRHard != null ? defRHard : javafx.scene.input.KeyCode.SPACE,
+                        defRSwap != null ? defRSwap : javafx.scene.input.KeyCode.NUMPAD7
+                    );
+                } catch (Exception ignored) {}
+
+                leftCC.setHeaderText("Left Player Controls");
+                rightCC.setHeaderText("Right Player Controls");
+                // Prevent duplicate key assignments between the two panels: consult the other pane's current keys
+                try {
+                    leftCC.setKeyAvailabilityChecker((code, btn) -> {
+                        try {
+                            java.util.Objects.requireNonNull(btn);
+                            if (code == null) return true;
+                            return !(code.equals(rightCC.getLeft())
+                                    || code.equals(rightCC.getRight())
+                                    || code.equals(rightCC.getRotate())
+                                    || code.equals(rightCC.getDown())
+                                    || code.equals(rightCC.getHard())
+                                    || code.equals(rightCC.getSwitch()));
+                        } catch (Exception ignored) {
+                            return true;
+                        }
+                    });
+                } catch (Exception ignored) {}
+                try {
+                    rightCC.setKeyAvailabilityChecker((code, btn) -> {
+                        try {
+                            java.util.Objects.requireNonNull(btn);
+                            if (code == null) return true;
+                            return !(code.equals(leftCC.getLeft())
+                                    || code.equals(leftCC.getRight())
+                                    || code.equals(leftCC.getRotate())
+                                    || code.equals(leftCC.getDown())
+                                    || code.equals(leftCC.getHard())
+                                    || code.equals(leftCC.getSwitch()));
+                        } catch (Exception ignored) {
+                            return true;
+                        }
+                    });
+                } catch (Exception ignored) {}
+                try { leftCC.hideActionButtons(); } catch (Exception ignored) {}
+                try { rightCC.hideActionButtons(); } catch (Exception ignored) {}
+
+                try { leftPane.setPrefWidth(520); } catch (Exception ignored) {}
+                try { rightPane.setPrefWidth(520); } catch (Exception ignored) {}
+                center.getChildren().addAll(leftPane, rightPane);
+                container.setCenter(center);
+
+                overlay.getChildren().addAll(dark, container);
+
+                if (scene.getRoot() instanceof javafx.scene.layout.Pane) {
+                    javafx.scene.layout.Pane root = (javafx.scene.layout.Pane) scene.getRoot();
+                    java.util.List<javafx.scene.Node> hidden = new java.util.ArrayList<>();
+                    for (javafx.scene.Node n : new java.util.ArrayList<>(root.getChildren())) {
+                        if (n != null && "GLOBAL_PAUSE_OVERLAY".equals(n.getId())) {
+                            n.setVisible(false);
+                            hidden.add(n);
+                        }
+                    }
+                    overlay.getProperties().put("hiddenPauseNodes", hidden);
+                    root.getChildren().add(overlay);
+                }
+
+                btnResetTop.setOnAction(ev -> {
+                    ev.consume();
+                    try { leftCC.resetToPanelDefaults(); } catch (Exception ignored) {}
+                    try { rightCC.resetToPanelDefaults(); } catch (Exception ignored) {}
+                });
+
+                btnSave.setOnAction(ev -> {
+                    ev.consume();
+                    try {
+                        try {
+                            javafx.scene.input.KeyCode lLeft = leftCC.getLeft();
+                            javafx.scene.input.KeyCode lRight = leftCC.getRight();
+                            javafx.scene.input.KeyCode lRotate = leftCC.getRotate();
+                            javafx.scene.input.KeyCode lDown = leftCC.getDown();
+                            javafx.scene.input.KeyCode lHard = leftCC.getHard();
+                            javafx.scene.input.KeyCode lSwap = leftCC.getSwitch();
+                            // update local fields so onKeyPressed uses them immediately
+                            if (lLeft != null) leftMoveLeftKey = lLeft;
+                            if (lRight != null) leftMoveRightKey = lRight;
+                            if (lRotate != null) leftRotateKey = lRotate;
+                            if (lDown != null) leftDownKey = lDown;
+                            if (lHard != null) leftHardKey = lHard;
+                            if (lSwap != null) leftSwapKey = lSwap;
+                            // The coop GUI stores per-player keys in local fields (leftMoveLeftKey etc.)
+                            // and routes input in onKeyPressed(), so updating those fields is sufficient
+                            // to apply the new bindings immediately. No external leftGui reference exists
+                            // in this controller instance, so do not attempt to call leftGui.setControlKeys().
+                            java.util.prefs.Preferences prefs = java.util.prefs.Preferences.userNodeForPackage(com.comp2042.MainMenuController.class);
+                            prefs.put("mpLeft_left", leftMoveLeftKey != null ? leftMoveLeftKey.name() : "");
+                            prefs.put("mpLeft_right", leftMoveRightKey != null ? leftMoveRightKey.name() : "");
+                            prefs.put("mpLeft_rotate", leftRotateKey != null ? leftRotateKey.name() : "");
+                            prefs.put("mpLeft_down", leftDownKey != null ? leftDownKey.name() : "");
+                            prefs.put("mpLeft_hard", leftHardKey != null ? leftHardKey.name() : "");
+                            prefs.put("mpLeft_switch", leftSwapKey != null ? leftSwapKey.name() : "");
+                        } catch (Exception ignored) {}
+                        try {
+                            javafx.scene.input.KeyCode rLeft = rightCC.getLeft();
+                            javafx.scene.input.KeyCode rRight = rightCC.getRight();
+                            javafx.scene.input.KeyCode rRotate = rightCC.getRotate();
+                            javafx.scene.input.KeyCode rDown = rightCC.getDown();
+                            javafx.scene.input.KeyCode rHard = rightCC.getHard();
+                            javafx.scene.input.KeyCode rSwap = rightCC.getSwitch();
+                            if (rLeft != null) rightMoveLeftKey = rLeft;
+                            if (rRight != null) rightMoveRightKey = rRight;
+                            if (rRotate != null) rightRotateKey = rRotate;
+                            if (rDown != null) rightDownKey = rDown;
+                            if (rHard != null) rightHardKey = rHard;
+                            if (rSwap != null) rightSwapKey = rSwap;
+                            // The coop GUI stores per-player keys in local fields (rightMoveLeftKey etc.)
+                            // and routes input in onKeyPressed(), so updating those fields is sufficient
+                            // to apply the new bindings immediately. No external rightGui reference exists
+                            // in this controller instance, so do not attempt to call rightGui.setControlKeys().
+                            java.util.prefs.Preferences prefs = java.util.prefs.Preferences.userNodeForPackage(com.comp2042.MainMenuController.class);
+                            prefs.put("mpRight_left", rightMoveLeftKey != null ? rightMoveLeftKey.name() : "");
+                            prefs.put("mpRight_right", rightMoveRightKey != null ? rightMoveRightKey.name() : "");
+                            prefs.put("mpRight_rotate", rightRotateKey != null ? rightRotateKey.name() : "");
+                            prefs.put("mpRight_down", rightDownKey != null ? rightDownKey.name() : "");
+                            prefs.put("mpRight_hard", rightHardKey != null ? rightHardKey.name() : "");
+                            prefs.put("mpRight_switch", rightSwapKey != null ? rightSwapKey.name() : "");
+                        } catch (Exception ignored) {}
+                    } catch (Exception ignored) {}
+                    try {
+                        if (overlay.getParent() instanceof javafx.scene.layout.Pane) {
+                            javafx.scene.layout.Pane root = (javafx.scene.layout.Pane) overlay.getParent();
+                            root.getChildren().remove(overlay);
+                        }
+                        Object o = overlay.getProperties().get("hiddenPauseNodes");
+                        if (o instanceof java.util.List<?>) {
+                            for (Object n : (java.util.List<?>) o) {
+                                if (n instanceof javafx.scene.Node) ((javafx.scene.Node) n).setVisible(true);
+                            }
+                        }
+                    } catch (Exception ignored) {}
+                });
+
+                btnCancel.setOnAction(ev -> {
+                    ev.consume();
+                    try {
+                        if (overlay.getParent() instanceof javafx.scene.layout.Pane) {
+                            javafx.scene.layout.Pane root = (javafx.scene.layout.Pane) overlay.getParent();
+                            root.getChildren().remove(overlay);
+                        }
+                        Object o = overlay.getProperties().get("hiddenPauseNodes");
+                        if (o instanceof java.util.List<?>) {
+                            for (Object n : (java.util.List<?>) o) {
+                                if (n instanceof javafx.scene.Node) ((javafx.scene.Node) n).setVisible(true);
+                            }
+                        }
+                    } catch (Exception ignored) {}
+                });
+
+            } catch (Exception ignored) {}
+        });
     }
 
     // Map numeric color id to Paint. Duplicate of GuiController.getFillColor since that method is private.
@@ -564,6 +906,14 @@ public class CoopGuiController extends GuiController {
     @Override
     public void gameOver() {
         try { if (coopTimeline != null) coopTimeline.stop(); } catch (Exception ignored) {}
+        // stop and dispose cooperative music when match ends
+        try {
+            if (coopMusicPlayer != null) {
+                try { coopMusicPlayer.stop(); } catch (Exception ignored) {}
+                try { coopMusicPlayer.dispose(); } catch (Exception ignored) {}
+                coopMusicPlayer = null;
+            }
+        } catch (Exception ignored) {}
         try { super.gameOver(); } catch (Exception ignored) {}
         // The base GuiController.gameOver() builds an overlay which shows the single-player
         // "Previous Best" value. Replace that text to show the cooperative high score instead.
@@ -598,6 +948,29 @@ public class CoopGuiController extends GuiController {
                     walker.accept(root);
                 } catch (Exception ignored) {}
             });
+        } catch (Exception ignored) {}
+    }
+
+    @Override
+    protected void onSceneDetach() {
+        // remove any scene filters we installed and stop coop-specific resources
+        System.out.println("[CoopGuiController] onSceneDetach invoked for scene=" + (coopScene != null ? coopScene.hashCode() : "null"));
+        try {
+            if (coopScene != null) {
+                try { if (coopPressFilter != null) coopScene.removeEventFilter(KeyEvent.KEY_PRESSED, coopPressFilter); } catch (Exception ignored) {}
+                try { if (coopReleaseFilter != null) coopScene.removeEventFilter(KeyEvent.KEY_RELEASED, coopReleaseFilter); } catch (Exception ignored) {}
+                System.out.println("[CoopGuiController] removed coop filters from scene");
+                coopScene = null;
+            }
+        } catch (Exception ignored) {}
+        try { if (coopTimeline != null) { coopTimeline.stop(); coopTimeline = null; System.out.println("[CoopGuiController] stopped coopTimeline"); } } catch (Exception ignored) {}
+        try {
+            if (coopMusicPlayer != null) {
+                try { coopMusicPlayer.stop(); } catch (Exception ignored) {}
+                try { coopMusicPlayer.dispose(); } catch (Exception ignored) {}
+                coopMusicPlayer = null;
+                System.out.println("[CoopGuiController] disposed coopMusicPlayer");
+            }
         } catch (Exception ignored) {}
     }
 }
