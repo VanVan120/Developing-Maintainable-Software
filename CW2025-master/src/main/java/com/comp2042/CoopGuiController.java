@@ -575,7 +575,10 @@ public class CoopGuiController extends GuiController {
                         if (last != null && last.getClearRow() != null) break;
                     }
                     if (last != null && last.getClearRow() != null) {
-                        try { playLockEffect(startView, last.getViewData(), true); } catch (Exception ignored) {}
+                        try { 
+                            try { playHardDropSound(); } catch (Exception ignored) {}
+                            playLockEffect(startView, last.getViewData(), true); 
+                        } catch (Exception ignored) {}
                         if (last.getClearRow().getLinesRemoved() > 0) try { spawnExplosion(last.getClearRow(), last.getViewData()); } catch (Exception ignored) {}
                     }
                 } catch (Exception ignored) {}
@@ -605,7 +608,10 @@ public class CoopGuiController extends GuiController {
                     DownData last = null;
                     while (safety++ < 200) { last = coop.onRightDown(); if (last != null && last.getClearRow() != null) break; }
                     if (last != null && last.getClearRow() != null) {
-                        try { playLockEffect(startView, last.getViewData(), true); } catch (Exception ignored) {}
+                        try {
+                            try { playHardDropSound(); } catch (Exception ignored) {}
+                            playLockEffect(startView, last.getViewData(), true);
+                        } catch (Exception ignored) {}
                         if (last.getClearRow().getLinesRemoved() > 0) try { spawnExplosion(last.getClearRow(), last.getViewData()); } catch (Exception ignored) {}
                     }
                 } catch (Exception ignored) {}

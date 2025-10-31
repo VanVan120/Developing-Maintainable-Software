@@ -20,6 +20,11 @@ import javafx.scene.control.Button;
 import java.io.IOException;
 import java.net.URL;
 import java.util.ResourceBundle;
+import javafx.scene.media.Media;
+import javafx.scene.media.MediaPlayer;
+import javax.sound.sampled.AudioInputStream;
+import javax.sound.sampled.AudioSystem;
+import javax.sound.sampled.Clip;
 
 /**
  * ClassicBattle implements the same multiplayer wiring and UI as ScoreBattle so it behaves
@@ -70,6 +75,124 @@ public class ClassicBattle implements Initializable {
 
     // background music player for classic battle
     private javafx.scene.media.MediaPlayer classicBattleMusicPlayer = null;
+    // centralized one-shot game-over player for the match (prefers JavaFX Media)
+    private MediaPlayer matchGameOverPlayer = null;
+    // fallback Clip for WAV playback
+    private Clip matchGameOverClipFallback = null;
+    // centralized countdown player for multiplayer (played once for both GUIs)
+    private MediaPlayer matchCountdownPlayer = null;
+    // fallback Clip for countdown playback
+    private Clip matchCountdownClipFallback = null;
+
+    /**
+     * Play the centralized GameOver sound for the match (single-shot).
+     */
+    private void playMatchGameOverSound() {
+        try {
+            // cleanup any previous player
+            try { if (matchGameOverPlayer != null) { matchGameOverPlayer.stop(); matchGameOverPlayer.dispose(); matchGameOverPlayer = null; } } catch (Exception ignored) {}
+
+            URL musicUrl = getClass().getClassLoader().getResource("sounds/GameOver.wav");
+            if (musicUrl == null) musicUrl = getClass().getClassLoader().getResource("sounds/GameOver.mp3");
+            if (musicUrl != null) {
+                try {
+                    Media m = new Media(musicUrl.toExternalForm());
+                    matchGameOverPlayer = new MediaPlayer(m);
+                    matchGameOverPlayer.setCycleCount(1);
+                    matchGameOverPlayer.setAutoPlay(true);
+                    matchGameOverPlayer.setOnEndOfMedia(() -> {
+                        try { matchGameOverPlayer.dispose(); } catch (Exception ignored) {}
+                        matchGameOverPlayer = null;
+                    });
+                    return;
+                } catch (Exception ignored) {}
+            }
+        } catch (Exception ignored) {}
+
+        // Fallback using javax.sound Clip for WAV files
+        try {
+            try { if (matchGameOverClipFallback != null && matchGameOverClipFallback.isRunning()) { matchGameOverClipFallback.stop(); matchGameOverClipFallback.close(); matchGameOverClipFallback = null; } } catch (Exception ignored) {}
+            java.net.URL u = getClass().getClassLoader().getResource("sounds/GameOver.wav");
+            if (u != null) {
+                AudioInputStream ais = AudioSystem.getAudioInputStream(u);
+                matchGameOverClipFallback = AudioSystem.getClip();
+                matchGameOverClipFallback.open(ais);
+                matchGameOverClipFallback.start();
+            }
+        } catch (Exception ignored) {}
+    }
+
+    /**
+     * Stop and dispose the centralized match game-over sound if playing.
+     */
+    private void stopMatchGameOverSound() {
+        try {
+            if (matchGameOverPlayer != null) {
+                try { matchGameOverPlayer.stop(); } catch (Exception ignored) {}
+                try { matchGameOverPlayer.dispose(); } catch (Exception ignored) {}
+                matchGameOverPlayer = null;
+            }
+        } catch (Exception ignored) {}
+        try {
+            if (matchGameOverClipFallback != null) {
+                try { matchGameOverClipFallback.stop(); } catch (Exception ignored) {}
+                try { matchGameOverClipFallback.close(); } catch (Exception ignored) {}
+                matchGameOverClipFallback = null;
+            }
+        } catch (Exception ignored) {}
+    }
+
+    /**
+     * Play the centralized countdown sound for the match (loops while countdown visuals are active).
+     */
+    private void playMatchCountdownSound() {
+        try {
+            try { if (matchCountdownPlayer != null) { matchCountdownPlayer.stop(); matchCountdownPlayer.dispose(); matchCountdownPlayer = null; } } catch (Exception ignored) {}
+            URL musicUrl = getClass().getClassLoader().getResource("sounds/Countdown.wav");
+            if (musicUrl == null) musicUrl = getClass().getClassLoader().getResource("sounds/Countdown.mp3");
+            if (musicUrl != null) {
+                try {
+                    Media m = new Media(musicUrl.toExternalForm());
+                    matchCountdownPlayer = new MediaPlayer(m);
+                    matchCountdownPlayer.setCycleCount(MediaPlayer.INDEFINITE);
+                    matchCountdownPlayer.setAutoPlay(true);
+                    matchCountdownPlayer.setVolume(0.75);
+                    return;
+                } catch (Exception ignored) {}
+            }
+        } catch (Exception ignored) {}
+
+        try {
+            try { if (matchCountdownClipFallback != null && matchCountdownClipFallback.isRunning()) { matchCountdownClipFallback.stop(); matchCountdownClipFallback.close(); matchCountdownClipFallback = null; } } catch (Exception ignored) {}
+            java.net.URL u = getClass().getClassLoader().getResource("sounds/Countdown.wav");
+            if (u != null) {
+                AudioInputStream ais = AudioSystem.getAudioInputStream(u);
+                matchCountdownClipFallback = AudioSystem.getClip();
+                matchCountdownClipFallback.open(ais);
+                matchCountdownClipFallback.loop(Clip.LOOP_CONTINUOUSLY);
+            }
+        } catch (Exception ignored) {}
+    }
+
+    /**
+     * Stop and dispose the centralized countdown sound if playing.
+     */
+    private void stopMatchCountdownSound() {
+        try {
+            if (matchCountdownPlayer != null) {
+                try { matchCountdownPlayer.stop(); } catch (Exception ignored) {}
+                try { matchCountdownPlayer.dispose(); } catch (Exception ignored) {}
+                matchCountdownPlayer = null;
+            }
+        } catch (Exception ignored) {}
+        try {
+            if (matchCountdownClipFallback != null) {
+                try { matchCountdownClipFallback.stop(); } catch (Exception ignored) {}
+                try { matchCountdownClipFallback.close(); } catch (Exception ignored) {}
+                matchCountdownClipFallback = null;
+            }
+        } catch (Exception ignored) {}
+    }
 
     // flag to avoid showing multiple match-end overlays
     private volatile boolean matchEnded = false;
@@ -118,6 +241,8 @@ public class ClassicBattle implements Initializable {
             try {
                 // stop any playing match music before restarting
                 try { if (classicBattleMusicPlayer != null) { classicBattleMusicPlayer.stop(); classicBattleMusicPlayer.dispose(); classicBattleMusicPlayer = null; } } catch (Exception ignored) {}
+                try { stopMatchCountdownSound(); } catch (Exception ignored) {}
+                try { stopMatchGameOverSound(); } catch (Exception ignored) {}
                 try { if (matchTimer != null) matchTimer.stop(); } catch (Exception ignored) {}
                 try { if (previewPoller != null) previewPoller.stop(); } catch (Exception ignored) {}
 
@@ -259,6 +384,8 @@ public class ClassicBattle implements Initializable {
                     try { if (rightGui != null) rightGui.gameOver(); } catch (Exception ignored) {}
                     // stop match music immediately so we can play a game-over track later
                     try { if (classicBattleMusicPlayer != null) { classicBattleMusicPlayer.stop(); classicBattleMusicPlayer.dispose(); classicBattleMusicPlayer = null; } } catch (Exception ignored) {}
+                    // play centralized match GameOver sound
+                    try { playMatchGameOverSound(); } catch (Exception ignored) {}
                     int lscore = (leftController != null ? leftController.getScoreProperty().get() : 0);
                     int rscore = (rightController != null ? rightController.getScoreProperty().get() : 0);
                     String reason = "Winner by survival (opponent lost)";
@@ -280,6 +407,8 @@ public class ClassicBattle implements Initializable {
                     try { if (rightGui != null) rightGui.gameOver(); } catch (Exception ignored) {}
                     // stop match music immediately so we can play a game-over track later
                     try { if (classicBattleMusicPlayer != null) { classicBattleMusicPlayer.stop(); classicBattleMusicPlayer.dispose(); classicBattleMusicPlayer = null; } } catch (Exception ignored) {}
+                    // play centralized match GameOver sound
+                    try { playMatchGameOverSound(); } catch (Exception ignored) {}
                     int lscore = (leftController != null ? leftController.getScoreProperty().get() : 0);
                     int rscore = (rightController != null ? rightController.getScoreProperty().get() : 0);
                     String reason = "Winner by survival (opponent lost)";
@@ -338,6 +467,27 @@ public class ClassicBattle implements Initializable {
 
         leftGui.setDropIntervalMs(1000);
         rightGui.setDropIntervalMs(1000);
+
+        // Attach listeners to start a single shared countdown sound for both embedded GUIs
+        try {
+            final javafx.beans.value.ChangeListener<Boolean> startCountdownListener = (obs, oldV, newV) -> {
+                try {
+                    java.util.Objects.requireNonNull(obs);
+                    java.util.Objects.requireNonNull(oldV);
+                    java.util.Objects.requireNonNull(newV);
+                    boolean l = false, r = false;
+                    try { l = leftGui.countdownStartedProperty().get(); } catch (Exception ignored) {}
+                    try { r = rightGui.countdownStartedProperty().get(); } catch (Exception ignored) {}
+                    if (l || r) {
+                        try { playMatchCountdownSound(); } catch (Exception ignored) {}
+                    } else {
+                        try { stopMatchCountdownSound(); } catch (Exception ignored) {}
+                    }
+                } catch (Exception ignored) {}
+            };
+            try { leftGui.countdownStartedProperty().addListener(startCountdownListener); } catch (Exception ignored) {}
+            try { rightGui.countdownStartedProperty().addListener(startCountdownListener); } catch (Exception ignored) {}
+        } catch (Exception ignored) {}
 
         leftGui.startCountdown(3);
         rightGui.startCountdown(3);
@@ -511,6 +661,8 @@ public class ClassicBattle implements Initializable {
         }
         try { if (previewPoller != null) previewPoller.stop(); } catch (Exception ignored) {}
         try { if (classicBattleMusicPlayer != null) { classicBattleMusicPlayer.stop(); classicBattleMusicPlayer.dispose(); classicBattleMusicPlayer = null; } } catch (Exception ignored) {}
+        try { stopMatchGameOverSound(); } catch (Exception ignored) {}
+        try { stopMatchCountdownSound(); } catch (Exception ignored) {}
     }
 
     private String formatTime(int seconds) {
@@ -747,6 +899,8 @@ public class ClassicBattle implements Initializable {
     private void endMatchAndAnnounceWinner() {
         // stop any match music immediately
         try { if (classicBattleMusicPlayer != null) { classicBattleMusicPlayer.stop(); classicBattleMusicPlayer.dispose(); classicBattleMusicPlayer = null; } } catch (Exception ignored) {}
+        try { stopMatchCountdownSound(); } catch (Exception ignored) {}
+        try { playMatchGameOverSound(); } catch (Exception ignored) {}
         try { if (leftGui != null) leftGui.gameOver(); } catch (Exception ignored) {}
         try { if (rightGui != null) rightGui.gameOver(); } catch (Exception ignored) {}
         try { if (previewPoller != null) previewPoller.stop(); } catch (Exception ignored) {}
@@ -880,6 +1034,7 @@ public class ClassicBattle implements Initializable {
                         Parent menuRoot = loader.load();
                         Stage stage = (Stage) scene.getWindow();
                         if (stage.getScene() != null) {
+                            try { stopMatchGameOverSound(); } catch (Exception ignored) {}
                             try { if (leftGui != null) leftGui.cleanup(); } catch (Exception ignored) {}
                             try { if (rightGui != null) rightGui.cleanup(); } catch (Exception ignored) {}
                             stage.getScene().setRoot(menuRoot);

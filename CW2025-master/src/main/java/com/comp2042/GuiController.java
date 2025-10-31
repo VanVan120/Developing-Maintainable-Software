@@ -210,17 +210,31 @@ public class GuiController implements Initializable {
     private final BooleanProperty isGameOver = new SimpleBooleanProperty();
     // becomes true when the start countdown (3..1..Start) finishes and gameplay begins
     private final BooleanProperty countdownFinished = new SimpleBooleanProperty(false);
+    // becomes true when the start countdown visuals/music have begun (useful for multiplayer coordinators)
+    private final BooleanProperty countdownStarted = new SimpleBooleanProperty(false);
 
     // Audio clips for UI feedback (hover / click). Files should be placed under
     // src/main/resources/sounds/hover.wav and src/main/resources/sounds/click.wav
     private AudioClip hoverClip = null;
     private AudioClip clickClip = null;
+    // hard-drop audio effect (played when the player hard-drops a piece)
+    private AudioClip hardDropClip = null;
     // Background music player for singleplayer mode (loops)
     private MediaPlayer singleplayerMusicPlayer = null;
+    // optional one-shot game-over music player
+    private MediaPlayer gameOverMusicPlayer = null;
+    // countdown music player (played during the pre-game countdown)
+    private MediaPlayer countdownMusicPlayer = null;
     // Fallback using JRE's javax.sound.sampled (works for WAV). These are used if AudioClip
     // couldn't be created (e.g., javafx-media not available at runtime).
     private javax.sound.sampled.Clip hoverClipFallback = null;
     private javax.sound.sampled.Clip clickClipFallback = null;
+    // fallback clip for hard-drop sound
+    private javax.sound.sampled.Clip hardDropClipFallback = null;
+    // fallback clip for game-over music (played once)
+    private javax.sound.sampled.Clip gameOverClipFallback = null;
+    // fallback clip for countdown music
+    private javax.sound.sampled.Clip countdownClipFallback = null;
     // Scene-level handlers stored so they can be removed during cleanup
     private javafx.event.EventHandler<KeyEvent> globalPressHandler = null;
     private javafx.event.EventHandler<KeyEvent> globalReleaseHandler = null;
@@ -290,6 +304,22 @@ public class GuiController implements Initializable {
             System.err.println("[GuiController] failed to load click.wav: " + ex);
             ex.printStackTrace();
         }
+        // load hard-drop sound (optional). Place under src/main/resources/sounds/HardDrop.wav
+        try {
+            URL hdUrl = getClass().getClassLoader().getResource("sounds/HardDrop.wav");
+            if (hdUrl != null) {
+                System.out.println("[GuiController] HardDrop.wav resource URL=" + hdUrl);
+                hardDropClip = new AudioClip(hdUrl.toExternalForm());
+                System.out.println("[GuiController] hardDropClip created: " + hardDropClip);
+            } else {
+                URL hdUrl2 = getClass().getResource("/sounds/HardDrop.wav");
+                System.out.println("[GuiController] HardDrop.wav not found via ClassLoader, try Class.getResource -> " + hdUrl2);
+                if (hdUrl2 != null) hardDropClip = new AudioClip(hdUrl2.toExternalForm());
+            }
+        } catch (Exception ex) {
+            System.err.println("[GuiController] failed to load HardDrop.wav: " + ex);
+            ex.printStackTrace();
+        }
 
         // If JavaFX AudioClip couldn't be created, try loading WAV using javax.sound.sampled as a robust fallback
         try {
@@ -324,6 +354,23 @@ public class GuiController implements Initializable {
             }
         } catch (Exception ex) {
             System.err.println("[GuiController] failed to create click fallback clip: " + ex);
+            ex.printStackTrace();
+        }
+        try {
+            if (hardDropClip == null) {
+                URL hdUrl = getClass().getClassLoader().getResource("sounds/HardDrop.wav");
+                if (hdUrl == null) hdUrl = getClass().getResource("/sounds/HardDrop.wav");
+                if (hdUrl != null) {
+                    try (AudioInputStream ais3 = AudioSystem.getAudioInputStream(hdUrl)) {
+                        javax.sound.sampled.Clip c3 = AudioSystem.getClip();
+                        c3.open(ais3);
+                        hardDropClipFallback = c3;
+                        System.out.println("[GuiController] hardDropClipFallback created");
+                    }
+                }
+            }
+        } catch (Exception ex) {
+            System.err.println("[GuiController] failed to create hardDrop fallback clip: " + ex);
             ex.printStackTrace();
         }
 
@@ -375,7 +422,11 @@ public class GuiController implements Initializable {
                 // reference unused params to satisfy static analyzers
                 java.util.Objects.requireNonNull(obs);
                 java.util.Objects.requireNonNull(oldV);
-                if (Boolean.TRUE.equals(newV)) stopSingleplayerMusic();
+                if (Boolean.TRUE.equals(newV)) {
+                    // stop background looping music and play the game over tune once
+                    stopSingleplayerMusic();
+                    try { playGameOverMusic(); } catch (Exception ignored) {}
+                }
             });
         } catch (Exception ignored) {}
 
@@ -956,8 +1007,10 @@ public class GuiController implements Initializable {
             // stop timelines
             try { if (timeLine != null) timeLine.stop(); } catch (Exception ignored) {}
             try { if (clockTimeline != null) clockTimeline.stop(); } catch (Exception ignored) {}
-            // stop music
+            // stop music (background + any one-shot game-over tune) and any countdown audio
             try { stopSingleplayerMusic(); } catch (Exception ignored) {}
+            try { stopGameOverMusic(); } catch (Exception ignored) {}
+            try { stopCountdownMusic(); } catch (Exception ignored) {}
             // detach handlers and allow subclasses to remove filters
             try { detachSceneKeyHandlers(); } catch (Exception ignored) {}
             System.out.println("[" + controllerId + "] cleanup finished");
@@ -1051,7 +1104,11 @@ public class GuiController implements Initializable {
                     if (d.getClearRow() != null) {
                             // play an intense hard-drop/lock visual effect only when user explicitly hard-dropped
                             try {
-                                if (lastWasHardDrop) playLockEffect(startViewForEffect, d.getViewData(), true);
+                                if (lastWasHardDrop) {
+                                    // play hard-drop sound and intense lock visual
+                                    try { playHardDropSound(); } catch (Exception ignored) {}
+                                    playLockEffect(startViewForEffect, d.getViewData(), true);
+                                }
                             } catch (Exception ignored) {}
                         // reset the flag after use
                         lastWasHardDrop = false;
@@ -1314,6 +1371,8 @@ public class GuiController implements Initializable {
         isPause.setValue(Boolean.TRUE);
     // mark countdown as not finished yet
     countdownFinished.setValue(Boolean.FALSE);
+        // mark countdown as not started yet
+        try { countdownStarted.setValue(Boolean.FALSE); } catch (Exception ignored) {}
         final Text countdown = new Text();
         countdown.getStyleClass().add("gameOverStyle");
         countdown.setStyle("-fx-font-size: 96px; -fx-fill: yellow; -fx-stroke: black; -fx-stroke-width:2;");
@@ -1378,11 +1437,14 @@ public class GuiController implements Initializable {
         });
 
         final int[] cnt = new int[]{seconds};
+        final int initialCount = seconds;
         final Timeline cd = new Timeline();
         KeyFrame kf = new KeyFrame(Duration.seconds(1), new javafx.event.EventHandler<javafx.event.ActionEvent>() {
             @Override
             public void handle(javafx.event.ActionEvent event) {
                 if (cnt[0] > 0) {
+                    // Start countdown music and mark countdown started when the first number is displayed so audio aligns with visuals
+                    try { if (cnt[0] == initialCount) { playCountdownMusic(); countdownStarted.setValue(Boolean.TRUE); } } catch (Exception ignored) {}
                     countdown.setText(Integer.toString(cnt[0]));
                     // animate scale+fade
                     ScaleTransition st = new ScaleTransition(Duration.millis(600), countdown);
@@ -1426,6 +1488,8 @@ public class GuiController implements Initializable {
                         } catch (Exception ignored) {}
                     });
                     // stop timeline properly
+                    try { stopCountdownMusic(); } catch (Exception ignored) {}
+                    try { countdownStarted.setValue(Boolean.FALSE); } catch (Exception ignored) {}
                     cd.stop();
                     // restore keyboard focus so scene-level handlers continue receiving key events
                     try { gamePanel.requestFocus(); } catch (Exception ignored) {}
@@ -1434,8 +1498,8 @@ public class GuiController implements Initializable {
             }
         });
         cd.getKeyFrames().add(kf);
-        cd.setCycleCount(seconds + 2);
-        cd.playFromStart();
+    cd.setCycleCount(seconds + 2);
+    cd.playFromStart();
     }
 
     /**
@@ -1443,6 +1507,14 @@ public class GuiController implements Initializable {
      */
     public BooleanProperty countdownFinishedProperty() {
         return countdownFinished;
+    }
+
+    /**
+     * Observable property that becomes true when the start countdown visuals/music have begun.
+     * Coordinators can listen to this to start a single shared countdown audio for multiplayer.
+     */
+    public BooleanProperty countdownStartedProperty() {
+        return countdownStarted;
     }
 
     /**
@@ -1830,6 +1902,155 @@ public class GuiController implements Initializable {
         }
     }
 
+    /**
+     * Play the hard-drop sound effect (one-shot). Prefers JavaFX AudioClip but falls back to javax.sound Clip.
+     */
+    protected void playHardDropSound() {
+        try {
+            if (hardDropClip != null) {
+                System.out.println("[GuiController] playHardDropSound: playing hardDropClip");
+                hardDropClip.play();
+            } else {
+                System.out.println("[GuiController] playHardDropSound: hardDropClip is null");
+                if (hardDropClipFallback != null) {
+                    try {
+                        new Thread(() -> {
+                            try {
+                                synchronized (hardDropClipFallback) {
+                                    hardDropClipFallback.stop();
+                                    hardDropClipFallback.setFramePosition(0);
+                                    hardDropClipFallback.start();
+                                }
+                            } catch (Exception ex) { System.err.println("[GuiController] failed to play hardDropClipFallback: " + ex); }
+                        }, "harddrop-sound").start();
+                    } catch (Exception ex) { System.err.println("[GuiController] harddrop fallback play exception: " + ex); }
+                } else if (fallbackToBeep) Toolkit.getDefaultToolkit().beep();
+            }
+        } catch (Exception ex) {
+            System.err.println("[GuiController] Exception while playing hardDrop sound: " + ex);
+            ex.printStackTrace();
+        }
+    }
+
+    /**
+     * Play the GameOver music once. Prefer JavaFX MediaPlayer; fallback to javax.sound Clip.
+     */
+    private void playGameOverMusic() {
+        try {
+            // In multiplayer modes the coordinator is responsible for any shared music.
+            // Prevent embedded GuiControllers from playing their own GameOver tune to avoid duplicates.
+            try { if (isMultiplayer) { System.out.println("[GuiController] multiplayer mode - skip local GameOver music"); return; } } catch (Exception ignored) {}
+            // avoid multiple instances
+            stopGameOverMusic();
+            URL mus = getClass().getClassLoader().getResource("sounds/GameOver.wav");
+            if (mus == null) mus = getClass().getResource("/sounds/GameOver.wav");
+            if (mus != null) {
+                try {
+                    Media m = new Media(mus.toExternalForm());
+                    gameOverMusicPlayer = new MediaPlayer(m);
+                    gameOverMusicPlayer.setCycleCount(1);
+                    gameOverMusicPlayer.setAutoPlay(true);
+                    gameOverMusicPlayer.setOnError(() -> System.err.println("[GuiController] GameOver music error: " + gameOverMusicPlayer.getError()));
+                    return;
+                } catch (Exception ex) {
+                    System.err.println("[GuiController] Failed to initialize GameOver MediaPlayer: " + ex);
+                    ex.printStackTrace();
+                }
+                // fallback to javax.sound
+                try (AudioInputStream ais = AudioSystem.getAudioInputStream(mus)) {
+                    javax.sound.sampled.Clip c = AudioSystem.getClip();
+                    c.open(ais);
+                    gameOverClipFallback = c;
+                    gameOverClipFallback.setFramePosition(0);
+                    gameOverClipFallback.start();
+                    return;
+                } catch (Exception ex2) {
+                    System.err.println("[GuiController] GameOver fallback clip failed: " + ex2);
+                }
+            }
+            // last resort: beep
+            if (fallbackToBeep) Toolkit.getDefaultToolkit().beep();
+        } catch (Exception ex) {
+            System.err.println("[GuiController] Exception while playing GameOver music: " + ex);
+            ex.printStackTrace();
+        }
+    }
+
+    private void stopGameOverMusic() {
+        try {
+            if (gameOverMusicPlayer != null) {
+                try { gameOverMusicPlayer.stop(); } catch (Exception ignored) {}
+                try { gameOverMusicPlayer.dispose(); } catch (Exception ignored) {}
+                gameOverMusicPlayer = null;
+            }
+            if (gameOverClipFallback != null) {
+                try { gameOverClipFallback.stop(); } catch (Exception ignored) {}
+                try { gameOverClipFallback.close(); } catch (Exception ignored) {}
+                gameOverClipFallback = null;
+            }
+        } catch (Exception ignored) {}
+    }
+
+    /**
+     * Play the countdown music while the start countdown is active.
+     * Skips playback for embedded multiplayer GUIs to avoid duplicate sound.
+     */
+    private void playCountdownMusic() {
+        try {
+            try { if (isMultiplayer) { System.out.println("[GuiController] multiplayer mode - skip local Countdown music"); return; } } catch (Exception ignored) {}
+            // avoid multiple instances
+            stopCountdownMusic();
+            URL mus = getClass().getClassLoader().getResource("sounds/Countdown.wav");
+            if (mus == null) mus = getClass().getResource("/sounds/Countdown.wav");
+            if (mus != null) {
+                try {
+                    Media m = new Media(mus.toExternalForm());
+                    countdownMusicPlayer = new MediaPlayer(m);
+                    countdownMusicPlayer.setCycleCount(MediaPlayer.INDEFINITE);
+                    countdownMusicPlayer.setAutoPlay(true);
+                    countdownMusicPlayer.setVolume(0.75);
+                    countdownMusicPlayer.setOnError(() -> System.err.println("[GuiController] Countdown music error: " + countdownMusicPlayer.getError()));
+                    return;
+                } catch (Exception ex) {
+                    System.err.println("[GuiController] Failed to initialize Countdown MediaPlayer: " + ex);
+                    ex.printStackTrace();
+                }
+                // fallback to javax.sound
+                try (AudioInputStream ais = AudioSystem.getAudioInputStream(mus)) {
+                    javax.sound.sampled.Clip c = AudioSystem.getClip();
+                    c.open(ais);
+                    countdownClipFallback = c;
+                    countdownClipFallback.setFramePosition(0);
+                    countdownClipFallback.loop(javax.sound.sampled.Clip.LOOP_CONTINUOUSLY);
+                    return;
+                } catch (Exception ex2) {
+                    System.err.println("[GuiController] Countdown fallback clip failed: " + ex2);
+                }
+            }
+            if (fallbackToBeep) Toolkit.getDefaultToolkit().beep();
+        } catch (Exception ex) {
+            System.err.println("[GuiController] Exception while playing Countdown music: " + ex);
+            ex.printStackTrace();
+        }
+    }
+
+    private void stopCountdownMusic() {
+        try {
+            if (countdownMusicPlayer != null) {
+                try { countdownMusicPlayer.stop(); } catch (Exception ignored) {}
+                try { countdownMusicPlayer.dispose(); } catch (Exception ignored) {}
+                countdownMusicPlayer = null;
+            }
+        } catch (Exception ignored) {}
+        try {
+            if (countdownClipFallback != null) {
+                try { countdownClipFallback.stop(); } catch (Exception ignored) {}
+                try { countdownClipFallback.close(); } catch (Exception ignored) {}
+                countdownClipFallback = null;
+            }
+        } catch (Exception ignored) {}
+    }
+
 
     private void moveDown(MoveEvent event) {
         // If the game is over, ignore any further down events and make sure the timeline is stopped
@@ -1854,7 +2075,10 @@ public class GuiController implements Initializable {
                 if (downData.getClearRow() != null) {
                     try {
                         // only show lock visual when the user explicitly hard-dropped
-                        if (lastWasHardDrop) playLockEffect(startViewForEffect, downData.getViewData(), false);
+                        if (lastWasHardDrop) {
+                            try { playHardDropSound(); } catch (Exception ignored) {}
+                            playLockEffect(startViewForEffect, downData.getViewData(), false);
+                        }
                     } catch (Exception ignored) {}
                     // reset after using
                     lastWasHardDrop = false;
@@ -2517,7 +2741,9 @@ public class GuiController implements Initializable {
                 // Restart behavior: if multiplayer, delegate to multiplayer restart handler, otherwise create new game and run countdown
                 btnRestart.setOnAction(ev -> {
                     ev.consume();
-                    try {
+            try {
+                try { stopGameOverMusic(); } catch (Exception ignored) {}
+                try { stopCountdownMusic(); } catch (Exception ignored) {}
                         // stop any running title animation
                         try { if (gameOverPulse != null) { gameOverPulse.stop(); gameOverPulse = null; } } catch (Exception ignored) {}
                         if (overlay.getParent() instanceof javafx.scene.layout.Pane) {
@@ -2546,8 +2772,10 @@ public class GuiController implements Initializable {
                 btnMenu.setOnAction(ev -> {
                     ev.consume();
                     try {
-                        // stop any running title animation
-                        try { if (gameOverPulse != null) { gameOverPulse.stop(); gameOverPulse = null; } } catch (Exception ignored) {}
+                        try { stopGameOverMusic(); } catch (Exception ignored) {}
+                            try { stopCountdownMusic(); } catch (Exception ignored) {}
+                            // stop any running title animation
+                            try { if (gameOverPulse != null) { gameOverPulse.stop(); gameOverPulse = null; } } catch (Exception ignored) {}
                         // If running as an embedded multiplayer GUI, delegate the 'Main Menu'
                         // action to the multiplayer coordinator so it can stop shared music and
                         // perform a coordinated scene change. Otherwise stop only singleplayer music
@@ -2608,6 +2836,8 @@ public class GuiController implements Initializable {
     }
 
     public void newGame(ActionEvent actionEvent) {
+        try { stopGameOverMusic(); } catch (Exception ignored) {}
+        try { stopCountdownMusic(); } catch (Exception ignored) {}
         timeLine.stop();
         gameOverPanel.setVisible(false);
         eventListener.createNewGame();
