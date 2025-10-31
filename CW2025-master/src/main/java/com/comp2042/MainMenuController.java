@@ -223,6 +223,15 @@ public class MainMenuController {
             if (c != null) menuClickClip = new AudioClip(c.toExternalForm());
         } catch (Exception ignored) {}
 
+        // Apply persisted audio volumes to menu media and clips
+        try {
+            applyAudioVolumesToMenu();
+            // listen for changes so runtime changes update menu immediately
+            try { AudioSettings.masterProperty().addListener((obs, o, n) -> applyAudioVolumesToMenu()); } catch (Exception ignored) {}
+            try { AudioSettings.musicProperty().addListener((obs, o, n) -> applyAudioVolumesToMenu()); } catch (Exception ignored) {}
+            try { AudioSettings.sfxProperty().addListener((obs, o, n) -> applyAudioVolumesToMenu()); } catch (Exception ignored) {}
+        } catch (Exception ignored) {}
+
         try {
             if (menuMediaView != null) {
                 menuMediaView.setOnMouseClicked(new javafx.event.EventHandler<javafx.scene.input.MouseEvent>() {
@@ -326,8 +335,8 @@ public class MainMenuController {
             audioBtn.setOnAction(new EventHandler<ActionEvent>() {
                 @Override
                 public void handle(ActionEvent event) {
-                    System.out.println("Audio button clicked - not implemented yet");
-                    // TODO: Create audioOptions StackPane and transition to it
+                    // open audio settings overlay
+                    loadAudioSettings();
                 }
             });
         }
@@ -619,6 +628,206 @@ public class MainMenuController {
                 
             } catch (Exception ignored) {}
         });
+    }
+
+    /**
+     * Apply audio volumes from AudioSettings to the main menu music and menu UI clips.
+     */
+    private void applyAudioVolumesToMenu() {
+        try {
+            double masterVol = AudioSettings.getMasterVolume();
+            double musicVol = AudioSettings.getMusicVolume();
+            double sfxVol = AudioSettings.getSfxVolume();
+            double combinedMusic = masterVol * musicVol;
+            double combinedSfx = masterVol * sfxVol;
+            try {
+                if (menuMusicPlayer != null) menuMusicPlayer.setVolume(combinedMusic);
+            } catch (Exception ignored) {}
+            try {
+                if (menuHoverClip != null) menuHoverClip.setVolume(combinedSfx);
+            } catch (Exception ignored) {}
+            try {
+                if (menuClickClip != null) menuClickClip.setVolume(combinedSfx);
+            } catch (Exception ignored) {}
+        } catch (Exception ignored) {}
+    }
+
+    /**
+     * Show a simple audio settings overlay with sliders for Master / Music / SFX volumes.
+     */
+    private void loadAudioSettings() {
+        try {
+            StackPane overlay = new StackPane();
+            overlay.setStyle("-fx-padding:0;");
+            Rectangle dark = new Rectangle();
+            dark.setFill(javafx.scene.paint.Color.rgb(8,8,10,0.82));
+            javafx.application.Platform.runLater(() -> {
+                try {
+                    if (overlay.getScene() != null) {
+                        dark.widthProperty().bind(overlay.getScene().widthProperty());
+                        dark.heightProperty().bind(overlay.getScene().heightProperty());
+                    }
+                } catch (Exception ignored) {}
+            });
+
+            BorderPane container = new BorderPane();
+            container.setMaxWidth(Double.MAX_VALUE);
+            container.setMaxHeight(Double.MAX_VALUE);
+            container.setStyle("-fx-padding:18;");
+
+            javafx.scene.text.Text header = new javafx.scene.text.Text("Audio");
+            header.setStyle("-fx-font-size:34px; -fx-fill: #9fb0ff; -fx-font-weight:700;");
+
+            javafx.scene.layout.HBox actionBox = new javafx.scene.layout.HBox(10);
+            actionBox.setAlignment(javafx.geometry.Pos.CENTER_RIGHT);
+            javafx.scene.control.Button btnReset = new javafx.scene.control.Button("Reset");
+            javafx.scene.control.Button btnCancel = new javafx.scene.control.Button("Cancel");
+            javafx.scene.control.Button btnSave = new javafx.scene.control.Button("Save");
+            btnReset.getStyleClass().add("menu-button"); btnCancel.getStyleClass().add("menu-button"); btnSave.getStyleClass().add("menu-button");
+            actionBox.getChildren().addAll(btnReset, btnCancel, btnSave);
+
+            BorderPane topBar = new BorderPane();
+            topBar.setLeft(header);
+            topBar.setRight(actionBox);
+            topBar.setStyle("-fx-padding:8 18 18 18;");
+            container.setTop(topBar);
+
+            // sliders
+            javafx.scene.layout.VBox center = new javafx.scene.layout.VBox(14);
+            center.setStyle("-fx-padding:12; -fx-background-color: transparent;");
+            center.setAlignment(javafx.geometry.Pos.TOP_LEFT);
+
+            javafx.scene.control.Label lMaster = new javafx.scene.control.Label("Master Volume");
+            // make the label brighter and larger for better readability
+            lMaster.setStyle("-fx-text-fill: rgba(255,255,255,0.95); -fx-font-size: 20px; -fx-font-weight: bold;");
+            javafx.scene.control.Slider sMaster = new javafx.scene.control.Slider(0, 1, AudioSettings.getMasterVolume());
+            // hide built-in slider tick labels (we provide clearer custom labels below)
+            sMaster.setShowTickLabels(false); sMaster.setShowTickMarks(true); sMaster.setBlockIncrement(0.05);
+
+            javafx.scene.control.Label lMusic = new javafx.scene.control.Label("Music Volume");
+            // make the label brighter and larger for better readability
+            lMusic.setStyle("-fx-text-fill: rgba(255,255,255,0.95); -fx-font-size: 20px; -fx-font-weight: bold;");
+            javafx.scene.control.Slider sMusic = new javafx.scene.control.Slider(0, 1, AudioSettings.getMusicVolume());
+            // hide built-in slider tick labels (we provide clearer custom labels below)
+            sMusic.setShowTickLabels(false); sMusic.setShowTickMarks(true); sMusic.setBlockIncrement(0.05);
+
+            javafx.scene.control.Label lSfx = new javafx.scene.control.Label("SFX Volume");
+            // make the label brighter and larger for better readability
+            lSfx.setStyle("-fx-text-fill: rgba(255,255,255,0.95); -fx-font-size: 20px; -fx-font-weight: bold;");
+            javafx.scene.control.Slider sSfx = new javafx.scene.control.Slider(0, 1, AudioSettings.getSfxVolume());
+            // hide built-in slider tick labels (we provide clearer custom labels below)
+            sSfx.setShowTickLabels(false); sSfx.setShowTickMarks(true); sSfx.setBlockIncrement(0.05);
+
+            // (we'll restore persisted values on cancel by re-applying AudioSettings below)
+
+            // live preview: update menu music and sfx immediately as sliders move (without saving)
+            sMaster.valueProperty().addListener((obs, o, n) -> {
+                try {
+                    double combinedMusic = n.doubleValue() * sMusic.getValue();
+                    double combinedSfx = n.doubleValue() * sSfx.getValue();
+                    if (menuMusicPlayer != null) try { menuMusicPlayer.setVolume(combinedMusic); } catch (Exception ignored) {}
+                    if (menuHoverClip != null) try { menuHoverClip.setVolume(combinedSfx); } catch (Exception ignored) {}
+                    if (menuClickClip != null) try { menuClickClip.setVolume(combinedSfx); } catch (Exception ignored) {}
+                } catch (Exception ignored) {}
+            });
+            sMusic.valueProperty().addListener((obs, o, n) -> {
+                try {
+                    double combinedMusic = sMaster.getValue() * n.doubleValue();
+                    if (menuMusicPlayer != null) try { menuMusicPlayer.setVolume(combinedMusic); } catch (Exception ignored) {}
+                } catch (Exception ignored) {}
+            });
+            sSfx.valueProperty().addListener((obs, o, n) -> {
+                try {
+                    double combinedSfx = sMaster.getValue() * n.doubleValue();
+                    if (menuHoverClip != null) try { menuHoverClip.setVolume(combinedSfx); } catch (Exception ignored) {}
+                    if (menuClickClip != null) try { menuClickClip.setVolume(combinedSfx); } catch (Exception ignored) {}
+                } catch (Exception ignored) {}
+            });
+
+            // add labels and sliders (preview buttons removed)
+            // Add explicit tick labels (0 / 1) under each slider to ensure clear visibility against the background
+            javafx.scene.layout.HBox ticksMaster = new javafx.scene.layout.HBox();
+            javafx.scene.control.Label tMaster0 = new javafx.scene.control.Label("0");
+            javafx.scene.control.Label tMaster05 = new javafx.scene.control.Label("0.5");
+            javafx.scene.control.Label tMaster1 = new javafx.scene.control.Label("1");
+            // make the main tick labels larger and higher contrast and add subtle drop shadow
+            tMaster0.setStyle("-fx-text-fill: rgba(255,255,255,0.97); -fx-font-size:20px; -fx-font-weight:700; -fx-padding:4 8 0 8; -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.75), 4, 0.5, 0, 2);");
+            tMaster05.setStyle("-fx-text-fill: rgba(255,255,255,0.92); -fx-font-size:14px; -fx-font-weight:600; -fx-padding:2 6 0 6; -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.6), 3, 0.4, 0, 1);");
+            tMaster1.setStyle("-fx-text-fill: rgba(255,255,255,0.97); -fx-font-size:20px; -fx-font-weight:700; -fx-padding:4 8 0 8; -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.75), 4, 0.5, 0, 2);");
+            javafx.scene.layout.Region spacerMasterLeft = new javafx.scene.layout.Region();
+            javafx.scene.layout.Region spacerMasterRight = new javafx.scene.layout.Region();
+            javafx.scene.layout.HBox.setHgrow(spacerMasterLeft, javafx.scene.layout.Priority.ALWAYS);
+            javafx.scene.layout.HBox.setHgrow(spacerMasterRight, javafx.scene.layout.Priority.ALWAYS);
+            ticksMaster.getChildren().addAll(tMaster0, spacerMasterLeft, tMaster05, spacerMasterRight, tMaster1);
+
+            javafx.scene.layout.HBox ticksMusic = new javafx.scene.layout.HBox();
+            javafx.scene.control.Label tMusic0 = new javafx.scene.control.Label("0");
+            javafx.scene.control.Label tMusic05 = new javafx.scene.control.Label("0.5");
+            javafx.scene.control.Label tMusic1 = new javafx.scene.control.Label("1");
+            tMusic0.setStyle("-fx-text-fill: rgba(255,255,255,0.97); -fx-font-size:20px; -fx-font-weight:700; -fx-padding:4 8 0 8; -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.75), 4, 0.5, 0, 2);");
+            tMusic05.setStyle("-fx-text-fill: rgba(255,255,255,0.92); -fx-font-size:14px; -fx-font-weight:600; -fx-padding:2 6 0 6; -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.6), 3, 0.4, 0, 1);");
+            tMusic1.setStyle("-fx-text-fill: rgba(255,255,255,0.97); -fx-font-size:20px; -fx-font-weight:700; -fx-padding:4 8 0 8; -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.75), 4, 0.5, 0, 2);");
+            javafx.scene.layout.Region spacerMusicLeft = new javafx.scene.layout.Region();
+            javafx.scene.layout.Region spacerMusicRight = new javafx.scene.layout.Region();
+            javafx.scene.layout.HBox.setHgrow(spacerMusicLeft, javafx.scene.layout.Priority.ALWAYS);
+            javafx.scene.layout.HBox.setHgrow(spacerMusicRight, javafx.scene.layout.Priority.ALWAYS);
+            ticksMusic.getChildren().addAll(tMusic0, spacerMusicLeft, tMusic05, spacerMusicRight, tMusic1);
+
+            javafx.scene.layout.HBox ticksSfx = new javafx.scene.layout.HBox();
+            javafx.scene.control.Label tSfx0 = new javafx.scene.control.Label("0");
+            javafx.scene.control.Label tSfx05 = new javafx.scene.control.Label("0.5");
+            javafx.scene.control.Label tSfx1 = new javafx.scene.control.Label("1");
+            tSfx0.setStyle("-fx-text-fill: rgba(255,255,255,0.97); -fx-font-size:20px; -fx-font-weight:700; -fx-padding:4 8 0 8; -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.75), 4, 0.5, 0, 2);");
+            tSfx05.setStyle("-fx-text-fill: rgba(255,255,255,0.92); -fx-font-size:14px; -fx-font-weight:600; -fx-padding:2 6 0 6; -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.6), 3, 0.4, 0, 1);");
+            tSfx1.setStyle("-fx-text-fill: rgba(255,255,255,0.97); -fx-font-size:20px; -fx-font-weight:700; -fx-padding:4 8 0 8; -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.75), 4, 0.5, 0, 2);");
+            javafx.scene.layout.Region spacerSfxLeft = new javafx.scene.layout.Region();
+            javafx.scene.layout.Region spacerSfxRight = new javafx.scene.layout.Region();
+            javafx.scene.layout.HBox.setHgrow(spacerSfxLeft, javafx.scene.layout.Priority.ALWAYS);
+            javafx.scene.layout.HBox.setHgrow(spacerSfxRight, javafx.scene.layout.Priority.ALWAYS);
+            ticksSfx.getChildren().addAll(tSfx0, spacerSfxLeft, tSfx05, spacerSfxRight, tSfx1);
+
+            center.getChildren().addAll(lMaster, sMaster, ticksMaster, lMusic, sMusic, ticksMusic, lSfx, sSfx, ticksSfx);
+            container.setCenter(center);
+
+            // Reset
+            btnReset.setOnAction(ev -> {
+                sMaster.setValue(1.0);
+                sMusic.setValue(0.6);
+                sSfx.setValue(0.9);
+            });
+
+            // Cancel
+            btnCancel.setOnAction(ev -> {
+                ev.consume();
+                // restore persisted audio settings (undo live preview) before closing
+                try { applyAudioVolumesToMenu(); } catch (Exception ignored) {}
+                closeOverlayWithAnimation(overlay, () -> {
+                    try { rootStack.getChildren().remove(overlay); } catch (Exception ignored) {}
+                    try { if (settingsOptions != null) settingsOptions.setVisible(true); } catch (Exception ignored) {}
+                });
+            });
+
+            // Save
+            btnSave.setOnAction(ev -> {
+                ev.consume();
+                try {
+                    AudioSettings.setMasterVolume(sMaster.getValue());
+                    AudioSettings.setMusicVolume(sMusic.getValue());
+                    AudioSettings.setSfxVolume(sSfx.getValue());
+                } catch (Exception ignored) {}
+                closeOverlayWithAnimation(overlay, () -> {
+                    try { rootStack.getChildren().remove(overlay); } catch (Exception ignored) {}
+                    try { if (settingsOptions != null) settingsOptions.setVisible(true); } catch (Exception ignored) {}
+                });
+            });
+
+            // preview buttons removed: users can rely on slider live preview and Save to persist
+
+            overlay.getChildren().addAll(dark, container);
+            try { if (settingsOptions != null) settingsOptions.setVisible(false); rootStack.getChildren().add(overlay); } catch (Exception ignored) {}
+            transitionTo(overlay);
+
+        } catch (Exception ex) { ex.printStackTrace(); }
     }
 
     /**

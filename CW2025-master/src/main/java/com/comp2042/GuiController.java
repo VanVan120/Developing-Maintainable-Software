@@ -374,6 +374,26 @@ public class GuiController implements Initializable {
             ex.printStackTrace();
         }
 
+        // Apply current audio settings to loaded clips and listen for changes
+        try {
+            double masterVol = com.comp2042.AudioSettings.getMasterVolume();
+            double sfxVol = com.comp2042.AudioSettings.getSfxVolume();
+            double combined = masterVol * sfxVol;
+            try { if (hoverClip != null) hoverClip.setVolume(combined); } catch (Exception ignored) {}
+            try { if (clickClip != null) clickClip.setVolume(combined); } catch (Exception ignored) {}
+            try { if (hardDropClip != null) hardDropClip.setVolume(combined); } catch (Exception ignored) {}
+            // listen for runtime changes so UI adjusts immediately
+            try { com.comp2042.AudioSettings.masterProperty().addListener((obs, o, n) -> {
+                try { double c = com.comp2042.AudioSettings.getMasterVolume() * com.comp2042.AudioSettings.getSfxVolume(); if (hoverClip != null) hoverClip.setVolume(c); if (clickClip != null) clickClip.setVolume(c); if (hardDropClip != null) hardDropClip.setVolume(c); } catch (Exception ignored) {}
+            }); } catch (Exception ignored) {}
+            try { com.comp2042.AudioSettings.sfxProperty().addListener((obs, o, n) -> {
+                try { double c = com.comp2042.AudioSettings.getMasterVolume() * com.comp2042.AudioSettings.getSfxVolume(); if (hoverClip != null) hoverClip.setVolume(c); if (clickClip != null) clickClip.setVolume(c); if (hardDropClip != null) hardDropClip.setVolume(c); } catch (Exception ignored) {}
+            }); } catch (Exception ignored) {}
+            try { com.comp2042.AudioSettings.musicProperty().addListener((obs, o, n) -> {
+                try { double m = com.comp2042.AudioSettings.getMasterVolume() * com.comp2042.AudioSettings.getMusicVolume(); if (singleplayerMusicPlayer != null) singleplayerMusicPlayer.setVolume(m); if (countdownMusicPlayer != null) countdownMusicPlayer.setVolume(m); } catch (Exception ignored) {}
+            }); } catch (Exception ignored) {}
+        } catch (Exception ignored) {}
+
         // Attach generic sound handlers to commonly-interacted controls (pause button etc.)
         try { if (pauseBtn != null) attachButtonSoundHandlers(pauseBtn); } catch (Exception ignored) {}
 
@@ -398,7 +418,8 @@ public class GuiController implements Initializable {
                                 singleplayerMusicPlayer = new MediaPlayer(m);
                                 singleplayerMusicPlayer.setCycleCount(MediaPlayer.INDEFINITE);
                                 singleplayerMusicPlayer.setAutoPlay(true);
-                                singleplayerMusicPlayer.setVolume(0.6);
+                                // apply persisted audio settings (master * music)
+                                try { singleplayerMusicPlayer.setVolume(com.comp2042.AudioSettings.getMasterVolume() * com.comp2042.AudioSettings.getMusicVolume()); } catch (Exception ignored) {}
                                 singleplayerMusicPlayer.setOnError(() -> System.err.println("[GuiController] Singleplayer music error: " + singleplayerMusicPlayer.getError()));
                                 System.out.println("[GuiController] Singleplayer.wav loaded and playing: " + mus);
                             } catch (Exception ex) {
@@ -2008,7 +2029,8 @@ public class GuiController implements Initializable {
                     countdownMusicPlayer = new MediaPlayer(m);
                     countdownMusicPlayer.setCycleCount(MediaPlayer.INDEFINITE);
                     countdownMusicPlayer.setAutoPlay(true);
-                    countdownMusicPlayer.setVolume(0.75);
+                    // apply persisted audio settings (master * music)
+                    try { countdownMusicPlayer.setVolume(com.comp2042.AudioSettings.getMasterVolume() * com.comp2042.AudioSettings.getMusicVolume()); } catch (Exception ignored) {}
                     countdownMusicPlayer.setOnError(() -> System.err.println("[GuiController] Countdown music error: " + countdownMusicPlayer.getError()));
                     return;
                 } catch (Exception ex) {
