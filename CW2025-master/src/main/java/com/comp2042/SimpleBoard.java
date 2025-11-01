@@ -76,30 +76,42 @@ public class SimpleBoard implements Board {
         // first try rotation at current offset
         int baseX = (int) currentOffset.getX();
         int baseY = (int) currentOffset.getY();
-        boolean conflict = MatrixOperations.intersect(currentMatrix, nextShape.getShape(), baseX, baseY);
-        if (!conflict) {
+        if (!MatrixOperations.intersect(currentMatrix, nextShape.getShape(), baseX, baseY)) {
             brickRotator.setCurrentShape(nextShape.getPosition());
             return true;
         }
 
-        // Simple wall-kick: try small horizontal translations to accommodate rotation.
-        // Try offsets in order: +1, -1, +2, -2 (right then left then wider kicks).
-        int[] kicks = new int[]{1, -1, 2, -2};
-        for (int dx : kicks) {
-            int tryX = baseX + dx;
-            if (!MatrixOperations.intersect(currentMatrix, nextShape.getShape(), tryX, baseY)) {
-                // found a valid translation for rotation
-                currentOffset.translate(dx, 0);
-                brickRotator.setCurrentShape(nextShape.getPosition());
-                return true;
+        // Improved wall-kick: try a wider range of horizontal kicks and small vertical adjustments.
+        // This helps pieces (I, L, Z, T, etc.) to rotate when close to walls or other blocks.
+        int shapeWidth = nextShape.getShape()[0].length;
+        int boardWidth = currentGameMatrix[0].length;
+        // pick a reasonable max kick range: at least 3, but also consider the shape width
+        int maxKick = Math.max(3, shapeWidth);
+
+        // Build horizontal candidate sequence: 1, -1, 2, -2, 3, -3, ... up to maxKick
+        int[] dxCandidates = new int[maxKick * 2];
+        for (int k = 1; k <= maxKick; k++) {
+            dxCandidates[(k - 1) * 2] = k;
+            dxCandidates[(k - 1) * 2 + 1] = -k;
+        }
+
+        // Try small vertical adjustments too (upwards first is most useful for floor collisions)
+        int[] dyCandidates = new int[]{0, -1, 1, -2};
+
+        for (int dy : dyCandidates) {
+            for (int dx : dxCandidates) {
+                int tryX = baseX + dx;
+                int tryY = baseY + dy;
+                if (tryX < -shapeWidth || tryX > boardWidth + shapeWidth) continue; // skip nonsensical shifts
+                if (!MatrixOperations.intersect(currentMatrix, nextShape.getShape(), tryX, tryY)) {
+                    // commit the successful translation
+                    Point p = new Point(currentOffset);
+                    p.translate(dx, dy);
+                    currentOffset = p;
+                    brickRotator.setCurrentShape(nextShape.getPosition());
+                    return true;
+                }
             }
-        }
-
-        // Optionally try a small upward kick (one row up) for floor collisions
-        if (!MatrixOperations.intersect(currentMatrix, nextShape.getShape(), baseX, baseY - 1)) {
-            currentOffset.translate(0, -1);
-            brickRotator.setCurrentShape(nextShape.getPosition());
-            return true;
         }
 
         // rotation blocked

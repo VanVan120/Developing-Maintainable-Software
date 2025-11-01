@@ -23,18 +23,24 @@ public class RandomBrickGenerator implements BrickGenerator {
         brickList.add(new SBrick());
         brickList.add(new TBrick());
         brickList.add(new ZBrick());
-        // seed the deque with a small buffer
+        // seed the deque using a 7-bag shuffle so the same block won't repeat frequently
+        refillBagIfNeeded();
+    }
+
+    /** Refill the internal deque by shuffling one 7-piece bag and appending it. */
+    private void refillBagIfNeeded() {
+        // keep adding full shuffled bags until we reach at least BUFFER_SIZE
         while (nextBricks.size() < BUFFER_SIZE) {
-            nextBricks.add(brickList.get(ThreadLocalRandom.current().nextInt(brickList.size())));
+            List<Brick> bag = new ArrayList<>(brickList);
+            java.util.Collections.shuffle(bag, ThreadLocalRandom.current());
+            for (Brick b : bag) nextBricks.add(b);
         }
     }
 
     @Override
     public Brick getBrick() {
         // ensure buffer before returning the head so previews remain stable
-        while (nextBricks.size() < BUFFER_SIZE) {
-            nextBricks.add(brickList.get(ThreadLocalRandom.current().nextInt(brickList.size())));
-        }
+        refillBagIfNeeded();
         return nextBricks.poll();
     }
 
@@ -46,9 +52,7 @@ public class RandomBrickGenerator implements BrickGenerator {
     @Override
     public java.util.List<Brick> getUpcomingBricks(int count) {
         // ensure the internal buffer has at least `count` elements so the returned list reflects the actual queue
-        while (nextBricks.size() < Math.max(count, BUFFER_SIZE)) {
-            nextBricks.add(brickList.get(ThreadLocalRandom.current().nextInt(brickList.size())));
-        }
+        while (nextBricks.size() < Math.max(count, BUFFER_SIZE)) refillBagIfNeeded();
         java.util.List<Brick> out = new java.util.ArrayList<>();
         int i = 0;
         for (Brick b : nextBricks) {

@@ -143,10 +143,39 @@ public class CoopGameController {
         int[][] tmp = MatrixOperations.copy(boardMatrix);
         try { tmp = MatrixOperations.merge(tmp, rightRotator.getCurrentShape(), (int) rightOffset.getX(), (int) rightOffset.getY()); } catch (Exception ignored) {}
         NextShapeInfo next = leftRotator.getNextShape();
-        boolean conflict = MatrixOperations.intersect(tmp, next.getShape(), (int) leftOffset.getX(), (int) leftOffset.getY());
-        if (conflict) return false;
-        leftRotator.setCurrentShape(next.getPosition());
-        return true;
+        // try rotation in place first
+        int baseX = (int) leftOffset.getX();
+        int baseY = (int) leftOffset.getY();
+        if (!MatrixOperations.intersect(tmp, next.getShape(), baseX, baseY)) {
+            leftRotator.setCurrentShape(next.getPosition());
+            return true;
+        }
+
+        // improved wall-kick: try horizontal shifts and small vertical adjustments
+        int shapeWidth = next.getShape()[0].length;
+        int boardWidth = boardMatrix[0].length;
+        int maxKick = Math.max(3, shapeWidth);
+        int[] dxCandidates = new int[maxKick * 2];
+        for (int k = 1; k <= maxKick; k++) {
+            dxCandidates[(k - 1) * 2] = k;
+            dxCandidates[(k - 1) * 2 + 1] = -k;
+        }
+        int[] dyCandidates = new int[]{0, -1, 1, -2};
+        for (int dy : dyCandidates) {
+            for (int dx : dxCandidates) {
+                int tryX = baseX + dx;
+                int tryY = baseY + dy;
+                if (tryX < -shapeWidth || tryX > boardWidth + shapeWidth) continue;
+                if (!MatrixOperations.intersect(tmp, next.getShape(), tryX, tryY)) {
+                    Point p = new Point(leftOffset);
+                    p.translate(dx, dy);
+                    leftOffset = p;
+                    leftRotator.setCurrentShape(next.getPosition());
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 
     // Movement API for right player
@@ -174,10 +203,36 @@ public class CoopGameController {
         int[][] tmp = MatrixOperations.copy(boardMatrix);
         try { tmp = MatrixOperations.merge(tmp, leftRotator.getCurrentShape(), (int) leftOffset.getX(), (int) leftOffset.getY()); } catch (Exception ignored) {}
         NextShapeInfo next = rightRotator.getNextShape();
-        boolean conflict = MatrixOperations.intersect(tmp, next.getShape(), (int) rightOffset.getX(), (int) rightOffset.getY());
-        if (conflict) return false;
-        rightRotator.setCurrentShape(next.getPosition());
-        return true;
+        int baseX = (int) rightOffset.getX();
+        int baseY = (int) rightOffset.getY();
+        if (!MatrixOperations.intersect(tmp, next.getShape(), baseX, baseY)) {
+            rightRotator.setCurrentShape(next.getPosition());
+            return true;
+        }
+        int shapeWidth = next.getShape()[0].length;
+        int boardWidth = boardMatrix[0].length;
+        int maxKick = Math.max(3, shapeWidth);
+        int[] dxCandidates = new int[maxKick * 2];
+        for (int k = 1; k <= maxKick; k++) {
+            dxCandidates[(k - 1) * 2] = k;
+            dxCandidates[(k - 1) * 2 + 1] = -k;
+        }
+        int[] dyCandidates = new int[]{0, -1, 1, -2};
+        for (int dy : dyCandidates) {
+            for (int dx : dxCandidates) {
+                int tryX = baseX + dx;
+                int tryY = baseY + dy;
+                if (tryX < -shapeWidth || tryX > boardWidth + shapeWidth) continue;
+                if (!MatrixOperations.intersect(tmp, next.getShape(), tryX, tryY)) {
+                    Point p = new Point(rightOffset);
+                    p.translate(dx, dy);
+                    rightOffset = p;
+                    rightRotator.setCurrentShape(next.getPosition());
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 
     // Automatic drop tick: returns detailed result describing merges/clears so GUI can render effects
