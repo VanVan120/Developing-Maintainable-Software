@@ -64,57 +64,39 @@ import java.util.concurrent.atomic.AtomicInteger;
 public class GuiController implements Initializable {
 
     private static final int BRICK_SIZE = 24;
-
-    // base drop interval (ms). Increase to make falling slower.
     private static final int DROP_INTERVAL_MS = 1000;
-    // Mode-adjustable drop interval (ms). Default uses DROP_INTERVAL_MS; can be changed at runtime for Easy/Hard modes.
     private int dropIntervalMs = DROP_INTERVAL_MS;
-    // soft-drop multiplier while DOWN is held (how many times faster)
     private static final double SOFT_DROP_RATE = 4.0;
-    // normal rate
     private static final double NORMAL_RATE = 1.0;
-
-    private static final double SCORE_BOX_OFFSET_X = 250.0;           // px from gameBoard left edge (increase -> nearer to left)
-    private static final double SCORE_BOX_OFFSET_FROM_BOTTOM = 120.0; // px from gameBoard bottom  (increase -> higher above bottom)
-
+    private static final double SCORE_BOX_OFFSET_X = 250.0;           
+    private static final double SCORE_BOX_OFFSET_FROM_BOTTOM = 120.0; 
 
     @FXML
     protected GridPane gamePanel;
-
     @FXML
     protected BorderPane gameBoard;
-
     @FXML
     protected Pane brickPanel;
-
     @FXML
     protected Pane ghostPanel;
-
     @FXML
     protected Canvas bgCanvas;
-
     @FXML
     protected Group groupNotification;
-
     @FXML
     protected GameOverPanel gameOverPanel;
-
     @FXML
     protected Text scoreValue;
-
     @FXML
     protected Text highScoreValue;
-
     @FXML
     protected VBox scoreBox;
-
     @FXML
     protected javafx.scene.control.Button pauseBtn;
-
     @FXML
-    protected VBox nextBox; // right-hand preview container for upcoming bricks
+    protected VBox nextBox;
     @FXML
-    protected VBox nextContent; // inner container that holds only the preview bricks
+    protected VBox nextContent; 
     @FXML
     protected Rectangle gameBoardFrame;
     @FXML
@@ -130,149 +112,76 @@ public class GuiController implements Initializable {
     @FXML
     protected Text levelValue;
 
-    // cache of upcoming bricks so we can re-render after grid measurement completes
     protected java.util.List<com.comp2042.logic.bricks.Brick> upcomingCache = null;
-
     protected Rectangle[][] displayMatrix;
-
     protected InputEventListener eventListener;
-
     protected Rectangle[][] rectangles;
-
-    // ghost piece rectangles (same dimensions as moving brick)
     protected Rectangle[][] ghostRectangles;
-    // latest background matrix (including merged bricks) for ghost calculation
     protected int[][] currentBoardMatrix;
-    // most recent ViewData used to render the falling brick (kept so we can realign before start)
     protected ViewData currentViewData;
-
     protected Timeline timeLine;
     protected Timeline clockTimeline;
     private long startTimeMs = 0;
-    // accumulated elapsed milliseconds when clock is paused
     private long pausedElapsedMs = 0;
-
-    // actual cell size measured from the background grid after layout
     protected double cellW = BRICK_SIZE;
     protected double cellH = BRICK_SIZE;
-    // measured origin (top-left) of the visible grid within the containing StackPane
     protected double baseOffsetX = 0;
     protected double baseOffsetY = 0;
-    // small adjustable nudge to compensate for border/stroke/device pixel differences
-    // set these to +/-0.5 or +/-1.0 as needed on your display (change at runtime by editing these values)
     protected double nudgeX = 0.0;
     protected double nudgeY = 0.0;
-
-    // block-only micro-adjust (affects only the real falling blocks)
-    // change these to move the real pieces without moving the ghost
     protected double blockNudgeX = 0.0;
     protected double blockNudgeY = 0.0;
-
-    // multiplayer mode flag - when true, only show lock effect for explicit hard-drops by the player
     private boolean isMultiplayer = false;
-    // whether the last input was a hard drop (pressed by user)
     private boolean lastWasHardDrop = false;
-    // whether hard-drop is allowed for this GUI instance (can be disabled via Handling settings)
     private boolean hardDropAllowed = true;
-
-    // Optional callback provided by a multiplayer manager (ScoreBattleController) so a Retry
-    // in multiplayer mode can request a full match restart (both players) instead of just
-    // restarting this single player's board.
     private Runnable multiplayerRestartHandler = null;
-    // Optional callback provided by a multiplayer manager so this embedded GUI can ask
-    // the coordinator to exit to the main menu (important: the coordinator is responsible
-    // for stopping any multiplayer-wide music players).
     private Runnable multiplayerExitToMenuHandler = null;
-    // Optional callback to notify a multiplayer coordinator when this GUI is paused/unpaused.
-    // Accepts a Boolean: true => paused, false => resumed.
     private java.util.function.Consumer<Boolean> multiplayerPauseHandler = null;
-    // When applying a pause change that originated from the multiplayer coordinator we
-    // set this flag to avoid re-notifying the coordinator and causing reentrant loops.
     private boolean suppressMultiplayerPauseNotify = false;
-
-    // Identifier for which multiplayer side this GUI represents. Expected values: "left" or "right".
-    // Used to persist the correct mpLeft_/mpRight_ preference keys when saving in-game.
     private String multiplayerPlayerId = null;
-
-    // Request handler that asks the multiplayer coordinator to present controls UI for this player.
     private java.util.function.Consumer<GuiController> multiplayerRequestControlsHandler = null;
-
     private int highScore = 0;
     private static final String HIGHSCORE_FILE = System.getProperty("user.home") + File.separator + ".tetris_highscore";
-
-    // keep a reference to the bound score property so we can read the numeric score at game over
     private IntegerProperty currentScoreProperty = null;
-    // record the previous high score value at the start of the current game so we can compare at game over
     private int prevHighBeforeGame = 0;
-
     private final BooleanProperty isPause = new SimpleBooleanProperty();
-
     private final BooleanProperty isGameOver = new SimpleBooleanProperty();
-    // becomes true when the start countdown (3..1..Start) finishes and gameplay begins
     private final BooleanProperty countdownFinished = new SimpleBooleanProperty(false);
-    // becomes true when the start countdown visuals/music have begun (useful for multiplayer coordinators)
     private final BooleanProperty countdownStarted = new SimpleBooleanProperty(false);
-
-    // Audio clips for UI feedback (hover / click). Files should be placed under
-    // src/main/resources/sounds/hover.wav and src/main/resources/sounds/click.wav
     private AudioClip hoverClip = null;
     private AudioClip clickClip = null;
-    // hard-drop audio effect (played when the player hard-drops a piece)
     private AudioClip hardDropClip = null;
-    // Background music player for singleplayer mode (loops)
     private MediaPlayer singleplayerMusicPlayer = null;
-    // optional one-shot game-over music player
     private MediaPlayer gameOverMusicPlayer = null;
-    // countdown music player (played during the pre-game countdown)
     private MediaPlayer countdownMusicPlayer = null;
-    // Fallback using JRE's javax.sound.sampled (works for WAV). These are used if AudioClip
-    // couldn't be created (e.g., javafx-media not available at runtime).
     private javax.sound.sampled.Clip hoverClipFallback = null;
     private javax.sound.sampled.Clip clickClipFallback = null;
-    // fallback clip for hard-drop sound
     private javax.sound.sampled.Clip hardDropClipFallback = null;
-    // fallback clip for game-over music (played once)
     private javax.sound.sampled.Clip gameOverClipFallback = null;
-    // fallback clip for countdown music
     private javax.sound.sampled.Clip countdownClipFallback = null;
-    // Scene-level handlers stored so they can be removed during cleanup
     private javafx.event.EventHandler<KeyEvent> globalPressHandler = null;
     private javafx.event.EventHandler<KeyEvent> globalReleaseHandler = null;
     private javafx.event.EventHandler<KeyEvent> escHandler = null;
-    // the Scene these handlers were attached to (may be different from gamePanel.getScene() once node is detached)
     private Scene attachedScene = null;
-    // instance id for debugging
     private static final AtomicInteger __INSTANCE_COUNTER = new AtomicInteger(0);
     private final String controllerId = "Gui#" + __INSTANCE_COUNTER.incrementAndGet();
-    // When audio files are missing, optionally fallback to a simple system beep
     private boolean fallbackToBeep = true;
-
-    // animation reference for the single-player game-over title so we can stop it when overlay is removed
     private javafx.animation.Animation gameOverPulse = null;
-
-    // Optional per-instance control key mapping. If any of these are non-null then the
-    // controller will ONLY respond to the configured keys. If all are null the legacy
-    // behavior (accept both WASD and arrows+space) is preserved for single-player.
     private KeyCode ctrlMoveLeft = null;
     private KeyCode ctrlMoveRight = null;
     private KeyCode ctrlRotate = null;
     private KeyCode ctrlSoftDrop = null;
     private KeyCode ctrlHardDrop = null;
     private KeyCode ctrlSwap = null;
-
-    // Configurable offsets for the timeBox relative to the game board
     private final javafx.beans.property.DoubleProperty timeBoxOffsetX = new javafx.beans.property.SimpleDoubleProperty(-100.0);
     private final javafx.beans.property.DoubleProperty timeBoxOffsetY = new javafx.beans.property.SimpleDoubleProperty(12.0);
 
     @Override
     public void initialize(URL location, ResourceBundle resources) {
         Font.loadFont(getClass().getClassLoader().getResource("digital.ttf").toExternalForm(), 38);
-        // Make sure key events are handled even if the GridPane loses focus by listening on the Scene.
         gamePanel.setFocusTraversable(true);
         gamePanel.requestFocus();
 
-        // Load UI audio clips (optional). Place your sound files under
-        // src/main/resources/sounds/hover.wav and src/main/resources/sounds/click.wav
         try {
             URL hoverUrl = getClass().getClassLoader().getResource("sounds/hover.wav");
             if (hoverUrl != null) {

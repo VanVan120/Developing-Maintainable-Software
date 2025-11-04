@@ -124,7 +124,7 @@ public class MainMenuController {
         try { loadControlSettings(); } catch (Exception ignored) {}
         // set a background if available
         try {
-            URL bg = getClass().getClassLoader().getResource("GUI.jpg");
+            URL bg = getClass().getClassLoader().getResource("GUI.gif");
             if (bg != null && bgImage != null) bgImage.setImage(new Image(bg.toExternalForm()));
         } catch (Exception ignored) {}
 
@@ -382,8 +382,8 @@ public class MainMenuController {
                             ScoreBattleController controller = fxmlLoader.getController();
                             Stage stage = (Stage) scoreBattleBtn.getScene().getWindow();
                             try {
-                                URL normalBg = getClass().getClassLoader().getResource("Normal.jpg");
-                                if (normalBg != null) root.setStyle("-fx-background-image: url('" + normalBg.toExternalForm() + "'); -fx-background-size: cover; -fx-background-position: center center;");
+                                URL mpBg = getClass().getClassLoader().getResource("Multiplayer.gif");
+                                if (mpBg != null) root.setStyle("-fx-background-image: url('" + mpBg.toExternalForm() + "'); -fx-background-size: cover; -fx-background-position: center center;");
                             } catch (Exception ignored) {}
                             double w = stage.getWidth();
                             double h = stage.getHeight();
@@ -420,8 +420,8 @@ public class MainMenuController {
                         ClassicBattle controller = fxmlLoader.getController();
                         Stage stage = (Stage) classicBattleBtn.getScene().getWindow();
                         try {
-                            URL normalBg = getClass().getClassLoader().getResource("Normal.jpg");
-                            if (normalBg != null) root.setStyle("-fx-background-image: url('" + normalBg.toExternalForm() + "'); -fx-background-size: cover; -fx-background-position: center center;");
+                            URL mpBg = getClass().getClassLoader().getResource("Multiplayer.gif");
+                            if (mpBg != null) root.setStyle("-fx-background-image: url('" + mpBg.toExternalForm() + "'); -fx-background-size: cover; -fx-background-position: center center;");
                         } catch (Exception ignored) {}
                         double w = stage.getWidth();
                         double h = stage.getHeight();
@@ -477,8 +477,8 @@ public class MainMenuController {
                         boolean full = stage.isFullScreen();
                         boolean max = stage.isMaximized();
                         try {
-                            URL normalBg = getClass().getClassLoader().getResource("Normal.jpg");
-                            if (normalBg != null) root.setStyle("-fx-background-image: url('" + normalBg.toExternalForm() + "'); -fx-background-size: cover; -fx-background-position: center center;");
+                            URL mpBg = getClass().getClassLoader().getResource("Multiplayer.gif");
+                            if (mpBg != null) root.setStyle("-fx-background-image: url('" + mpBg.toExternalForm() + "'); -fx-background-size: cover; -fx-background-position: center center;");
                         } catch (Exception ignored) {}
                         if (stage.getScene() != null) {
                             stage.getScene().setRoot(root);
@@ -523,7 +523,7 @@ public class MainMenuController {
                 boolean max = stage.isMaximized();
                 if (stage.getScene() != null) {
                     try {
-                        URL normalBg = getClass().getClassLoader().getResource("Normal.jpg");
+                        URL normalBg = getClass().getClassLoader().getResource("Normal.gif");
                         if (normalBg != null) root.setStyle("-fx-background-image: url('" + normalBg.toExternalForm() + "'); -fx-background-size: cover; -fx-background-position: center center;");
                     } catch (Exception ignored) {}
                     stage.getScene().setRoot(root);
@@ -531,7 +531,7 @@ public class MainMenuController {
                     if (full) Platform.runLater(() -> stage.setFullScreen(true));
                 } else {
                     try {
-                        URL normalBg = getClass().getClassLoader().getResource("Normal.jpg");
+                        URL normalBg = getClass().getClassLoader().getResource("Normal.gif");
                         if (normalBg != null) root.setStyle("-fx-background-image: url('" + normalBg.toExternalForm() + "'); -fx-background-size: cover; -fx-background-position: center center;");
                     } catch (Exception ignored) {}
                     Scene scene = new Scene(root, Math.max(420, w), Math.max(700, h));
@@ -562,12 +562,17 @@ public class MainMenuController {
                 final double expansion = 30; 
                 final double[] baseWidth = new double[1];
                 Runnable recompute = () -> {
-                    if ((multiPlayerBtn != null && multiPlayerBtn.isHover()) || (singlePlayerBtn != null && singlePlayerBtn.isHover()) || (settingsBtn != null && settingsBtn.isHover())) return;
+                    // Always recompute the preferred widths to keep the main menu cards consistent.
+                    // Avoid skipping when the mouse is hovering: leaving the previous early-return in place
+                    // could leave widths mismatched (and therefore heights differ due to text wrapping)
+                    // when returning to the menu while the cursor is over a button. Compute the max
+                    // only when the buttons report a positive width.
+                    if (multiPlayerBtn == null || singlePlayerBtn == null || settingsBtn == null) return;
                     double w1 = multiPlayerBtn.getWidth();
                     double w2 = singlePlayerBtn.getWidth();
                     double w3 = settingsBtn.getWidth();
                     double max = Math.max(w1, Math.max(w2, w3));
-                    if (max <= 0) return; 
+                    if (max <= 0) return;
                     baseWidth[0] = max;
                     multiPlayerBtn.setPrefWidth(max);
                     singlePlayerBtn.setPrefWidth(max);
@@ -1343,9 +1348,9 @@ public class MainMenuController {
             boolean max = stage.isMaximized();
             try {
                 String bgName = null;
-                if ("Easy".equalsIgnoreCase(mode)) bgName = "Easy.jpg";
-                else if ("Hard".equalsIgnoreCase(mode)) bgName = "Hard.jpg";
-                else bgName = "Normal.jpg";
+                if ("Easy".equalsIgnoreCase(mode)) bgName = "Easy.gif";
+                else if ("Hard".equalsIgnoreCase(mode)) bgName = "Hard.gif";
+                else bgName = "Normal.gif";
                 if (bgName != null) {
                     URL bgUrl = getClass().getClassLoader().getResource(bgName);
                     if (bgUrl != null) root.setStyle("-fx-background-image: url('" + bgUrl.toExternalForm() + "'); -fx-background-size: cover; -fx-background-position: center center;");

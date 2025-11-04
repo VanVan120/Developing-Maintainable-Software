@@ -106,7 +106,7 @@
 }
 
 .menu-root {
-    -fx-background-image: url("GUI.jpg");
+    -fx-background-image: url("GUI.gif");
     -fx-background-size: cover;
     -fx-background-position: center center;
     -fx-background-repeat: no-repeat;
