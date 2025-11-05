@@ -26,72 +26,41 @@ import javax.sound.sampled.AudioInputStream;
 import javax.sound.sampled.AudioSystem;
 import javax.sound.sampled.Clip;
 
-/**
- * ClassicBattle implements the same multiplayer wiring and UI as ScoreBattle so it behaves
- * like a separate multiplayer mode. Currently it mirrors ScoreBattleController's behavior
- * exactly to provide a ready-to-use Classic Battle mode.
- */
 public class ClassicBattle implements Initializable {
 
-    @FXML
-    private StackPane leftHolder;
+    @FXML private StackPane leftHolder;
 
-    @FXML
-    private StackPane rightHolder;
+    @FXML private StackPane rightHolder;
 
-    // optional external preview containers (added to classicBattleLayout.fxml)
-    @FXML
-    private javafx.scene.layout.VBox leftNextBox;
-    @FXML
-    private javafx.scene.layout.VBox leftNextContent;
-    @FXML
-    private javafx.scene.text.Text leftNextLabel;
+    @FXML private javafx.scene.layout.VBox leftNextBox;
+    @FXML private javafx.scene.layout.VBox leftNextContent;
+    @FXML private javafx.scene.text.Text leftNextLabel;
 
-    @FXML
-    private javafx.scene.layout.VBox rightNextBox;
-    @FXML
-    private javafx.scene.layout.VBox rightNextContent;
-    @FXML
-    private javafx.scene.text.Text rightNextLabel;
+    @FXML private javafx.scene.layout.VBox rightNextBox;
+    @FXML private javafx.scene.layout.VBox rightNextContent;
+    @FXML private javafx.scene.text.Text rightNextLabel;
 
-    @FXML
-    private Button backBtn;
+    @FXML private Button backBtn;
 
     private GuiController leftGui;
     private GuiController rightGui;
-    // keep controller handles so we can query/stop games
     private GameController leftController;
     private GameController rightController;
-
-    // match UI elements
     private javafx.scene.layout.StackPane centerOverlay;
     private javafx.scene.text.Text matchTimerText;
     private javafx.scene.text.Text matchScoreText;
     private javafx.animation.Timeline matchTimer;
-    private int remainingSeconds = 5 * 60; // 5 minutes
-
-    // timeline to poll and update per-player next previews
+    private int remainingSeconds = 5 * 60;
     private javafx.animation.Timeline previewPoller;
-
-    // background music player for classic battle
     private javafx.scene.media.MediaPlayer classicBattleMusicPlayer = null;
-    // centralized one-shot game-over player for the match (prefers JavaFX Media)
     private MediaPlayer matchGameOverPlayer = null;
-    // fallback Clip for WAV playback
     private Clip matchGameOverClipFallback = null;
-    // centralized countdown player for multiplayer (played once for both GUIs)
     private MediaPlayer matchCountdownPlayer = null;
-    // fallback Clip for countdown playback
     private Clip matchCountdownClipFallback = null;
 
-    /**
-     * Play the centralized GameOver sound for the match (single-shot).
-     */
     private void playMatchGameOverSound() {
         try {
-            // cleanup any previous player
             try { if (matchGameOverPlayer != null) { matchGameOverPlayer.stop(); matchGameOverPlayer.dispose(); matchGameOverPlayer = null; } } catch (Exception ignored) {}
-
             URL musicUrl = getClass().getClassLoader().getResource("sounds/GameOver.wav");
             if (musicUrl == null) musicUrl = getClass().getClassLoader().getResource("sounds/GameOver.mp3");
             if (musicUrl != null) {
@@ -109,7 +78,6 @@ public class ClassicBattle implements Initializable {
             }
         } catch (Exception ignored) {}
 
-        // Fallback using javax.sound Clip for WAV files
         try {
             try { if (matchGameOverClipFallback != null && matchGameOverClipFallback.isRunning()) { matchGameOverClipFallback.stop(); matchGameOverClipFallback.close(); matchGameOverClipFallback = null; } } catch (Exception ignored) {}
             java.net.URL u = getClass().getClassLoader().getResource("sounds/GameOver.wav");
@@ -122,9 +90,6 @@ public class ClassicBattle implements Initializable {
         } catch (Exception ignored) {}
     }
 
-    /**
-     * Stop and dispose the centralized match game-over sound if playing.
-     */
     private void stopMatchGameOverSound() {
         try {
             if (matchGameOverPlayer != null) {
@@ -142,9 +107,6 @@ public class ClassicBattle implements Initializable {
         } catch (Exception ignored) {}
     }
 
-    /**
-     * Play the centralized countdown sound for the match (loops while countdown visuals are active).
-     */
     private void playMatchCountdownSound() {
         try {
             try { if (matchCountdownPlayer != null) { matchCountdownPlayer.stop(); matchCountdownPlayer.dispose(); matchCountdownPlayer = null; } } catch (Exception ignored) {}
@@ -174,9 +136,6 @@ public class ClassicBattle implements Initializable {
         } catch (Exception ignored) {}
     }
 
-    /**
-     * Stop and dispose the centralized countdown sound if playing.
-     */
     private void stopMatchCountdownSound() {
         try {
             if (matchCountdownPlayer != null) {
@@ -194,16 +153,43 @@ public class ClassicBattle implements Initializable {
         } catch (Exception ignored) {}
     }
 
-    // flag to avoid showing multiple match-end overlays
+    private void registerGameOverListener(GuiController gui, boolean isLeft) {
+        try {
+            if (gui == null) return;
+            gui.isGameOverProperty().addListener((obs, oldV, newV) -> {
+                java.util.Objects.requireNonNull(obs);
+                java.util.Objects.requireNonNull(oldV);
+                if (newV == Boolean.TRUE && !matchEnded) {
+                    matchEnded = true;
+                    try { if (matchTimer != null) matchTimer.stop(); } catch (Exception ignored) {}
+                    try { if (previewPoller != null) previewPoller.stop(); } catch (Exception ignored) {}
+                    try { if (leftGui != null) leftGui.gameOver(); } catch (Exception ignored) {}
+                    try { if (rightGui != null) rightGui.gameOver(); } catch (Exception ignored) {}
+                    try { if (classicBattleMusicPlayer != null) { classicBattleMusicPlayer.stop(); classicBattleMusicPlayer.dispose(); classicBattleMusicPlayer = null; } } catch (Exception ignored) {}
+                    try { playMatchGameOverSound(); } catch (Exception ignored) {}
+
+                    int lscore = (leftController != null ? leftController.getScoreProperty().get() : 0);
+                    int rscore = (rightController != null ? rightController.getScoreProperty().get() : 0);
+                    boolean winnerIsLeft = !isLeft;
+                    int winnerScore = winnerIsLeft ? lscore : rscore;
+                    int loserScore = winnerIsLeft ? rscore : lscore;
+                    String title = winnerIsLeft ? "Left Player Wins!" : "Right Player Wins!";
+                    String reason = "Winner by survival (opponent lost)";
+                    if (winnerScore != loserScore) {
+                        reason += String.format(" — winner had higher score (%d vs %d)", winnerScore, loserScore);
+                    }
+                    showWinnerOverlay(title, lscore, rscore, reason);
+                }
+            });
+        } catch (Exception ignored) {}
+    }
+
     private volatile boolean matchEnded = false;
-    // reference to the currently shown overlay so we can remove it deterministically
     private javafx.scene.layout.StackPane activeOverlay = null;
-    // active pulsing animation for the winner score (so we can stop it when removing overlay)
     private javafx.animation.Animation activePulse = null;
 
     @Override
     public void initialize(URL location, ResourceBundle resources) {
-        // mirror ScoreBattleController initialization
         if (backBtn != null) {
             backBtn.setOnAction(this::onBack);
         }
@@ -232,35 +218,25 @@ public class ClassicBattle implements Initializable {
         } catch (Exception ignored) {}
     }
 
-    /**
-     * Restart the multiplayer match: reset both game models and run a synchronized countdown.
-     * Safe to call from any thread (will post to JavaFX Application Thread as needed).
-     */
     public void restartMatch() {
         javafx.application.Platform.runLater(() -> {
             try {
-                // stop any playing match music before restarting
                 try { if (classicBattleMusicPlayer != null) { classicBattleMusicPlayer.stop(); classicBattleMusicPlayer.dispose(); classicBattleMusicPlayer = null; } } catch (Exception ignored) {}
                 try { stopMatchCountdownSound(); } catch (Exception ignored) {}
                 try { stopMatchGameOverSound(); } catch (Exception ignored) {}
                 try { if (matchTimer != null) matchTimer.stop(); } catch (Exception ignored) {}
                 try { if (previewPoller != null) previewPoller.stop(); } catch (Exception ignored) {}
-
                 try { if (leftController != null) leftController.createNewGame(); } catch (Exception ignored) {}
                 try { if (rightController != null) rightController.createNewGame(); } catch (Exception ignored) {}
-                // ensure embedded GUIs are not left in game-over state so input resumes after countdown
                 try { if (leftGui != null) leftGui.isGameOverProperty().set(false); } catch (Exception ignored) {}
                 try { if (rightGui != null) rightGui.isGameOverProperty().set(false); } catch (Exception ignored) {}
-
                 try { if (leftGui != null) leftGui.startCountdown(3); } catch (Exception ignored) {}
                 try { if (rightGui != null) rightGui.startCountdown(3); } catch (Exception ignored) {}
-
                 try {
                     remainingSeconds = 5 * 60;
                     if (matchTimerText != null) matchTimerText.setText(formatTime(remainingSeconds));
                     updateMatchScoreText();
                 } catch (Exception ignored) {}
-
                 try { if (previewPoller != null) previewPoller.play(); } catch (Exception ignored) {}
                 matchEnded = false;
                 try {
@@ -278,16 +254,10 @@ public class ClassicBattle implements Initializable {
         });
     }
 
-    // Called by Menu to initialize and start both games
     public void initBothGames() throws IOException {
-        // delegate to new overload with null swap keys to preserve previous behaviour
         initBothGames(null, null);
     }
 
-    /**
-     * Initialize both embedded games and apply per-player swap keys.
-     * If a swap key is null the controller will fall back to the previous defaults (Left: Q, Right: C).
-     */
     public void initBothGames(javafx.scene.input.KeyCode leftSwap, javafx.scene.input.KeyCode rightSwap) throws IOException {
         URL gameLayout = getClass().getClassLoader().getResource("gameLayout.fxml");
         FXMLLoader leftLoader = new FXMLLoader(gameLayout);
@@ -370,69 +340,16 @@ public class ClassicBattle implements Initializable {
 
         leftController = new GameController(leftGui);
         rightController = new GameController(rightGui);
-
-        try {
-            leftGui.isGameOverProperty().addListener((obs, oldV, newV) -> {
-                java.util.Objects.requireNonNull(obs);
-                java.util.Objects.requireNonNull(oldV);
-                if (newV == Boolean.TRUE && !matchEnded) {
-                    matchEnded = true;
-                    try { if (matchTimer != null) matchTimer.stop(); } catch (Exception ignored) {}
-                    try { if (previewPoller != null) previewPoller.stop(); } catch (Exception ignored) {}
-                    // Ensure both GUIs are transitioned to game-over so their timelines and input handlers stop
-                    try { if (leftGui != null) leftGui.gameOver(); } catch (Exception ignored) {}
-                    try { if (rightGui != null) rightGui.gameOver(); } catch (Exception ignored) {}
-                    // stop match music immediately so we can play a game-over track later
-                    try { if (classicBattleMusicPlayer != null) { classicBattleMusicPlayer.stop(); classicBattleMusicPlayer.dispose(); classicBattleMusicPlayer = null; } } catch (Exception ignored) {}
-                    // play centralized match GameOver sound
-                    try { playMatchGameOverSound(); } catch (Exception ignored) {}
-                    int lscore = (leftController != null ? leftController.getScoreProperty().get() : 0);
-                    int rscore = (rightController != null ? rightController.getScoreProperty().get() : 0);
-                    String reason = "Winner by survival (opponent lost)";
-                    if (lscore > rscore) reason += String.format(" — opponent had higher score (%d vs %d)", lscore, rscore);
-                    showWinnerOverlay("Right Player Wins!", lscore, rscore, reason);
-                }
-            });
-        } catch (Exception ignored) {}
-        try {
-            rightGui.isGameOverProperty().addListener((obs, oldV, newV) -> {
-                java.util.Objects.requireNonNull(obs);
-                java.util.Objects.requireNonNull(oldV);
-                if (newV == Boolean.TRUE && !matchEnded) {
-                    matchEnded = true;
-                    try { if (matchTimer != null) matchTimer.stop(); } catch (Exception ignored) {}
-                    try { if (previewPoller != null) previewPoller.stop(); } catch (Exception ignored) {}
-                    // Ensure both GUIs are transitioned to game-over so their timelines and input handlers stop
-                    try { if (leftGui != null) leftGui.gameOver(); } catch (Exception ignored) {}
-                    try { if (rightGui != null) rightGui.gameOver(); } catch (Exception ignored) {}
-                    // stop match music immediately so we can play a game-over track later
-                    try { if (classicBattleMusicPlayer != null) { classicBattleMusicPlayer.stop(); classicBattleMusicPlayer.dispose(); classicBattleMusicPlayer = null; } } catch (Exception ignored) {}
-                    // play centralized match GameOver sound
-                    try { playMatchGameOverSound(); } catch (Exception ignored) {}
-                    int lscore = (leftController != null ? leftController.getScoreProperty().get() : 0);
-                    int rscore = (rightController != null ? rightController.getScoreProperty().get() : 0);
-                    String reason = "Winner by survival (opponent lost)";
-                    if (rscore > lscore) reason += String.format(" — opponent had higher score (%d vs %d)", rscore, lscore);
-                    showWinnerOverlay("Left Player Wins!", lscore, rscore, reason);
-                }
-            });
-        } catch (Exception ignored) {}
-
+        try { registerGameOverListener(leftGui, true); } catch (Exception ignored) {}
+        try { registerGameOverListener(rightGui, false); } catch (Exception ignored) {}
         try { leftGui.setMultiplayerMode(true); } catch (Exception ignored) {}
         try { rightGui.setMultiplayerMode(true); } catch (Exception ignored) {}
-
-            // Allow the coordinator to present a combined multiplayer controls UI like ScoreBattle
-            try { leftGui.setMultiplayerRequestControlsHandler(this::showMultiplayerControlsOverlay); } catch (Exception ignored) {}
-            try { rightGui.setMultiplayerRequestControlsHandler(this::showMultiplayerControlsOverlay); } catch (Exception ignored) {}
-
-    // For Classic Battle we intentionally hide per-player score/time UI so the
-    // center match UI is the only visible scoring/time indicator.
-    try { leftGui.hideScoreAndTimeUI(); } catch (Exception ignored) {}
-    try { rightGui.hideScoreAndTimeUI(); } catch (Exception ignored) {}
-
+        try { leftGui.setMultiplayerRequestControlsHandler(this::showMultiplayerControlsOverlay); } catch (Exception ignored) {}
+        try { rightGui.setMultiplayerRequestControlsHandler(this::showMultiplayerControlsOverlay); } catch (Exception ignored) {}
+        try { leftGui.hideScoreAndTimeUI(); } catch (Exception ignored) {}
+        try { rightGui.hideScoreAndTimeUI(); } catch (Exception ignored) {}
         try { leftGui.setMultiplayerRestartHandler(this::restartMatch); } catch (Exception ignored) {}
         try { rightGui.setMultiplayerRestartHandler(this::restartMatch); } catch (Exception ignored) {}
-
         try {
             leftGui.setMultiplayerPauseHandler(paused -> {
                 try {
@@ -464,11 +381,9 @@ public class ClassicBattle implements Initializable {
 
         leftGui.setLevelText("Classic Battle");
         rightGui.setLevelText("Classic Battle");
-
         leftGui.setDropIntervalMs(1000);
         rightGui.setDropIntervalMs(1000);
 
-        // Attach listeners to start a single shared countdown sound for both embedded GUIs
         try {
             final javafx.beans.value.ChangeListener<Boolean> startCountdownListener = (obs, oldV, newV) -> {
                 try {
@@ -495,14 +410,9 @@ public class ClassicBattle implements Initializable {
         try {
             leftGui.setControlKeys(javafx.scene.input.KeyCode.A, javafx.scene.input.KeyCode.D, javafx.scene.input.KeyCode.W, javafx.scene.input.KeyCode.S, javafx.scene.input.KeyCode.SHIFT);
             leftGui.setSwapKey(leftSwap != null ? leftSwap : javafx.scene.input.KeyCode.Q);
-            // Use Numpad defaults for right player (Numpad4 = left, Numpad6 = right, Numpad8 = rotate, Numpad5 = soft drop)
             rightGui.setControlKeys(javafx.scene.input.KeyCode.NUMPAD4, javafx.scene.input.KeyCode.NUMPAD6, javafx.scene.input.KeyCode.NUMPAD8, javafx.scene.input.KeyCode.NUMPAD5, javafx.scene.input.KeyCode.SPACE);
             rightGui.setSwapKey(rightSwap != null ? rightSwap : javafx.scene.input.KeyCode.C);
         } catch (Exception ignored) {}
-
-        // Register clear-row handlers so when one player clears rows we transfer
-        // garbage rows to the opponent. Garbage rows have a hole on the rightmost column
-        // (so opponent can cancel by filling the hole).
         try {
             leftController.setClearRowHandler(lines -> {
                 try {
@@ -523,7 +433,6 @@ public class ClassicBattle implements Initializable {
                 } catch (Exception ignored) {}
             });
         } catch (Exception ignored) {}
-
         try {
             javafx.application.Platform.runLater(() -> {
                 Scene scene = leftHolder.getScene();
@@ -543,10 +452,6 @@ public class ClassicBattle implements Initializable {
 
                 v.getChildren().addAll(matchTimerText, matchScoreText);
                 centerOverlay.getChildren().add(v);
-
-                // For Classic Battle mode we intentionally do NOT add the center overlay
-                // (match timer and combined score) to the scene so players only see the
-                // boards and next-boxes. The match logic still runs but UI is suppressed.
             });
         } catch (Exception ignored) {}
 
@@ -570,7 +475,6 @@ public class ClassicBattle implements Initializable {
                 try {
                     if (leftDone.get() && rightDone.get()) {
                         matchTimer.play();
-                        // start or resume classic battle music and ensure it loops indefinitely
                         try {
                             if (classicBattleMusicPlayer == null) {
                                 URL musicUrl = getClass().getClassLoader().getResource("sounds/ClassicBattle.wav");
@@ -596,7 +500,6 @@ public class ClassicBattle implements Initializable {
         } catch (Exception ignored) {
             matchTimer.play();
         }
-
         try {
             previewPoller = new javafx.animation.Timeline(new javafx.animation.KeyFrame(javafx.util.Duration.millis(300), _ev -> {
                 try {
@@ -640,7 +543,6 @@ public class ClassicBattle implements Initializable {
             Parent menuRoot = loader.load();
             Stage stage = (Stage) backBtn.getScene().getWindow();
             if (stage.getScene() != null) {
-                // cleanup embedded GUIs before replacing the scene root
                 try { if (leftGui != null) leftGui.cleanup(); } catch (Exception ignored) {}
                 try { if (rightGui != null) rightGui.cleanup(); } catch (Exception ignored) {}
                 stage.getScene().setRoot(menuRoot);
@@ -679,10 +581,6 @@ public class ClassicBattle implements Initializable {
         } catch (Exception ignored) {}
     }
 
-    /**
-     * Show a combined controls overlay allowing both players to edit their keybindings.
-     * The requesting GuiController is provided so we can keep pause state consistent.
-     */
     private void showMultiplayerControlsOverlay(GuiController requester) {
         javafx.application.Platform.runLater(() -> {
             try {
@@ -698,8 +596,6 @@ public class ClassicBattle implements Initializable {
 
                 BorderPane container = new BorderPane();
                 container.setStyle("-fx-padding:18;");
-
-                // Top bar with title and Save/Cancel
                 javafx.scene.text.Text header = new javafx.scene.text.Text("Controls");
                 header.setStyle("-fx-font-size:34px; -fx-fill: #9fb0ff; -fx-font-weight:700;");
                 javafx.scene.layout.HBox actionBox = new javafx.scene.layout.HBox(10);
@@ -727,7 +623,6 @@ public class ClassicBattle implements Initializable {
                 javafx.scene.layout.StackPane rightPane = rightFx.load();
                 ControlsController rightCC = rightFx.getController();
 
-                // Initialize each controls pane with the current keys from their GuiControllers
                 java.util.prefs.Preferences overlayPrefs = java.util.prefs.Preferences.userNodeForPackage(com.comp2042.MainMenuController.class);
                 try {
                     leftCC.init(leftGui.getCtrlMoveLeft() != null ? leftGui.getCtrlMoveLeft() : javafx.scene.input.KeyCode.A,
@@ -737,7 +632,6 @@ public class ClassicBattle implements Initializable {
                                 leftGui.getCtrlHardDrop() != null ? leftGui.getCtrlHardDrop() : javafx.scene.input.KeyCode.SHIFT,
                                 leftGui.getCtrlSwap() != null ? leftGui.getCtrlSwap() : javafx.scene.input.KeyCode.Q);
 
-                    // determine defaults from preferences
                     javafx.scene.input.KeyCode defLLeft = null;
                     try { String s = overlayPrefs.get("mpLeft_left", ""); if (!s.isEmpty()) defLLeft = javafx.scene.input.KeyCode.valueOf(s); } catch (Exception ignored) {}
                     leftCC.setDefaultKeys(
@@ -759,11 +653,9 @@ public class ClassicBattle implements Initializable {
                                  rightGui.getCtrlHardDrop() != null ? rightGui.getCtrlHardDrop() : javafx.scene.input.KeyCode.SPACE,
                                  rightGui.getCtrlSwap() != null ? rightGui.getCtrlSwap() : javafx.scene.input.KeyCode.C);
                     rightCC.setHeaderText("Right Player Controls");
-                // Prevent duplicate key assignments between the two panels: consult the other pane's current keys
                 try {
                     leftCC.setKeyAvailabilityChecker((code, btn) -> {
                         try {
-                            // use btn to satisfy static analysis (not otherwise required)
                             java.util.Objects.requireNonNull(btn);
                             if (code == null) return true;
                             return !(code.equals(rightCC.getLeft())
@@ -897,7 +789,6 @@ public class ClassicBattle implements Initializable {
     }
 
     private void endMatchAndAnnounceWinner() {
-        // stop any match music immediately
         try { if (classicBattleMusicPlayer != null) { classicBattleMusicPlayer.stop(); classicBattleMusicPlayer.dispose(); classicBattleMusicPlayer = null; } } catch (Exception ignored) {}
         try { stopMatchCountdownSound(); } catch (Exception ignored) {}
         try { playMatchGameOverSound(); } catch (Exception ignored) {}
@@ -939,7 +830,6 @@ public class ClassicBattle implements Initializable {
             try {
                 Scene scene = leftHolder.getScene();
                 if (scene == null) return;
-                // Classic Battle: survival-focused overlay. Do not show per-player numbers or time here.
                 StackPane overlay = new StackPane();
                 overlay.setPickOnBounds(true);
                 overlay.setStyle("-fx-background-color: rgba(0,0,0,0.88);");
@@ -952,7 +842,6 @@ public class ClassicBattle implements Initializable {
         javafx.scene.text.Text bigTitle = new javafx.scene.text.Text(title);
         bigTitle.setStyle("-fx-font-size: 64px; -fx-font-weight: 700; -fx-fill: white;");
 
-        // Add a color/glow + pulse animation to the winner title to make it pop
         try {
             javafx.scene.effect.DropShadow glow = new javafx.scene.effect.DropShadow();
             glow.setColor(javafx.scene.paint.Color.web("#ffd166"));
@@ -960,14 +849,12 @@ public class ClassicBattle implements Initializable {
             glow.setSpread(0.45);
             bigTitle.setEffect(glow);
 
-            // gentle scale pulse for the title
             javafx.animation.ScaleTransition scalePulse = new javafx.animation.ScaleTransition(javafx.util.Duration.millis(900), bigTitle);
             scalePulse.setFromX(1.0); scalePulse.setFromY(1.0);
             scalePulse.setToX(1.03); scalePulse.setToY(1.03);
             scalePulse.setCycleCount(javafx.animation.Animation.INDEFINITE);
             scalePulse.setAutoReverse(true);
 
-            // animate glow radius for a soft breathing effect
             javafx.animation.Timeline glowTimeline = new javafx.animation.Timeline(
                 new javafx.animation.KeyFrame(javafx.util.Duration.ZERO, new javafx.animation.KeyValue(glow.radiusProperty(), 8)),
                 new javafx.animation.KeyFrame(javafx.util.Duration.millis(900), new javafx.animation.KeyValue(glow.radiusProperty(), 28))
@@ -975,7 +862,6 @@ public class ClassicBattle implements Initializable {
             glowTimeline.setCycleCount(javafx.animation.Animation.INDEFINITE);
             glowTimeline.setAutoReverse(true);
 
-            // alternate fill color briefly to accent the winner (white -> gold -> white)
             javafx.animation.Timeline colorPulse = new javafx.animation.Timeline(
                 new javafx.animation.KeyFrame(javafx.util.Duration.ZERO, ae -> { ae.consume(); bigTitle.setFill(javafx.scene.paint.Color.WHITE); }),
                 new javafx.animation.KeyFrame(javafx.util.Duration.millis(420), ae -> { ae.consume(); bigTitle.setFill(javafx.scene.paint.Color.web("#ffd166")); }),
@@ -985,17 +871,14 @@ public class ClassicBattle implements Initializable {
 
             javafx.animation.ParallelTransition combined = new javafx.animation.ParallelTransition(scalePulse, glowTimeline, colorPulse);
             combined.setCycleCount(javafx.animation.Animation.INDEFINITE);
-            // store to activePulse so restart/removal code can stop it
             activePulse = combined;
             combined.play();
         } catch (Exception ignored) {}
 
-                // Short, punchy description for Classic Battle + animated emphasis
                 javafx.scene.text.Text modeDesc = new javafx.scene.text.Text("Survive. Outlast. Win.");
                 modeDesc.setStyle("-fx-font-size: 18px; -fx-fill: #d0d0d0; -fx-text-alignment: center;");
                 modeDesc.setWrappingWidth(680);
 
-                // Entrance fade and gentle pulsing to draw attention without being distracting
                 try {
                     javafx.animation.FadeTransition ft = new javafx.animation.FadeTransition(javafx.util.Duration.millis(550), modeDesc);
                     ft.setFromValue(0.0);

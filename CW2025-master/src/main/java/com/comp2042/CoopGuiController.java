@@ -1,5 +1,6 @@
 package com.comp2042;
 
+import java.util.logging.Logger;
 import javafx.animation.KeyFrame;
 import javafx.animation.Timeline;
 import javafx.scene.input.KeyCode;
@@ -13,68 +14,47 @@ import javafx.scene.shape.Rectangle;
 import javafx.scene.text.Text;
 import javafx.util.Duration;
 
-/**
- * Cooperative GUI controller that extends the single-player GUI to render two active pieces
- * and route per-player inputs to a CoopGameController.
- */
 public class CoopGuiController extends GuiController {
 
     private CoopGameController coop;
-    // configurable keys for left/right players (initialized from preferences)
+    private static final Logger LOGGER = Logger.getLogger(CoopGuiController.class.getName());
     private javafx.scene.input.KeyCode leftMoveLeftKey = javafx.scene.input.KeyCode.A;
     private javafx.scene.input.KeyCode leftMoveRightKey = javafx.scene.input.KeyCode.D;
     private javafx.scene.input.KeyCode leftRotateKey = javafx.scene.input.KeyCode.W;
     private javafx.scene.input.KeyCode leftDownKey = javafx.scene.input.KeyCode.S;
     private javafx.scene.input.KeyCode leftHardKey = javafx.scene.input.KeyCode.SHIFT;
     private javafx.scene.input.KeyCode leftSwapKey = javafx.scene.input.KeyCode.Q;
-
     private javafx.scene.input.KeyCode rightMoveLeftKey = javafx.scene.input.KeyCode.LEFT;
     private javafx.scene.input.KeyCode rightMoveRightKey = javafx.scene.input.KeyCode.RIGHT;
     private javafx.scene.input.KeyCode rightRotateKey = javafx.scene.input.KeyCode.UP;
     private javafx.scene.input.KeyCode rightDownKey = javafx.scene.input.KeyCode.DOWN;
     private javafx.scene.input.KeyCode rightHardKey = javafx.scene.input.KeyCode.SPACE;
     private javafx.scene.input.KeyCode rightSwapKey = javafx.scene.input.KeyCode.C;
-    // timeline used specifically for cooperative tick; keep separate from GuiController.timeLine
     private Timeline coopTimeline = null;
-    // stored scene filters so they can be removed when the view is torn down
     private javafx.event.EventHandler<KeyEvent> coopPressFilter = null;
     private javafx.event.EventHandler<KeyEvent> coopReleaseFilter = null;
-    // the Scene these filters were attached to (so they can be removed even if the node is detached)
     private Scene coopScene = null;
-    // cooperative background music player (loops). Managed by this controller.
     private javafx.scene.media.MediaPlayer coopMusicPlayer = null;
 
     @Override
     protected boolean shouldStartSingleplayerMusic() {
-        // Coop mode manages its own music (CorporateBattle) and therefore
-        // suppresses the base controller's auto-start of the singleplayer track.
         return false;
     }
 
-    // second-player visuals
     private Pane secondBrickPanel = new Pane();
     private Pane secondGhostPanel = new Pane();
     private Rectangle[][] rectangles2;
     private Rectangle[][] ghostRectangles2;
-    // cached right view (not strictly required)
-
-    // left preview container placed programmatically
     private javafx.scene.layout.VBox leftNextBox = null;
-
     private Text scoreText = null;
-    // local paused flag kept in sync with GuiController.pause notifications so we can pause our coopTimeline
     private volatile boolean coopPaused = false;
 
     public CoopGuiController() {
         super();
     }
 
-    /**
-     * Initialize cooperative view and wire to the provided controller.
-     */
     public void initCoop(CoopGameController coopController) {
         this.coop = coopController;
-        // Load persisted multiplayer key overrides if present so controls overlay edits apply immediately
         try {
             java.util.prefs.Preferences prefs = java.util.prefs.Preferences.userNodeForPackage(com.comp2042.MainMenuController.class);
             try { String s = prefs.get("mpLeft_left", ""); if (!s.isEmpty()) leftMoveLeftKey = javafx.scene.input.KeyCode.valueOf(s); } catch (Exception ignored) {}
@@ -91,19 +71,20 @@ public class CoopGuiController extends GuiController {
             try { String s = prefs.get("mpRight_hard", ""); if (!s.isEmpty()) rightHardKey = javafx.scene.input.KeyCode.valueOf(s); } catch (Exception ignored) {}
             try { String s = prefs.get("mpRight_switch", ""); if (!s.isEmpty()) rightSwapKey = javafx.scene.input.KeyCode.valueOf(s); } catch (Exception ignored) {}
         } catch (Exception ignored) {}
-        // initialize using left player's view as primary so base measurements are established
         ViewData leftView = coop.getViewDataLeft();
         ViewData rightView = coop.getViewDataRight();
+        if (leftView == null) {
+            leftView = new ViewData(new int[][]{{0}}, 0, 2, new int[][]{{0}});
+        }
+        if (rightView == null) {
+            rightView = new ViewData(new int[][]{{0}}, 0, 2, new int[][]{{0}});
+        }
         initGameView(coop.getBoardMatrix(), leftView);
 
-        // create second brick and ghost panels and add to the scene graph.
-        // Instead of nesting them inside the primary panels we add them as siblings to
-        // the primary panels' parent so both players share the same coordinate space.
         try {
             if (brickPanel != null && brickPanel.getParent() instanceof Pane) {
                 Pane parent = (Pane) brickPanel.getParent();
                 secondBrickPanel.setPickOnBounds(false);
-                // ensure it's above the background but below overlays by adding after brickPanel
                 int insertIndex = Math.max(0, parent.getChildren().indexOf(brickPanel)) + 1;
                 parent.getChildren().add(insertIndex, secondBrickPanel);
             } else if (brickPanel != null) {
@@ -122,10 +103,8 @@ public class CoopGuiController extends GuiController {
             }
         } catch (Exception ignored) {}
 
-        // build the second brick rectangles based on right view data
         buildSecondBrickVisuals(rightView);
 
-        // add left preview to the root pane programmatically (to the left of board)
         try {
             if (nextBox != null && gameBoard != null && gameBoard.getScene() != null) {
                 leftNextBox = new javafx.scene.layout.VBox(8);
@@ -133,7 +112,6 @@ public class CoopGuiController extends GuiController {
                 leftNextBox.getStyleClass().add("gameBoard");
                 Text t = new Text("Next:"); t.getStyleClass().add("nextBrickLabel");
                 leftNextBox.getChildren().add(t);
-                // place leftNextBox to the left of the game board
                 try {
                     Pane root = (Pane) gameBoard.getScene().getRoot();
                     root.getChildren().add(leftNextBox);
@@ -143,7 +121,6 @@ public class CoopGuiController extends GuiController {
             }
         } catch (Exception ignored) {}
 
-        // create per-player score displays
         try {
             if (scoreBox != null) {
                 scoreText = new Text("Score: 0");
@@ -151,7 +128,6 @@ public class CoopGuiController extends GuiController {
                 scoreBox.getChildren().clear();
                 if (highScoreValue != null) scoreBox.getChildren().add(highScoreValue);
                 scoreBox.getChildren().add(scoreText);
-                // bind to shared cooperative total score
                 try {
                     bindScore(coop.getTotalScoreProperty());
                 } catch (Exception ignored) {
@@ -160,7 +136,6 @@ public class CoopGuiController extends GuiController {
                         @Override protected String computeValue() { return "Score: " + coop.getTotalScoreProperty().get(); }
                     });
                 }
-                // Ensure the visible scoreText we added to the scoreBox stays in sync with the coop score
                 try {
                     scoreText.textProperty().bind(
                         javafx.beans.binding.Bindings.createStringBinding(
@@ -169,7 +144,6 @@ public class CoopGuiController extends GuiController {
                         )
                     );
                 } catch (Exception ignored) {}
-                // override the default high-score display to show cooperative-mode high score
                 try {
                     if (highScoreValue != null) {
                         javafx.beans.binding.IntegerBinding bindHigh = new javafx.beans.binding.IntegerBinding() {
@@ -185,28 +159,21 @@ public class CoopGuiController extends GuiController {
             }
         } catch (Exception ignored) {}
 
-        // show both upcoming previews
         refreshPreviews();
 
-    // stop the base timeline and create our own timeline to advance both pieces
         try { if (timeLine != null) { timeLine.stop(); timeLine = null; } } catch (Exception ignored) {}
         double intervalMs = 1000.0;
         try { if (timeLine != null && !timeLine.getKeyFrames().isEmpty()) intervalMs = timeLine.getKeyFrames().get(0).getTime().toMillis(); } catch (Exception ignored) {}
         final double usedInterval = intervalMs;
-        // create a dedicated coop timeline (don't assign to GuiController.timeLine so startCountdown
-        // won't accidentally control it). We'll start coopTimeline explicitly after countdown.
         coopTimeline = new Timeline(new KeyFrame(Duration.millis(usedInterval), ae -> {
             ae.consume();
-            // capture views before tick so we can animate locks when pieces land
             ViewData beforeLeft = coop.getViewDataLeft();
             ViewData beforeRight = coop.getViewDataRight();
             CoopTickResult result = coop.tick();
-            // refresh board and both bricks
             try { refreshGameBackground(coop.getBoardMatrix()); } catch (Exception ignored) {}
             try { refreshCurrentView(coop.getViewDataLeft()); } catch (Exception ignored) {}
             try { refreshSecondView(coop.getViewDataRight()); } catch (Exception ignored) {}
             if (result != null && result.isMerged()) {
-                // show score notification and explosion/lock effects per-player if they landed
                 try {
                     if (result.getLeftData() != null) {
                         DownData ld = result.getLeftData();
@@ -215,7 +182,6 @@ public class CoopGuiController extends GuiController {
                             groupNotification.getChildren().add(notificationPanel);
                             notificationPanel.showScore(groupNotification.getChildren());
                         }
-                        // play lock effect from beforeLeft -> landed view
                         try { playLockEffect(beforeLeft, ld.getViewData(), false); } catch (Exception ignored) {}
                         try { spawnExplosion(ld.getClearRow(), ld.getViewData()); } catch (Exception ignored) {}
                     }
@@ -237,9 +203,6 @@ public class CoopGuiController extends GuiController {
         }));
         coopTimeline.setCycleCount(Timeline.INDEFINITE);
 
-        // Install an InputEventListener so the base GuiController's Restart button
-        // (which calls eventListener.createNewGame()) will correctly reset the coop model
-        // and refresh the UI.
         try {
             setEventListener(new InputEventListener() {
                 @Override
@@ -256,15 +219,12 @@ public class CoopGuiController extends GuiController {
 
                 @Override
                 public void createNewGame() {
-                    // Reset model and refresh UI on FX thread
                     try {
                         coop.createNewGame();
                     } catch (Exception ignored) {}
                     javafx.application.Platform.runLater(() -> {
                         try {
-                            // stop any running coop timeline
                             try { if (coopTimeline != null) coopTimeline.stop(); } catch (Exception ignored) {}
-                            // stop and dispose coop music so it restarts cleanly on the next countdown
                             try {
                                 if (coopMusicPlayer != null) {
                                     try { coopMusicPlayer.stop(); } catch (Exception ignored) {}
@@ -272,16 +232,12 @@ public class CoopGuiController extends GuiController {
                                     coopMusicPlayer = null;
                                 }
                             } catch (Exception ignored) {}
-                            // refresh visuals
                             try { refreshGameBackground(coop.getBoardMatrix()); } catch (Exception ignored) {}
-                            // hide both active-piece panels during countdown so pieces don't appear before Start
                             try { if (brickPanel != null) brickPanel.setVisible(false); } catch (Exception ignored) {}
                             try { if (ghostPanel != null) ghostPanel.setVisible(false); } catch (Exception ignored) {}
                             try { if (secondBrickPanel != null) secondBrickPanel.setVisible(false); } catch (Exception ignored) {}
                             try { if (secondGhostPanel != null) secondGhostPanel.setVisible(false); } catch (Exception ignored) {}
-                            // refresh previews only (keep next boxes up-to-date)
                             try { refreshPreviews(); } catch (Exception ignored) {}
-                            // restart countdown and timeline (countdownFinished listener will re-show panels)
                             try { startCountdown(3); } catch (Exception ignored) {}
                         } catch (Exception ignored) {}
                     });
@@ -289,7 +245,6 @@ public class CoopGuiController extends GuiController {
             });
         } catch (Exception ignored) {}
 
-        // attach key filter to route inputs to left/right players
         javafx.application.Platform.runLater(() -> {
             if (gamePanel.getScene() != null) {
                 coopPressFilter = new javafx.event.EventHandler<KeyEvent>() { @Override public void handle(KeyEvent e) { onKeyPressed(e); } };
@@ -299,33 +254,21 @@ public class CoopGuiController extends GuiController {
                 s.addEventFilter(KeyEvent.KEY_PRESSED, coopPressFilter);
                 s.addEventFilter(KeyEvent.KEY_RELEASED, coopReleaseFilter);
             }
-            // refresh initial views now that layout is available so pieces start from the top
             try { refreshGameBackground(coop.getBoardMatrix()); } catch (Exception ignored) {}
             try { refreshCurrentView(coop.getViewDataLeft()); } catch (Exception ignored) {}
             try { refreshSecondView(coop.getViewDataRight()); } catch (Exception ignored) {}
             try { refreshPreviews(); } catch (Exception ignored) {}
-
-            // start countdown and timeline when ready
-            // Ensure we refresh both player views again after the countdown finishes so
-            // any temporary alignment performed during countdown is corrected.
             try {
                 countdownFinishedProperty().addListener(new javafx.beans.value.ChangeListener<Boolean>() {
                     @Override
                     public void changed(javafx.beans.value.ObservableValue<? extends Boolean> observable, Boolean oldValue, Boolean newValue) {
                         try {
                             if (Boolean.TRUE.equals(newValue)) {
-                                // re-run refreshes to ensure second player's local translations
-                                // are computed against the final measured brickPanel translation
                                 refreshGameBackground(coop.getBoardMatrix());
                                 refreshCurrentView(coop.getViewDataLeft());
                                 refreshSecondView(coop.getViewDataRight());
-                                // show second-player visuals now that countdown finished
                                 try { secondBrickPanel.setVisible(true); secondGhostPanel.setVisible(true); } catch (Exception ignored) {}
-                                // start the coop timeline now that countdown is complete
                                 try { if (coopTimeline != null) coopTimeline.play(); } catch (Exception ignored) {}
-
-                                // Start cooperative background music (looping). Managed here to ensure
-                                // the correct CorporateBattle.wav is used instead of singleplayer music.
                                 try {
                                     if (coopMusicPlayer == null) {
                                         java.net.URL mus = getClass().getClassLoader().getResource("sounds/CorporateBattle.wav");
@@ -354,12 +297,9 @@ public class CoopGuiController extends GuiController {
                     }
                 });
             } catch (Exception ignored) {}
-            // hide second-player visuals while countdown runs (GuiController hides the primary panels)
             try { secondBrickPanel.setVisible(false); secondGhostPanel.setVisible(false); } catch (Exception ignored) {}
             startCountdown(3);
 
-            // Register a pause handler so when the base GuiController toggles pause it will notify us
-            // and we can pause/resume the dedicated coop timeline accordingly.
             try {
                 setMultiplayerPauseHandler(paused -> {
                     try {
@@ -369,24 +309,17 @@ public class CoopGuiController extends GuiController {
                         }
                     } catch (Exception ignored) {}
                 });
-                // Also register a multiplayer controls handler so pause->Settings can show a two-pane overlay
                 try { setMultiplayerRequestControlsHandler(this::showMultiplayerControlsOverlay); } catch (Exception ignored) {}
-                // We registered a local pause/request handler which would normally mark this GUI as "multiplayer".
-                // For cooperative single-window mode we still want the standard game-over overlay to appear,
-                // so ensure multiplayer mode flag remains false while preserving the registered handlers.
                 try { setMultiplayerMode(false); } catch (Exception ignored) {}
             } catch (Exception ignored) {}
 
-            // Listen for game-over from the coop controller so we can show the standard game-over UI
             try {
                 if (coop != null) {
                     coop.gameOverProperty().addListener((obs, oldV, newV) -> {
                         try {
                             if (Boolean.TRUE.equals(newV)) {
-                                // ensure UI changes happen on FX thread
                                 javafx.application.Platform.runLater(() -> {
                                     try {
-                                        // mark GUI as game over and display overlay
                                         gameOver();
                                     } catch (Exception ignored) {}
                                 });
@@ -396,20 +329,16 @@ public class CoopGuiController extends GuiController {
                 }
             } catch (Exception ignored) {}
 
-            // hide the level display for cooperative mode (we don't show per-mode level text here)
             try { if (levelBox != null) levelBox.setVisible(false); } catch (Exception ignored) {}
 
-            // move the timeBox to the centre-top of the game board for coop mode
             try {
                 if (timeBox != null && gameBoard != null) {
-                    // bind X to center of gameBoard minus half width of timeBox
                     timeBox.layoutXProperty().bind(
                         javafx.beans.binding.Bindings.createDoubleBinding(
                             () -> gameBoard.getLayoutX() + gameBoard.getWidth() / 2.0 - timeBox.getWidth() / 2.0,
                             gameBoard.layoutXProperty(), gameBoard.widthProperty(), timeBox.widthProperty()
                         )
                     );
-                    // bind Y to slightly above the gameBoard
                     timeBox.layoutYProperty().bind(
                         javafx.beans.binding.Bindings.createDoubleBinding(
                             () -> gameBoard.getLayoutY() - timeBox.getHeight() - 8.0,
@@ -422,7 +351,7 @@ public class CoopGuiController extends GuiController {
     }
 
     private void refreshPreviews() {
-        try { if (leftNextBox != null) {
+        try { if (coop == null) return; if (leftNextBox != null) {
             leftNextBox.getChildren().removeIf(n -> !(n instanceof Text));
             java.util.List<com.comp2042.logic.bricks.Brick> leftUp = coop.getUpcomingLeft(3);
             javafx.scene.layout.VBox built = buildNextPreview(leftUp);
@@ -472,9 +401,7 @@ public class CoopGuiController extends GuiController {
     javafx.geometry.Point2D pt = boardToPixelLocal(offsetX, offsetY);
     double tx = Math.round(pt.getX() + blockNudgeX);
     double ty = Math.round(pt.getY() + blockNudgeY);
-    // secondBrickPanel is added as a sibling to brickPanel's parent, so the
-    // boardToPixelLocal coordinates are already in the parent's local space.
-    // We can directly apply them to the second panel.
+
     try {
         secondBrickPanel.setTranslateX(tx);
         secondBrickPanel.setTranslateY(ty);
@@ -494,11 +421,8 @@ public class CoopGuiController extends GuiController {
                 r.setLayoutY(Math.round(i * cellH));
             }
         }
-        // update ghost2
         int[][] shape = v.getBrickData();
-        // compute landing for right piece using existing helper but temporarily merging left piece into board
-        // reuse updateGhost logic by swapping panels; simplified: compute landing manually
-        // We'll compute landingY similar to updateGhost
+
     int startX = v.getxPosition();
     int startY = v.getyPosition();
         int landingY = startY;
@@ -542,14 +466,12 @@ public class CoopGuiController extends GuiController {
         KeyCode code = e.getCode();
         boolean consumed = false;
         try {
-            // Prevent control inputs until the countdown has finished or if the game is paused/game-over
             try {
                 if (Boolean.FALSE.equals(countdownFinishedProperty().getValue()) || Boolean.TRUE.equals(isGameOverProperty().getValue()) || coopPaused) {
                     e.consume();
                     return;
                 }
             } catch (Exception ignored) {}
-            // Left player: configurable keys
             if (code == leftMoveLeftKey) { consumed = coop.moveLeftPlayerLeft(); }
             else if (code == leftMoveRightKey) { consumed = coop.moveLeftPlayerRight(); }
             else if (code == leftRotateKey) { consumed = coop.rotateLeftPlayer(); }
@@ -565,7 +487,7 @@ public class CoopGuiController extends GuiController {
                 } catch (Exception ignored) {}
                 consumed = true;
             }
-            else if (code == leftHardKey) { // hard drop
+            else if (code == leftHardKey) {
                 try {
                     ViewData startView = coop.getViewDataLeft();
                     int safety = 0;
@@ -585,7 +507,6 @@ public class CoopGuiController extends GuiController {
                 consumed = true;
             } else if (code == leftSwapKey) { consumed = coop.swapLeft(); }
 
-            // Right player: configurable keys
             else if (code == rightMoveLeftKey) { consumed = coop.moveRightPlayerLeft(); }
             else if (code == rightMoveRightKey) { consumed = coop.moveRightPlayerRight(); }
             else if (code == rightRotateKey) { consumed = coop.rotateRightPlayer(); }
@@ -629,13 +550,8 @@ public class CoopGuiController extends GuiController {
     }
 
     private void onKeyReleased(KeyEvent e) {
-        // no-op for now; leave for future soft-drop handling
     }
 
-    /**
-     * Show a combined controls overlay allowing both players to edit their keybindings in coop mode.
-     * The requesting GuiController is provided so we can keep pause state consistent.
-     */
     private void showMultiplayerControlsOverlay(GuiController requester) {
         javafx.application.Platform.runLater(() -> {
             try {
@@ -683,9 +599,6 @@ public class CoopGuiController extends GuiController {
                 try { leftCC.init(leftMoveLeftKey, leftMoveRightKey, leftRotateKey, leftDownKey, leftHardKey, leftSwapKey); } catch (Exception ignored) {}
                 try { rightCC.init(rightMoveLeftKey, rightMoveRightKey, rightRotateKey, rightDownKey, rightHardKey, rightSwapKey); } catch (Exception ignored) {}
 
-                // Ensure the Default column reflects persisted preferences (fall back to sensible defaults):
-                // Left defaults: A, D, W, S, SHIFT, Q
-                // Right defaults: NUMPAD4 (left), NUMPAD6 (right), NUMPAD8 (rotate), NUMPAD5 (down), SPACE (hard), NUMPAD7 (swap)
                 try {
                     java.util.prefs.Preferences overlayPrefs = java.util.prefs.Preferences.userNodeForPackage(com.comp2042.MainMenuController.class);
                     // left defaults
@@ -710,7 +623,6 @@ public class CoopGuiController extends GuiController {
                         defLSwap != null ? defLSwap : javafx.scene.input.KeyCode.Q
                     );
 
-                    // right defaults
                     javafx.scene.input.KeyCode defRLeft = null;
                     javafx.scene.input.KeyCode defRRight = null;
                     javafx.scene.input.KeyCode defRRotate = null;
@@ -735,7 +647,6 @@ public class CoopGuiController extends GuiController {
 
                 leftCC.setHeaderText("Left Player Controls");
                 rightCC.setHeaderText("Right Player Controls");
-                // Prevent duplicate key assignments between the two panels: consult the other pane's current keys
                 try {
                     leftCC.setKeyAvailabilityChecker((code, btn) -> {
                         try {
@@ -814,10 +725,6 @@ public class CoopGuiController extends GuiController {
                             if (lDown != null) leftDownKey = lDown;
                             if (lHard != null) leftHardKey = lHard;
                             if (lSwap != null) leftSwapKey = lSwap;
-                            // The coop GUI stores per-player keys in local fields (leftMoveLeftKey etc.)
-                            // and routes input in onKeyPressed(), so updating those fields is sufficient
-                            // to apply the new bindings immediately. No external leftGui reference exists
-                            // in this controller instance, so do not attempt to call leftGui.setControlKeys().
                             java.util.prefs.Preferences prefs = java.util.prefs.Preferences.userNodeForPackage(com.comp2042.MainMenuController.class);
                             prefs.put("mpLeft_left", leftMoveLeftKey != null ? leftMoveLeftKey.name() : "");
                             prefs.put("mpLeft_right", leftMoveRightKey != null ? leftMoveRightKey.name() : "");
@@ -839,10 +746,6 @@ public class CoopGuiController extends GuiController {
                             if (rDown != null) rightDownKey = rDown;
                             if (rHard != null) rightHardKey = rHard;
                             if (rSwap != null) rightSwapKey = rSwap;
-                            // The coop GUI stores per-player keys in local fields (rightMoveLeftKey etc.)
-                            // and routes input in onKeyPressed(), so updating those fields is sufficient
-                            // to apply the new bindings immediately. No external rightGui reference exists
-                            // in this controller instance, so do not attempt to call rightGui.setControlKeys().
                             java.util.prefs.Preferences prefs = java.util.prefs.Preferences.userNodeForPackage(com.comp2042.MainMenuController.class);
                             prefs.put("mpRight_left", rightMoveLeftKey != null ? rightMoveLeftKey.name() : "");
                             prefs.put("mpRight_right", rightMoveRightKey != null ? rightMoveRightKey.name() : "");
@@ -886,7 +789,6 @@ public class CoopGuiController extends GuiController {
         });
     }
 
-    // Map numeric color id to Paint. Duplicate of GuiController.getFillColor since that method is private.
     private javafx.scene.paint.Paint mapFillColor(int i) {
         switch (i) {
             case 0: return Color.TRANSPARENT;
@@ -902,7 +804,6 @@ public class CoopGuiController extends GuiController {
         }
     }
 
-    // Local board->pixel conversion using protected fields from GuiController.
     private javafx.geometry.Point2D boardToPixelLocal(int boardX, int boardY) {
         double x = baseOffsetX + (boardX * cellW) + nudgeX;
         double y = baseOffsetY + (boardY * cellH) + nudgeY;
@@ -912,7 +813,6 @@ public class CoopGuiController extends GuiController {
     @Override
     public void gameOver() {
         try { if (coopTimeline != null) coopTimeline.stop(); } catch (Exception ignored) {}
-        // stop and dispose cooperative music when match ends
         try {
             if (coopMusicPlayer != null) {
                 try { coopMusicPlayer.stop(); } catch (Exception ignored) {}
@@ -921,8 +821,6 @@ public class CoopGuiController extends GuiController {
             }
         } catch (Exception ignored) {}
         try { super.gameOver(); } catch (Exception ignored) {}
-        // The base GuiController.gameOver() builds an overlay which shows the single-player
-        // "Previous Best" value. Replace that text to show the cooperative high score instead.
         try {
             javafx.application.Platform.runLater(() -> {
                 try {
@@ -932,7 +830,6 @@ public class CoopGuiController extends GuiController {
                     try { s = gameBoard.getScene(); } catch (Exception ignored) {}
                     if (s == null) return;
                     javafx.scene.Parent root = s.getRoot();
-                    // traverse scene graph and replace any Text nodes containing "Previous" with coop value
                     java.util.function.Consumer<javafx.scene.Node> walker = new java.util.function.Consumer<javafx.scene.Node>() {
                         @Override public void accept(javafx.scene.Node n) {
                             try {
@@ -959,23 +856,22 @@ public class CoopGuiController extends GuiController {
 
     @Override
     protected void onSceneDetach() {
-        // remove any scene filters we installed and stop coop-specific resources
-        System.out.println("[CoopGuiController] onSceneDetach invoked for scene=" + (coopScene != null ? coopScene.hashCode() : "null"));
+    LOGGER.fine("[CoopGuiController] onSceneDetach invoked for scene=" + (coopScene != null ? coopScene.hashCode() : "null"));
         try {
             if (coopScene != null) {
                 try { if (coopPressFilter != null) coopScene.removeEventFilter(KeyEvent.KEY_PRESSED, coopPressFilter); } catch (Exception ignored) {}
                 try { if (coopReleaseFilter != null) coopScene.removeEventFilter(KeyEvent.KEY_RELEASED, coopReleaseFilter); } catch (Exception ignored) {}
-                System.out.println("[CoopGuiController] removed coop filters from scene");
+                LOGGER.fine("[CoopGuiController] removed coop filters from scene");
                 coopScene = null;
             }
         } catch (Exception ignored) {}
-        try { if (coopTimeline != null) { coopTimeline.stop(); coopTimeline = null; System.out.println("[CoopGuiController] stopped coopTimeline"); } } catch (Exception ignored) {}
+    try { if (coopTimeline != null) { coopTimeline.stop(); coopTimeline = null; LOGGER.fine("[CoopGuiController] stopped coopTimeline"); } } catch (Exception ignored) {}
         try {
             if (coopMusicPlayer != null) {
                 try { coopMusicPlayer.stop(); } catch (Exception ignored) {}
                 try { coopMusicPlayer.dispose(); } catch (Exception ignored) {}
                 coopMusicPlayer = null;
-                System.out.println("[CoopGuiController] disposed coopMusicPlayer");
+                LOGGER.fine("[CoopGuiController] disposed coopMusicPlayer");
             }
         } catch (Exception ignored) {}
     }

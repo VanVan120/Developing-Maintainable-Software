@@ -28,7 +28,7 @@ public final class AudioSettings {
         return PREFS.getDouble(key, def);
     }
 
-    private AudioSettings() { /* utility */ }
+    private AudioSettings() {}
 
     public static DoubleProperty masterProperty() { return master; }
     public static DoubleProperty musicProperty() { return music; }

@@ -1,13 +1,10 @@
 package com.comp2042;
 
-/**
- * Result returned by CoopGameController.tick() describing merges and clear rows.
- */
 public final class CoopTickResult {
     private final boolean merged;
-    private final DownData leftData; // may be null if left did not merge this tick
-    private final DownData rightData; // may be null if right did not merge this tick
-    private final ClearRow clearRow; // may be null if no rows removed
+    private final DownData leftData; 
+    private final DownData rightData;
+    private final ClearRow clearRow; 
 
     public CoopTickResult(boolean merged, DownData leftData, DownData rightData, ClearRow clearRow) {
         this.merged = merged;

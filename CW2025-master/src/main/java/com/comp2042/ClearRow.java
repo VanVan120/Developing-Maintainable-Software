@@ -25,10 +25,7 @@ public final class ClearRow {
     public int getScoreBonus() {
         return scoreBonus;
     }
-
-    /** Returns a copy of the absolute board row indices that were cleared (may be empty).
-     *  Rows are indexed in the same coordinate system as the board matrix (0 = top including hidden rows).
-     */
+    
     public int[] getClearedRows() {
         return clearedRows == null ? new int[0] : clearedRows.clone();
     }

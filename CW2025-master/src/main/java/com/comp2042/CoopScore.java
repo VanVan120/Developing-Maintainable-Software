@@ -4,20 +4,20 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.nio.file.StandardCopyOption;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 import javafx.beans.property.IntegerProperty;
 import javafx.beans.property.SimpleIntegerProperty;
 
-/**
- * Cooperative-mode scoring helper. Tracks current score and a persisted high score
- * specifically for cooperative battle mode (separate from single-player high score).
- */
 public final class CoopScore {
 
     private final IntegerProperty score = new SimpleIntegerProperty(0);
     private final IntegerProperty highScore = new SimpleIntegerProperty(0);
 
-    private static final String COOP_HIGHSCORE_FILE = System.getProperty("user.home") + java.io.File.separator + ".tetris_highscore_coop";
+    private static final Path COOP_HIGHSCORE_PATH = Paths.get(System.getProperty("user.home"), ".tetris_highscore_coop");
+    private static final Logger LOGGER = Logger.getLogger(CoopScore.class.getName());
 
     public CoopScore() {
         loadHighScore();
@@ -32,7 +32,6 @@ public final class CoopScore {
     public void add(int i) {
         if (i == 0) return;
         score.set(score.get() + i);
-        // update persisted high score if exceeded
         if (score.get() > highScore.get()) {
             highScore.set(score.get());
             saveHighScore();
@@ -45,10 +44,15 @@ public final class CoopScore {
 
     private void loadHighScore() {
         try {
-            Path p = Paths.get(COOP_HIGHSCORE_FILE);
+            Path p = COOP_HIGHSCORE_PATH;
             if (Files.exists(p)) {
                 String s = Files.readString(p, StandardCharsets.UTF_8).trim();
-                try { highScore.set(Integer.parseInt(s)); } catch (Exception ignored) { highScore.set(0); }
+                try {
+                    highScore.set(Integer.parseInt(s));
+                } catch (NumberFormatException nfe) {
+                    LOGGER.log(Level.WARNING, "Invalid coop highscore content, resetting to 0: " + s, nfe);
+                    highScore.set(0);
+                }
             } else {
                 highScore.set(0);
             }
@@ -56,9 +60,22 @@ public final class CoopScore {
     }
 
     private void saveHighScore() {
+        Path target = COOP_HIGHSCORE_PATH;
         try {
-            Path p = Paths.get(COOP_HIGHSCORE_FILE);
-            Files.writeString(p, Integer.toString(highScore.get()), StandardCharsets.UTF_8);
-        } catch (Exception ignored) {}
+            Path dir = target.getParent();
+            if (dir == null) dir = Paths.get(System.getProperty("user.home"));
+            // create parent dir if necessary
+            try { Files.createDirectories(dir); } catch (Exception e) { /* ignore - may already exist */ }
+            Path tmp = Files.createTempFile(dir, ".coop_hs", ".tmp");
+            Files.writeString(tmp, Integer.toString(highScore.get()), StandardCharsets.UTF_8);
+            try {
+                Files.move(tmp, target, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
+            } catch (java.nio.file.AtomicMoveNotSupportedException amnse) {
+                // fallback to non-atomic move
+                Files.move(tmp, target, StandardCopyOption.REPLACE_EXISTING);
+            }
+        } catch (Exception e) {
+            LOGGER.log(Level.WARNING, "Failed to save coop highscore to " + target + ": " + e.getMessage(), e);
+        }
     }
 }

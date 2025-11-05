@@ -11,7 +11,6 @@ public class RandomBrickGenerator implements BrickGenerator {
     private final List<Brick> brickList;
 
     private final Deque<Brick> nextBricks = new ArrayDeque<>();
-    // maintain a small buffer of upcoming bricks to stabilize preview behaviour
     private static final int BUFFER_SIZE = 4;
 
     public RandomBrickGenerator() {
@@ -23,11 +22,9 @@ public class RandomBrickGenerator implements BrickGenerator {
         brickList.add(new SBrick());
         brickList.add(new TBrick());
         brickList.add(new ZBrick());
-        // seed the deque using a 7-bag shuffle so the same block won't repeat frequently
         refillBagIfNeeded();
     }
 
-    /** Refill the internal deque by shuffling one 7-piece bag and appending it. */
     private void refillBagIfNeeded() {
         // keep adding full shuffled bags until we reach at least BUFFER_SIZE
         while (nextBricks.size() < BUFFER_SIZE) {

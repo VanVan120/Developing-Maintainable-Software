@@ -26,12 +26,7 @@ public class BrickRotator {
         currentShape = 0;
     }
 
-    /**
-     * Return the underlying Brick instance currently being rotated/used.
-     */
     public Brick getBrick() {
         return this.brick;
     }
-
-
 }
