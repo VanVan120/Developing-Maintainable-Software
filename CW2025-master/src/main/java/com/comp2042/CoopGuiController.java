@@ -398,17 +398,29 @@ public class CoopGuiController extends GuiController {
     if (v == null || rectangles2 == null) return;
     int offsetX = v.getxPosition();
     int offsetY = v.getyPosition() - 2;
-    javafx.geometry.Point2D pt = boardToPixelLocal(offsetX, offsetY);
-    double tx = Math.round(pt.getX());
-    double ty = Math.round(pt.getY());
-
-    try {
-        secondBrickPanel.setTranslateX(tx);
-        secondBrickPanel.setTranslateY(ty);
+    // Position second player's brick panel using precise scene coordinates when possible
+        try {
+        BoardView bv = getBoardView();
+        javafx.geometry.Point2D scenePt = null;
+        if (bv != null) {
+            // offsetY was computed as v.getyPosition() - 2; convert back to board row index
+            scenePt = bv.boardCellScenePoint(offsetX, offsetY + 2);
+        }
+        if (scenePt != null && secondBrickPanel != null && secondBrickPanel.getParent() != null) {
+            javafx.geometry.Point2D parentLocal = secondBrickPanel.getParent().sceneToLocal(scenePt);
+            secondBrickPanel.setTranslateX(Math.round(parentLocal.getX()));
+            secondBrickPanel.setTranslateY(Math.round(parentLocal.getY()));
+        } else {
+            javafx.geometry.Point2D pt = boardToPixelLocal(offsetX, offsetY);
+            secondBrickPanel.setTranslateX(Math.round(pt.getX()));
+            secondBrickPanel.setTranslateY(Math.round(pt.getY()));
+        }
     } catch (Exception ignored) {
-        // fallback
-        secondBrickPanel.setTranslateX(tx);
-        secondBrickPanel.setTranslateY(ty);
+        try {
+            javafx.geometry.Point2D pt = boardToPixelLocal(offsetX, offsetY);
+            secondBrickPanel.setTranslateX(Math.round(pt.getX()));
+            secondBrickPanel.setTranslateY(Math.round(pt.getY()));
+        } catch (Exception ignored2) {}
     }
         int[][] data = v.getBrickData();
         for (int i = 0; i < data.length; i++) {
@@ -440,14 +452,26 @@ public class CoopGuiController extends GuiController {
             if (conflict) { landingY = y - 1; break; }
             if (y == maxY) landingY = y;
         }
-    javafx.geometry.Point2D gpt = boardToPixelLocal(startX, landingY - 2);
-        try {
-            secondGhostPanel.setTranslateX(Math.round(gpt.getX()));
-            secondGhostPanel.setTranslateY(Math.round(gpt.getY()));
-        } catch (Exception ignored) {
+    try {
+    BoardView bv = getBoardView();
+    javafx.geometry.Point2D scenePt = null;
+    if (bv != null) scenePt = bv.boardCellScenePoint(startX, landingY);
+    if (scenePt != null && secondGhostPanel != null && secondGhostPanel.getParent() != null) {
+            javafx.geometry.Point2D parentLocal = secondGhostPanel.getParent().sceneToLocal(scenePt);
+            secondGhostPanel.setTranslateX(Math.round(parentLocal.getX()));
+            secondGhostPanel.setTranslateY(Math.round(parentLocal.getY()));
+        } else {
+            javafx.geometry.Point2D gpt = boardToPixelLocal(startX, landingY - 2);
             secondGhostPanel.setTranslateX(Math.round(gpt.getX()));
             secondGhostPanel.setTranslateY(Math.round(gpt.getY()));
         }
+    } catch (Exception ignored) {
+        try {
+            javafx.geometry.Point2D gpt = boardToPixelLocal(startX, landingY - 2);
+            secondGhostPanel.setTranslateX(Math.round(gpt.getX()));
+            secondGhostPanel.setTranslateY(Math.round(gpt.getY()));
+        } catch (Exception ignored2) {}
+    }
         for (int i = 0; i < shape.length; i++) for (int j = 0; j < shape[i].length; j++) {
             Rectangle r = ghostRectangles2[i][j];
             if (r == null) continue;

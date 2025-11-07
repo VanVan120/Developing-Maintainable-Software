@@ -11,7 +11,6 @@ import javafx.fxml.FXML;
 import javafx.fxml.Initializable;
 import javafx.scene.Group;
 import javafx.scene.canvas.Canvas;
-import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.effect.Reflection;
 import javafx.scene.effect.DropShadow;
 import javafx.scene.effect.BlurType;
@@ -118,6 +117,8 @@ public class GuiController implements Initializable {
     private final BooleanProperty countdownFinished = new SimpleBooleanProperty(false);
     private final BooleanProperty countdownStarted = new SimpleBooleanProperty(false);
     private SoundManager soundManager = null;
+    private BoardView boardView = null;
+    protected BoardView getBoardView() { return boardView; }
     private javafx.event.EventHandler<KeyEvent> globalPressHandler = null;
     private javafx.event.EventHandler<KeyEvent> globalReleaseHandler = null;
     private javafx.event.EventHandler<KeyEvent> escHandler = null;
@@ -788,200 +789,19 @@ public class GuiController implements Initializable {
     }
 
     public void initGameView(int[][] boardMatrix, ViewData brick) {
-        this.currentBoardMatrix = boardMatrix;
-        displayMatrix = new Rectangle[boardMatrix.length][boardMatrix[0].length];
-        for (int i = 2; i < boardMatrix.length; i++) {
-            for (int j = 0; j < boardMatrix[i].length; j++) {
-                Rectangle rectangle = new Rectangle(BRICK_SIZE, BRICK_SIZE);
-                rectangle.setFill(Color.TRANSPARENT);
-                displayMatrix[i][j] = rectangle;
-                gamePanel.add(rectangle, j, i - 2);
+        if (boardView == null) boardView = new BoardView(gamePanel, brickPanel, ghostPanel, bgCanvas);
+        boardView.initGameView(boardMatrix, brick);
+
+        timeLine = new Timeline(new KeyFrame(
+            Duration.millis(dropIntervalMs),
+            ae -> {
+                ae.consume();
+                moveDown(new MoveEvent(EventType.DOWN, EventSource.THREAD));
             }
-        }
-
-        rectangles = new Rectangle[brick.getBrickData().length][brick.getBrickData()[0].length];
-        // initial placement uses BRICK_SIZE; we'll compute exact cell size after layout
-        double initialCellW = BRICK_SIZE + gamePanel.getHgap();
-        double initialCellH = BRICK_SIZE + gamePanel.getVgap();
-        for (int i = 0; i < brick.getBrickData().length; i++) {
-            for (int j = 0; j < brick.getBrickData()[i].length; j++) {
-                Rectangle rectangle = new Rectangle(BRICK_SIZE, BRICK_SIZE);
-                rectangle.setFill(getFillColor(brick.getBrickData()[i][j]));
-                rectangles[i][j] = rectangle;
-                // position absolutely inside the brickPanel Pane
-                rectangle.setLayoutX(j * initialCellW);
-                rectangle.setLayoutY(i * initialCellH);
-                brickPanel.getChildren().add(rectangle);
-            }
-        }
-        // init ghost rectangles (same size as brick matrix)
-        ghostRectangles = new Rectangle[brick.getBrickData().length][brick.getBrickData()[0].length];
-        for (int i = 0; i < ghostRectangles.length; i++) {
-            for (int j = 0; j < ghostRectangles[i].length; j++) {
-                Rectangle r = new Rectangle(BRICK_SIZE, BRICK_SIZE);
-                r.setFill(Color.rgb(200, 200, 200, 0.25)); // translucent gray
-                r.setVisible(false);
-                ghostRectangles[i][j] = r;
-                r.setLayoutX(j * initialCellW);
-                r.setLayoutY(i * initialCellH);
-                ghostPanel.getChildren().add(r);
-            }
-        }
-
-        javafx.application.Platform.runLater(() -> {
-            try {
-                Rectangle ref = null;
-                for (int r = 2; r < displayMatrix.length; r++) {
-                    for (int c = 0; c < displayMatrix[r].length; c++) {
-                        if (displayMatrix[r][c] != null) {
-                            ref = displayMatrix[r][c];
-                            break;
-                        }
-                    }
-                    if (ref != null) break;
-                }
-                if (ref != null) {
-                    double measuredW = ref.getLayoutBounds().getWidth();
-                    double measuredH = ref.getLayoutBounds().getHeight();
-                    // include gaps
-                    cellW = measuredW + gamePanel.getHgap();
-                    cellH = measuredH + gamePanel.getVgap();
-                    try {
-                        javafx.geometry.Point2D scenePt = ref.localToScene(0.0, 0.0);
-                        if (brickPanel != null && brickPanel.getParent() != null) {
-                            javafx.geometry.Point2D localPt = brickPanel.getParent().sceneToLocal(scenePt);
-                            baseOffsetX = localPt.getX();
-                            baseOffsetY = localPt.getY();
-                        } else {
-                            baseOffsetX = ref.getBoundsInParent().getMinX();
-                            baseOffsetY = ref.getBoundsInParent().getMinY();
-                        }
-                    } catch (Exception e) {
-                        // fallback
-                        baseOffsetX = ref.getBoundsInParent().getMinX();
-                        baseOffsetY = ref.getBoundsInParent().getMinY();
-                    }
-                } else {
-                    cellW = initialCellW;
-                    cellH = initialCellH;
-                }
-            } catch (Exception ex) {
-                cellW = initialCellW;
-                cellH = initialCellH;
-            }
-            try {
-                if (bgCanvas != null) {
-                    double width = cellW * boardMatrix[0].length;
-                    double height = cellH * (boardMatrix.length - 2); // visible rows only
-                    bgCanvas.setWidth(Math.round(width));
-                    bgCanvas.setHeight(Math.round(height));
-                    GraphicsContext gc = bgCanvas.getGraphicsContext2D();
-                    gc.clearRect(0, 0, bgCanvas.getWidth(), bgCanvas.getHeight());
-                    gc.setFill(new javafx.scene.paint.LinearGradient(
-                        0, 0, 0, 1, true, javafx.scene.paint.CycleMethod.NO_CYCLE,
-                        new javafx.scene.paint.Stop[] {
-                            new javafx.scene.paint.Stop(0, javafx.scene.paint.Color.rgb(28,28,30,0.30)),
-                            new javafx.scene.paint.Stop(1, javafx.scene.paint.Color.rgb(12,12,14,0.48))
-                        }
-                    ));
-                    gc.fillRect(0, 0, bgCanvas.getWidth(), bgCanvas.getHeight());
-
-                    javafx.scene.paint.Color minorCol = javafx.scene.paint.Color.rgb(85, 90, 92, 0.60);
-
-                    // draw vertical lines
-                    for (int c = 0; c <= boardMatrix[0].length; c++) {
-                        double x = Math.round(c * cellW) + 0.5; // 0.5 to draw crisp 1px lines
-                        gc.setStroke(minorCol);
-                        gc.setLineWidth(1.0);
-                        gc.strokeLine(x, 0, x, bgCanvas.getHeight());
-                    }
-
-                    // draw horizontal lines
-                    int visibleRows = boardMatrix.length - 2;
-                    for (int r = 0; r <= visibleRows; r++) {
-                        double y = Math.round(r * cellH) + 0.5;
-                        // draw all lines with the same appearance so no standout divider exists
-                        gc.setStroke(minorCol);
-                        gc.setLineWidth(1.0);
-                        gc.strokeLine(0, y, bgCanvas.getWidth(), y);
-                    }
-
-                    // tiny intersection dots to aid visual alignment (very subtle)
-                    try {
-                        gc.setFill(javafx.scene.paint.Color.rgb(200,200,200,0.04));
-                        for (int r = 0; r <= visibleRows; r++) {
-                            double y = Math.round(r * cellH) + 0.5;
-                            for (int c = 0; c <= boardMatrix[0].length; c++) {
-                                double x = Math.round(c * cellW) + 0.5;
-                        // larger, more visible intersection dots
-                        gc.fillOval(x - 1.5, y - 1.5, 3.0, 3.0);
-                            }
-                        }
-                    } catch (Exception ignored) {}
-                }
-            } catch (Exception ignored) {}
-            // reposition brick and ghost rectangles to the measured grid
-            for (int i = 0; i < rectangles.length; i++) {
-                for (int j = 0; j < rectangles[i].length; j++) {
-                    Rectangle rect = rectangles[i][j];
-                    if (rect != null) {
-                        // snap to whole pixels to avoid fractional-pixel rendering differences on some DPIs
-                        rect.setLayoutX(Math.round(j * cellW));
-                        rect.setLayoutY(Math.round(i * cellH));
-                    }
-                }
-            }
-            for (int i = 0; i < ghostRectangles.length; i++) {
-                for (int j = 0; j < ghostRectangles[i].length; j++) {
-                    Rectangle rect = ghostRectangles[i][j];
-                    if (rect != null) {
-                        // snap ghost cells as well so their internal positions line up with the background grid
-                        rect.setLayoutX(Math.round(j * cellW));
-                        rect.setLayoutY(Math.round(i * cellH));
-                    }
-                }
-            }
-            // position the procedural canvas so it lines up with the grid origin
-            try {
-                    if (bgCanvas != null) {
-                    bgCanvas.setTranslateX(Math.round(baseOffsetX));
-                    bgCanvas.setTranslateY(Math.round(baseOffsetY));
-                }
-            } catch (Exception ignored) {}
-            // re-render nextBox using measured sizes so previews match the main board cells
-            try {
-                if (upcomingCache != null && !upcomingCache.isEmpty()) {
-                    showNextBricks(upcomingCache);
-                }
-            } catch (Exception ignored) {}
-            // ensure the falling brick is positioned correctly now that measurements are available
-            try {
-                if (brick != null) {
-                    refreshBrick(brick);
-                }
-            } catch (Exception ignored) {}
-
-            try {
-                if (nextBox != null) {
-                    double minW = Math.round(cellW * 4) + 24; // 4 columns + padding
-                    double minH = Math.round(cellH * 3 * 1.2) + 24; // 3 previews stacked + spacing
-                    nextBox.setMinWidth(minW);
-                    nextBox.setMinHeight(minH);
-                }
-            } catch (Exception ignored) {}
-        });
-
-
-    timeLine = new Timeline(new KeyFrame(
-        Duration.millis(dropIntervalMs),
-        ae -> {
-            ae.consume();
-            moveDown(new MoveEvent(EventType.DOWN, EventSource.THREAD));
-        }
-    ));
-    timeLine.setCycleCount(Timeline.INDEFINITE);
-    // initial ghost render - defer to run after measurement so baseOffset/cell size are initialized
-    javafx.application.Platform.runLater(() -> updateGhost(brick, currentBoardMatrix));
+        ));
+        timeLine.setCycleCount(Timeline.INDEFINITE);
+        // initial ghost render - defer to run after measurement so baseOffset/cell size are initialized
+        javafx.application.Platform.runLater(() -> updateGhost(brick, boardMatrix));
     }
 
     public void setMultiplayerExitToMenuHandler(Runnable handler) {
@@ -1153,6 +973,10 @@ public class GuiController implements Initializable {
     }
 
     private void updateGhost(ViewData brick, int[][] boardMatrix) {
+        if (boardView != null) {
+            boardView.updateGhost(brick, boardMatrix);
+            return;
+        }
         if (brick == null || boardMatrix == null) return;
         int startX = brick.getxPosition();
         int startY = brick.getyPosition();
@@ -1180,9 +1004,21 @@ public class GuiController implements Initializable {
         }
 
         javafx.geometry.Point2D pt = boardToPixel(startX, landingY - 2);
-            // snap to whole pixels (boardToPixel returns base pixel coordinates)
-            ghostPanel.setTranslateX(Math.round(pt.getX()));
-            ghostPanel.setTranslateY(Math.round(pt.getY()));
+            // convert board-local point into ghostPanel parent's local coords so ghost aligns with brickPanel
+            try {
+                javafx.geometry.Point2D scenePt = (gamePanel != null && gamePanel.getParent() != null) ? gamePanel.localToScene(pt) : pt;
+                if (ghostPanel != null && ghostPanel.getParent() != null) {
+                    javafx.geometry.Point2D parentLocal = ghostPanel.getParent().sceneToLocal(scenePt);
+                    ghostPanel.setTranslateX(Math.round(parentLocal.getX()));
+                    ghostPanel.setTranslateY(Math.round(parentLocal.getY()));
+                } else {
+                    ghostPanel.setTranslateX(Math.round(pt.getX()));
+                    ghostPanel.setTranslateY(Math.round(pt.getY()));
+                }
+            } catch (Exception ex) {
+                ghostPanel.setTranslateX(Math.round(pt.getX()));
+                ghostPanel.setTranslateY(Math.round(pt.getY()));
+            }
     
         for (int i = 0; i < shape.length; i++) {
             for (int j = 0; j < shape[i].length; j++) {
@@ -1263,7 +1099,7 @@ public class GuiController implements Initializable {
                     int val = shape[r][c];
                     if (val == 0) continue;
                     Rectangle rect = new Rectangle(pW, pH);
-                    rect.setFill(getFillColor(val));
+                    rect.setFill(BoardView.mapCodeToPaint(val));
                     rect.setLayoutX((c - minC) * pW);
                     rect.setLayoutY((r - minR) * pH);
                     rect.setArcHeight(6);
@@ -1277,62 +1113,37 @@ public class GuiController implements Initializable {
         return container;
     }
 
-    private Paint getFillColor(int i) {
-        Paint returnPaint;
-        switch (i) {
-            case 0:
-                returnPaint = Color.TRANSPARENT;
-                break;
-            case 1:
-                returnPaint = Color.AQUA;
-                break;
-            case 2:
-                returnPaint = Color.BLUEVIOLET;
-                break;
-            case 3:
-                returnPaint = Color.DARKGREEN;
-                break;
-            case 4:
-                returnPaint = Color.YELLOW;
-                break;
-            case 5:
-                returnPaint = Color.RED;
-                break;
-            case 6:
-                returnPaint = Color.BEIGE;
-                break;
-            case 7:
-                returnPaint = Color.BURLYWOOD;
-                break;
-            case 8:
-                // garbage rows - use a neutral grey so they're visually distinct
-                returnPaint = Color.DARKGRAY;
-                break;
-            default:
-                returnPaint = Color.WHITE;
-                break;
-        }
-        return returnPaint;
-    }
+    // color mapping delegated to BoardView.mapCodeToPaint(int)
 
     private void refreshBrick(ViewData brick) {
         this.currentViewData = brick;
         if (isPause.getValue() == Boolean.FALSE) {
-            doRefreshBrick(brick);
+            if (boardView != null) boardView.refreshBrick(brick); else doRefreshBrick(brick);
         }
     }
 
     private void doRefreshBrick(ViewData brick) {
+        if (boardView != null) { boardView.refreshBrick(brick); return; }
         if (brick == null) return;
         int offsetX = brick.getxPosition();
         int offsetY = brick.getyPosition() - 2;
 
         javafx.geometry.Point2D pt = boardToPixel(offsetX, offsetY);
-        double tx = Math.round(pt.getX());
-        double ty = Math.round(pt.getY());
-
-        brickPanel.setTranslateX(tx);
-        brickPanel.setTranslateY(ty);
+        // convert board-local point into brickPanel parent's local coords (keep fallback behavior)
+        try {
+            javafx.geometry.Point2D scenePt = (gamePanel != null && gamePanel.getParent() != null) ? gamePanel.localToScene(pt) : pt;
+            if (brickPanel != null && brickPanel.getParent() != null) {
+                javafx.geometry.Point2D parentLocal = brickPanel.getParent().sceneToLocal(scenePt);
+                brickPanel.setTranslateX(Math.round(parentLocal.getX()));
+                brickPanel.setTranslateY(Math.round(parentLocal.getY()));
+            } else {
+                brickPanel.setTranslateX(Math.round(pt.getX()));
+                brickPanel.setTranslateY(Math.round(pt.getY()));
+            }
+        } catch (Exception ex) {
+            brickPanel.setTranslateX(Math.round(pt.getX()));
+            brickPanel.setTranslateY(Math.round(pt.getY()));
+        }
 
         int[][] data = brick.getBrickData();
         for (int i = 0; i < data.length; i++) {
@@ -1350,12 +1161,14 @@ public class GuiController implements Initializable {
     }
 
     private javafx.geometry.Point2D boardToPixel(int boardX, int boardY) {
+        if (boardView != null) return boardView.boardToPixel(boardX, boardY);
         double x = baseOffsetX + (boardX * cellW);
         double y = baseOffsetY + (boardY * cellH);
         return new javafx.geometry.Point2D(x, y);
     }
     
     public void refreshGameBackground(int[][] board) {
+        if (boardView != null) { boardView.refreshGameBackground(board); return; }
         this.currentBoardMatrix = board;
         for (int i = 2; i < board.length; i++) {
             for (int j = 0; j < board[i].length; j++) {
@@ -1365,7 +1178,7 @@ public class GuiController implements Initializable {
     }
 
     private void setRectangleData(int color, Rectangle rectangle) {
-        rectangle.setFill(getFillColor(color));
+        rectangle.setFill(BoardView.mapCodeToPaint(color));
         rectangle.setArcHeight(9);
         rectangle.setArcWidth(9);
     }
@@ -1552,21 +1365,38 @@ public class GuiController implements Initializable {
                 int[] rows = clearRow.getClearedRows();
                 if (rows != null && rows.length > 0) {
                     // visual flash per cleared row and a board shake
+                    BoardView bv = getBoardView();
                     for (int r : rows) {
-                        double flashY = Math.round(baseOffsetY + (r - 2) * cellH);
-                        flashRow(flashY, cellW * displayMatrix[0].length, cellH);
+                        if (bv != null) {
+                            // get the scene point of the left-most cell of this row and convert into particlePane local space
+                            javafx.geometry.Point2D sceneLeft = bv.boardCellScenePoint(0, r);
+                            javafx.geometry.Point2D leftLocal = (particlePane != null && sceneLeft != null) ? particlePane.sceneToLocal(sceneLeft) : new javafx.geometry.Point2D(0,0);
+                            double width = bv.getCellWidth() * bv.getColumns();
+                            flashRowAt(Math.round(leftLocal.getX()), Math.round(leftLocal.getY()), width, bv.getCellHeight());
+                        } else {
+                            double flashY = Math.round(baseOffsetY + (r - 2) * cellH);
+                            // convert flash position from board (parent) coords into particlePane local coords
+                            javafx.geometry.Point2D flashLocal = boardCoordsToParticleLocal(Math.round(baseOffsetX), flashY);
+                            flashRowAt(Math.round(flashLocal.getX()), Math.round(flashLocal.getY()), cellW * displayMatrix[0].length, cellH);
+                        }
                     }
                     // shake the board once when rows are removed
                     shakeBoard();
                     // spawn per-cell falling square particles for each cleared cell
                     try { spawnRowClearParticles(clearRow); } catch (Exception ignored) {}
-                    // spawn a burst for each cleared row using its center Y coordinate
+                    // spawn a burst for each cleared row using its center in particlePane local coords
                     for (int r : rows) {
-                        // r is absolute board row index (0 = top including hidden rows)
-                        double centerY = Math.round(baseOffsetY + (r - 2 + 0.5) * cellH); // center of the row in visible coords
-                        // centerX => middle of the board horizontally
-                        double centerX = Math.round(baseOffsetX + (displayMatrix[0].length * 0.5) * cellW);
-                        spawnParticlesAt(centerX, centerY, v != null ? v.getBrickData() : null);
+                        if (bv != null) {
+                            int midCol = Math.max(0, bv.getColumns() / 2);
+                            javafx.geometry.Point2D sceneCenter = bv.boardCellScenePoint(midCol, r);
+                            javafx.geometry.Point2D centerLocal = (particlePane != null && sceneCenter != null) ? particlePane.sceneToLocal(sceneCenter) : new javafx.geometry.Point2D(0,0);
+                            spawnParticlesAt(centerLocal.getX(), centerLocal.getY(), v != null ? v.getBrickData() : null);
+                        } else {
+                            double centerY = Math.round(baseOffsetY + (r - 2 + 0.5) * cellH); // center of the row in visible coords
+                            double centerX = Math.round(baseOffsetX + (displayMatrix[0].length * 0.5) * cellW);
+                            javafx.geometry.Point2D centerLocal = boardCoordsToParticleLocal(centerX, centerY);
+                            spawnParticlesAt(centerLocal.getX(), centerLocal.getY(), v != null ? v.getBrickData() : null);
+                        }
                     }
                     return;
                 }
@@ -1574,6 +1404,45 @@ public class GuiController implements Initializable {
         } catch (Exception ignored) {}
         // fallback: spawn at brick landing position
         spawnExplosion(v);
+    }
+
+    // Convert coordinates expressed in the board's parent coordinate space into particlePane local coords
+    private javafx.geometry.Point2D boardCoordsToParticleLocal(double x, double y) {
+        javafx.geometry.Point2D parentPt = new javafx.geometry.Point2D(x, y);
+        javafx.geometry.Point2D scenePt = (brickPanel != null && brickPanel.getParent() != null)
+                ? brickPanel.getParent().localToScene(parentPt)
+                : parentPt;
+        return (particlePane != null) ? particlePane.sceneToLocal(scenePt) : scenePt;
+    }
+
+    // Show a brief flash rectangle using coordinates already in particlePane local space
+    protected void flashRowAt(double leftXLocal, double topYLocal, double width, double height) {
+        if (particlePane == null) return;
+        try {
+            Rectangle flash = new Rectangle(Math.round(width), Math.round(height));
+            flash.setTranslateX(Math.round(leftXLocal));
+            flash.setTranslateY(Math.round(topYLocal));
+            flash.setFill(Color.web("#ffffff"));
+            flash.setOpacity(0.0);
+            flash.setMouseTransparent(true);
+            particlePane.getChildren().add(flash);
+
+            FadeTransition in = new FadeTransition(Duration.millis(80), flash);
+            in.setFromValue(0.0);
+            in.setToValue(0.85);
+            FadeTransition out = new FadeTransition(Duration.millis(220), flash);
+            out.setFromValue(0.85);
+            out.setToValue(0.0);
+            out.setDelay(Duration.millis(80));
+            out.setOnFinished(new javafx.event.EventHandler<javafx.event.ActionEvent>() {
+                @Override
+                public void handle(javafx.event.ActionEvent event) {
+                    particlePane.getChildren().remove(flash);
+                }
+            });
+            in.play();
+            out.play();
+        } catch (Exception ignored) {}
     }
 
     // Spawn small square particles for each brick in the cleared rows that then fall down and fade out.
@@ -1584,13 +1453,19 @@ public class GuiController implements Initializable {
             if (rows == null || rows.length == 0) return;
             int cols = displayMatrix[0].length;
             for (int r : rows) {
+                BoardView bv = getBoardView();
                 // compute top-left Y for this board row (visible coords)
                 double rowTopY = Math.round(baseOffsetY + (r - 2) * cellH);
                 for (int c = 0; c < cols; c++) {
                     try {
-                        Rectangle boardCell = null;
-                        if (displayMatrix != null && displayMatrix.length > r && r >= 0) boardCell = displayMatrix[r][c];
-                        Paint fill = (boardCell != null) ? boardCell.getFill() : null;
+                        Paint fill = null;
+                        if (bv != null) {
+                            fill = bv.getCellFill(r, c);
+                        } else {
+                            Rectangle boardCell = null;
+                            if (displayMatrix != null && displayMatrix.length > r && r >= 0) boardCell = displayMatrix[r][c];
+                            fill = (boardCell != null) ? boardCell.getFill() : null;
+                        }
                         if (fill == null) continue;
                         if (fill == Color.TRANSPARENT) continue;
                         Color color = (fill instanceof Color) ? (Color) fill : Color.WHITE;
@@ -1607,21 +1482,36 @@ public class GuiController implements Initializable {
                             sq.setMouseTransparent(true);
 
                             // initial position: somewhere within the original brick cell
-                            double cellX = Math.round(baseOffsetX + c * cellW);
-                            double cellY = rowTopY;
-                            double jitterX = (Math.random() - 0.5) * (cellW * 0.4);
-                            double jitterY = (Math.random() - 0.5) * (cellH * 0.4);
-                            double startX = Math.round(cellX + cellW * 0.5 + jitterX - pw * 0.5);
-                            double startY = Math.round(cellY + cellH * 0.5 + jitterY - ph * 0.5);
-
-                            sq.setTranslateX(startX);
-                            sq.setTranslateY(startY);
+                            // compute a start point anchored to the exact display cell when possible
+                            javafx.geometry.Point2D local = null;
+                            if (bv != null) {
+                                javafx.geometry.Point2D sceneCell = bv.boardCellScenePoint(c, r);
+                                if (sceneCell != null) {
+                                    // add small jitter in parent space then convert to particle local
+                                    double jitterX = (Math.random() - 0.5) * (bv.getCellWidth() * 0.4);
+                                    double jitterY = (Math.random() - 0.5) * (bv.getCellHeight() * 0.4);
+                                    javafx.geometry.Point2D jitteredScene = new javafx.geometry.Point2D(sceneCell.getX() + bv.getCellWidth() * 0.5 + jitterX, sceneCell.getY() + bv.getCellHeight() * 0.5 + jitterY);
+                                    local = (particlePane != null) ? particlePane.sceneToLocal(jitteredScene) : jitteredScene;
+                                }
+                            }
+                            if (local == null) {
+                                double cellX = Math.round(baseOffsetX + c * cellW);
+                                double cellY = rowTopY;
+                                double jitterX = (Math.random() - 0.5) * (cellW * 0.4);
+                                double jitterY = (Math.random() - 0.5) * (cellH * 0.4);
+                                double startX = Math.round(cellX + cellW * 0.5 + jitterX - pw * 0.5);
+                                double startY = Math.round(cellY + cellH * 0.5 + jitterY - ph * 0.5);
+                                // convert starting position to particlePane local coordinates
+                                local = boardCoordsToParticleLocal(startX, startY);
+                            }
+                            sq.setTranslateX(local.getX());
+                            sq.setTranslateY(local.getY());
                             particlePane.getChildren().add(sq);
 
                             // falling distance (to bottom of scene or a generous amount)
                             double sceneHeight = 800.0;
                             try { if (gameBoard != null && gameBoard.getScene() != null) sceneHeight = gameBoard.getScene().getHeight(); } catch (Exception ignored) {}
-                            double fallBy = sceneHeight - startY + 80 + Math.random() * 120;
+                            double fallBy = sceneHeight - local.getY() + 80 + Math.random() * 120;
 
                             // duration variation (increased so particles fall longer and remain visible)
                             double durationMs = 2000 + Math.random() * 1500; // 2000..3500ms
@@ -1735,7 +1625,7 @@ public class GuiController implements Initializable {
             if (brickShape != null) {
                 // pick a random filled cell color from the brick shape
                 java.util.List<Paint> fills = new java.util.ArrayList<>();
-                for (int r = 0; r < brickShape.length; r++) for (int col = 0; col < brickShape[r].length; col++) if (brickShape[r][col] != 0) fills.add(getFillColor(brickShape[r][col]));
+                for (int r = 0; r < brickShape.length; r++) for (int col = 0; col < brickShape[r].length; col++) if (brickShape[r][col] != 0) fills.add(BoardView.mapCodeToPaint(brickShape[r][col]));
                 if (!fills.isEmpty()) p = fills.get((int)(Math.random() * fills.size()));
             }
             c.setFill(p);
