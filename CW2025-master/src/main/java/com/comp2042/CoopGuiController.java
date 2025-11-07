@@ -399,8 +399,8 @@ public class CoopGuiController extends GuiController {
     int offsetX = v.getxPosition();
     int offsetY = v.getyPosition() - 2;
     javafx.geometry.Point2D pt = boardToPixelLocal(offsetX, offsetY);
-    double tx = Math.round(pt.getX() + blockNudgeX);
-    double ty = Math.round(pt.getY() + blockNudgeY);
+    double tx = Math.round(pt.getX());
+    double ty = Math.round(pt.getY());
 
     try {
         secondBrickPanel.setTranslateX(tx);
@@ -805,8 +805,8 @@ public class CoopGuiController extends GuiController {
     }
 
     private javafx.geometry.Point2D boardToPixelLocal(int boardX, int boardY) {
-        double x = baseOffsetX + (boardX * cellW) + nudgeX;
-        double y = baseOffsetY + (boardY * cellH) + nudgeY;
+        double x = baseOffsetX + (boardX * cellW);
+        double y = baseOffsetY + (boardY * cellH);
         return new javafx.geometry.Point2D(x, y);
     }
 

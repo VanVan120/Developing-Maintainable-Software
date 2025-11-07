@@ -49,16 +49,10 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 
 import java.net.URL;
-import javafx.scene.media.Media;
-import javafx.scene.media.MediaPlayer;
-import javafx.scene.media.AudioClip;
 import javafx.scene.input.MouseEvent;
-import java.awt.Toolkit;
-import javax.sound.sampled.AudioSystem;
-import javax.sound.sampled.AudioInputStream;
 import java.util.ResourceBundle;
 import java.util.prefs.Preferences;
-import java.util.concurrent.atomic.AtomicInteger;
+ 
 
 public class GuiController implements Initializable {
 
@@ -70,46 +64,26 @@ public class GuiController implements Initializable {
     private static final double SCORE_BOX_OFFSET_X = 250.0;           
     private static final double SCORE_BOX_OFFSET_FROM_BOTTOM = 120.0; 
 
-    @FXML
-    protected GridPane gamePanel;
-    @FXML
-    protected BorderPane gameBoard;
-    @FXML
-    protected Pane brickPanel;
-    @FXML
-    protected Pane ghostPanel;
-    @FXML
-    protected Canvas bgCanvas;
-    @FXML
-    protected Group groupNotification;
-    @FXML
-    protected GameOverPanel gameOverPanel;
-    @FXML
-    protected Text scoreValue;
-    @FXML
-    protected Text highScoreValue;
-    @FXML
-    protected VBox scoreBox;
-    @FXML
-    protected javafx.scene.control.Button pauseBtn;
-    @FXML
-    protected VBox nextBox;
-    @FXML
-    protected VBox nextContent; 
-    @FXML
-    protected Rectangle gameBoardFrame;
-    @FXML
-    protected Rectangle nextBoxFrame;
-    @FXML
-    protected Pane particlePane;
-    @FXML
-    protected VBox timeBox;
-    @FXML
-    protected Text timeValue;
-    @FXML
-    protected VBox levelBox;
-    @FXML
-    protected Text levelValue;
+    @FXML protected GridPane gamePanel;
+    @FXML protected BorderPane gameBoard;
+    @FXML protected Pane brickPanel;
+    @FXML protected Pane ghostPanel;
+    @FXML protected Canvas bgCanvas;
+    @FXML protected Group groupNotification;
+    @FXML protected GameOverPanel gameOverPanel;
+    @FXML protected Text scoreValue;
+    @FXML protected Text highScoreValue;
+    @FXML protected VBox scoreBox;
+    @FXML protected javafx.scene.control.Button pauseBtn;
+    @FXML protected VBox nextBox;
+    @FXML protected VBox nextContent; 
+    @FXML protected Rectangle gameBoardFrame;
+    @FXML protected Rectangle nextBoxFrame;
+    @FXML protected Pane particlePane;
+    @FXML protected VBox timeBox;
+    @FXML protected Text timeValue;
+    @FXML protected VBox levelBox;
+    @FXML protected Text levelValue;
 
     protected java.util.List<com.comp2042.logic.bricks.Brick> upcomingCache = null;
     protected Rectangle[][] displayMatrix;
@@ -126,10 +100,6 @@ public class GuiController implements Initializable {
     protected double cellH = BRICK_SIZE;
     protected double baseOffsetX = 0;
     protected double baseOffsetY = 0;
-    protected double nudgeX = 0.0;
-    protected double nudgeY = 0.0;
-    protected double blockNudgeX = 0.0;
-    protected double blockNudgeY = 0.0;
     private boolean isMultiplayer = false;
     private boolean lastWasHardDrop = false;
     private boolean hardDropAllowed = true;
@@ -147,24 +117,11 @@ public class GuiController implements Initializable {
     private final BooleanProperty isGameOver = new SimpleBooleanProperty();
     private final BooleanProperty countdownFinished = new SimpleBooleanProperty(false);
     private final BooleanProperty countdownStarted = new SimpleBooleanProperty(false);
-    private AudioClip hoverClip = null;
-    private AudioClip clickClip = null;
-    private AudioClip hardDropClip = null;
-    private MediaPlayer singleplayerMusicPlayer = null;
-    private MediaPlayer gameOverMusicPlayer = null;
-    private MediaPlayer countdownMusicPlayer = null;
-    private javax.sound.sampled.Clip hoverClipFallback = null;
-    private javax.sound.sampled.Clip clickClipFallback = null;
-    private javax.sound.sampled.Clip hardDropClipFallback = null;
-    private javax.sound.sampled.Clip gameOverClipFallback = null;
-    private javax.sound.sampled.Clip countdownClipFallback = null;
+    private SoundManager soundManager = null;
     private javafx.event.EventHandler<KeyEvent> globalPressHandler = null;
     private javafx.event.EventHandler<KeyEvent> globalReleaseHandler = null;
     private javafx.event.EventHandler<KeyEvent> escHandler = null;
     private Scene attachedScene = null;
-    private static final AtomicInteger __INSTANCE_COUNTER = new AtomicInteger(0);
-    private final String controllerId = "Gui#" + __INSTANCE_COUNTER.incrementAndGet();
-    private boolean fallbackToBeep = true;
     private javafx.animation.Animation gameOverPulse = null;
     private KeyCode ctrlMoveLeft = null;
     private KeyCode ctrlMoveRight = null;
@@ -182,185 +139,37 @@ public class GuiController implements Initializable {
         gamePanel.requestFocus();
 
         try {
-            URL hoverUrl = getClass().getClassLoader().getResource("sounds/hover.wav");
-            if (hoverUrl != null) {
-                System.out.println("[GuiController] hover.wav resource URL=" + hoverUrl);
-                hoverClip = new AudioClip(hoverUrl.toExternalForm());
-                System.out.println("[GuiController] hoverClip created: " + hoverClip);
-            } else {
-                // try alternative lookup
-                URL hoverUrl2 = getClass().getResource("/sounds/hover.wav");
-                System.out.println("[GuiController] hover.wav not found via ClassLoader, try Class.getResource -> " + hoverUrl2);
-                if (hoverUrl2 != null) hoverClip = new AudioClip(hoverUrl2.toExternalForm());
-            }
+            soundManager = new SoundManager(getClass());
+            soundManager.init();
         } catch (Exception ex) {
-            System.err.println("[GuiController] failed to load hover.wav: " + ex);
-            ex.printStackTrace();
+            System.err.println("[GuiController] sound manager init failed: " + ex.getMessage());
         }
-        try {
-            URL clickUrl = getClass().getClassLoader().getResource("sounds/click.wav");
-            if (clickUrl != null) {
-                System.out.println("[GuiController] click.wav resource URL=" + clickUrl);
-                clickClip = new AudioClip(clickUrl.toExternalForm());
-                System.out.println("[GuiController] clickClip created: " + clickClip);
-            } else {
-                URL clickUrl2 = getClass().getResource("/sounds/click.wav");
-                System.out.println("[GuiController] click.wav not found via ClassLoader, try Class.getResource -> " + clickUrl2);
-                if (clickUrl2 != null) clickClip = new AudioClip(clickUrl2.toExternalForm());
-            }
-        } catch (Exception ex) {
-            System.err.println("[GuiController] failed to load click.wav: " + ex);
-            ex.printStackTrace();
-        }
-        // load hard-drop sound (optional). Place under src/main/resources/sounds/HardDrop.wav
-        try {
-            URL hdUrl = getClass().getClassLoader().getResource("sounds/HardDrop.wav");
-            if (hdUrl != null) {
-                System.out.println("[GuiController] HardDrop.wav resource URL=" + hdUrl);
-                hardDropClip = new AudioClip(hdUrl.toExternalForm());
-                System.out.println("[GuiController] hardDropClip created: " + hardDropClip);
-            } else {
-                URL hdUrl2 = getClass().getResource("/sounds/HardDrop.wav");
-                System.out.println("[GuiController] HardDrop.wav not found via ClassLoader, try Class.getResource -> " + hdUrl2);
-                if (hdUrl2 != null) hardDropClip = new AudioClip(hdUrl2.toExternalForm());
-            }
-        } catch (Exception ex) {
-            System.err.println("[GuiController] failed to load HardDrop.wav: " + ex);
-            ex.printStackTrace();
-        }
-
-        // If JavaFX AudioClip couldn't be created, try loading WAV using javax.sound.sampled as a robust fallback
-        try {
-            if (hoverClip == null) {
-                URL hoverUrl = getClass().getClassLoader().getResource("sounds/hover.wav");
-                if (hoverUrl == null) hoverUrl = getClass().getResource("/sounds/hover.wav");
-                if (hoverUrl != null) {
-                    try (AudioInputStream ais = AudioSystem.getAudioInputStream(hoverUrl)) {
-                        javax.sound.sampled.Clip c = AudioSystem.getClip();
-                        c.open(ais);
-                        hoverClipFallback = c;
-                        System.out.println("[GuiController] hoverClipFallback created");
-                    }
-                }
-            }
-        } catch (Exception ex) {
-            System.err.println("[GuiController] failed to create hover fallback clip: " + ex);
-            ex.printStackTrace();
-        }
-        try {
-            if (clickClip == null) {
-                URL clickUrl = getClass().getClassLoader().getResource("sounds/click.wav");
-                if (clickUrl == null) clickUrl = getClass().getResource("/sounds/click.wav");
-                if (clickUrl != null) {
-                    try (AudioInputStream ais2 = AudioSystem.getAudioInputStream(clickUrl)) {
-                        javax.sound.sampled.Clip c2 = AudioSystem.getClip();
-                        c2.open(ais2);
-                        clickClipFallback = c2;
-                        System.out.println("[GuiController] clickClipFallback created");
-                    }
-                }
-            }
-        } catch (Exception ex) {
-            System.err.println("[GuiController] failed to create click fallback clip: " + ex);
-            ex.printStackTrace();
-        }
-        try {
-            if (hardDropClip == null) {
-                URL hdUrl = getClass().getClassLoader().getResource("sounds/HardDrop.wav");
-                if (hdUrl == null) hdUrl = getClass().getResource("/sounds/HardDrop.wav");
-                if (hdUrl != null) {
-                    try (AudioInputStream ais3 = AudioSystem.getAudioInputStream(hdUrl)) {
-                        javax.sound.sampled.Clip c3 = AudioSystem.getClip();
-                        c3.open(ais3);
-                        hardDropClipFallback = c3;
-                        System.out.println("[GuiController] hardDropClipFallback created");
-                    }
-                }
-            }
-        } catch (Exception ex) {
-            System.err.println("[GuiController] failed to create hardDrop fallback clip: " + ex);
-            ex.printStackTrace();
-        }
-
-        // Apply current audio settings to loaded clips and listen for changes
-        try {
-            double masterVol = com.comp2042.AudioSettings.getMasterVolume();
-            double sfxVol = com.comp2042.AudioSettings.getSfxVolume();
-            double combined = masterVol * sfxVol;
-            try { if (hoverClip != null) hoverClip.setVolume(combined); } catch (Exception ignored) {}
-            try { if (clickClip != null) clickClip.setVolume(combined); } catch (Exception ignored) {}
-            try { if (hardDropClip != null) hardDropClip.setVolume(combined); } catch (Exception ignored) {}
-            // listen for runtime changes so UI adjusts immediately
-            try { com.comp2042.AudioSettings.masterProperty().addListener((obs, o, n) -> {
-                try { double c = com.comp2042.AudioSettings.getMasterVolume() * com.comp2042.AudioSettings.getSfxVolume(); if (hoverClip != null) hoverClip.setVolume(c); if (clickClip != null) clickClip.setVolume(c); if (hardDropClip != null) hardDropClip.setVolume(c); } catch (Exception ignored) {}
-            }); } catch (Exception ignored) {}
-            try { com.comp2042.AudioSettings.sfxProperty().addListener((obs, o, n) -> {
-                try { double c = com.comp2042.AudioSettings.getMasterVolume() * com.comp2042.AudioSettings.getSfxVolume(); if (hoverClip != null) hoverClip.setVolume(c); if (clickClip != null) clickClip.setVolume(c); if (hardDropClip != null) hardDropClip.setVolume(c); } catch (Exception ignored) {}
-            }); } catch (Exception ignored) {}
-            try { com.comp2042.AudioSettings.musicProperty().addListener((obs, o, n) -> {
-                try { double m = com.comp2042.AudioSettings.getMasterVolume() * com.comp2042.AudioSettings.getMusicVolume(); if (singleplayerMusicPlayer != null) singleplayerMusicPlayer.setVolume(m); if (countdownMusicPlayer != null) countdownMusicPlayer.setVolume(m); } catch (Exception ignored) {}
-            }); } catch (Exception ignored) {}
-        } catch (Exception ignored) {}
 
         // Attach generic sound handlers to commonly-interacted controls (pause button etc.)
-        try { if (pauseBtn != null) attachButtonSoundHandlers(pauseBtn); } catch (Exception ignored) {}
+        if (pauseBtn != null) attachButtonSoundHandlers(pauseBtn);
 
         // Start singleplayer background music once the countdown finishes (gameplay begins)
-        try {
-            countdownFinished.addListener((obs, oldV, newV) -> {
-                // reference unused params to satisfy static analyzers
-                java.util.Objects.requireNonNull(obs);
-                java.util.Objects.requireNonNull(oldV);
-                if (Boolean.TRUE.equals(newV)) {
-                    // Allow subclasses to control whether singleplayer music should auto-start
-                    if (!shouldStartSingleplayerMusic()) {
-                        System.out.println("[GuiController] countdown finished but singleplayer music suppressed by subclass or multiplayer mode; skipping singleplayer music");
-                        return;
-                    }
-                    try {
-                        URL mus = getClass().getClassLoader().getResource("sounds/Singleplayer.wav");
-                        if (mus == null) mus = getClass().getResource("/sounds/Singleplayer.wav");
-                        if (mus != null) {
-                            try {
-                                Media m = new Media(mus.toExternalForm());
-                                singleplayerMusicPlayer = new MediaPlayer(m);
-                                singleplayerMusicPlayer.setCycleCount(MediaPlayer.INDEFINITE);
-                                singleplayerMusicPlayer.setAutoPlay(true);
-                                // apply persisted audio settings (master * music)
-                                try { singleplayerMusicPlayer.setVolume(com.comp2042.AudioSettings.getMasterVolume() * com.comp2042.AudioSettings.getMusicVolume()); } catch (Exception ignored) {}
-                                singleplayerMusicPlayer.setOnError(() -> System.err.println("[GuiController] Singleplayer music error: " + singleplayerMusicPlayer.getError()));
-                                System.out.println("[GuiController] Singleplayer.wav loaded and playing: " + mus);
-                            } catch (Exception ex) {
-                                System.err.println("[GuiController] Failed to initialize singleplayer music: " + ex);
-                                ex.printStackTrace();
-                            }
-                        } else {
-                            System.out.println("[GuiController] Singleplayer.wav not found in resources (expected sounds/Singleplayer.wav)");
-                        }
-                    } catch (Exception ex) {
-                        System.err.println("[GuiController] Exception while loading singleplayer music: " + ex);
-                        ex.printStackTrace();
-                    }
-                }
-            });
-        } catch (Exception ignored) {}
+        countdownFinished.addListener((obs, oldV, newV) -> {
+            java.util.Objects.requireNonNull(obs);
+            java.util.Objects.requireNonNull(oldV);
+            if (Boolean.TRUE.equals(newV)) {
+                if (!shouldStartSingleplayerMusic()) return;
+                if (soundManager != null) soundManager.startSingleplayerMusic();
+            }
+        });
 
         // Stop singleplayer music when game is over
-        try {
-            isGameOver.addListener((obs, oldV, newV) -> {
-                // reference unused params to satisfy static analyzers
-                java.util.Objects.requireNonNull(obs);
-                java.util.Objects.requireNonNull(oldV);
-                if (Boolean.TRUE.equals(newV)) {
-                    // stop background looping music and play the game over tune once
-                    stopSingleplayerMusic();
-                    try { playGameOverMusic(); } catch (Exception ignored) {}
-                }
-            });
-        } catch (Exception ignored) {}
+        isGameOver.addListener((obs, oldV, newV) -> {
+            // reference unused params to satisfy static analyzers
+            java.util.Objects.requireNonNull(obs);
+            java.util.Objects.requireNonNull(oldV);
+            if (Boolean.TRUE.equals(newV)) {
+                // stop background looping music and play the game over tune once
+                stopSingleplayerMusic();
+                playGameOverMusic();
+            }
+        });
 
-    // Attach to the scene when available, otherwise listen for scene property
-        // Handlers are created once and stored so they can be removed later by cleanup().
         javafx.application.Platform.runLater(() -> {
             globalPressHandler = new javafx.event.EventHandler<KeyEvent>() {
                 @Override public void handle(KeyEvent keyEvent) { processKeyPressed(keyEvent); }
@@ -383,25 +192,23 @@ public class GuiController implements Initializable {
                 s.addEventHandler(KeyEvent.KEY_PRESSED, globalPressHandler);
                 s.addEventHandler(KeyEvent.KEY_RELEASED, globalReleaseHandler);
                 s.addEventHandler(KeyEvent.KEY_PRESSED, escHandler);
-                System.out.println("[" + controllerId + "] attached global handlers to scene=" + s.hashCode());
             } else {
                 gamePanel.sceneProperty().addListener(new javafx.beans.value.ChangeListener<>() {
                     @Override
                     public void changed(javafx.beans.value.ObservableValue<? extends javafx.scene.Scene> observable, javafx.scene.Scene oldScene, javafx.scene.Scene newScene) {
                         if (oldScene != null) {
-                            try { oldScene.removeEventHandler(KeyEvent.KEY_PRESSED, globalPressHandler); } catch (Exception ignored) {}
-                            try { oldScene.removeEventHandler(KeyEvent.KEY_RELEASED, globalReleaseHandler); } catch (Exception ignored) {}
-                            try { oldScene.removeEventHandler(KeyEvent.KEY_PRESSED, escHandler); } catch (Exception ignored) {}
-                            System.out.println("[" + controllerId + "] removed handlers from oldScene=" + oldScene.hashCode());
+                            oldScene.removeEventHandler(KeyEvent.KEY_PRESSED, globalPressHandler);
+                            oldScene.removeEventHandler(KeyEvent.KEY_RELEASED, globalReleaseHandler);
+                            oldScene.removeEventHandler(KeyEvent.KEY_PRESSED, escHandler);
+
                             // clear attachedScene if it referenced the oldScene
-                            try { if (attachedScene == oldScene) attachedScene = null; } catch (Exception ignored) {}
+                            if (attachedScene == oldScene) attachedScene = null;
                         }
                         if (newScene != null) {
                             newScene.addEventHandler(KeyEvent.KEY_PRESSED, globalPressHandler);
                             newScene.addEventHandler(KeyEvent.KEY_RELEASED, globalReleaseHandler);
                             newScene.addEventHandler(KeyEvent.KEY_PRESSED, escHandler);
                             attachedScene = newScene;
-                            System.out.println("[" + controllerId + "] attached global handlers to newScene=" + newScene.hashCode());
                         }
                     }
                 });
@@ -416,8 +223,6 @@ public class GuiController implements Initializable {
 
         // Center the gameBoard within the root Pane when the scene is ready
         javafx.application.Platform.runLater(() -> {
-            try {
-                // prefer binding to the immediate parent region so the board centers inside its container (works for SubScene or holder panes)
                 if (gameBoard.getParent() instanceof javafx.scene.layout.Region) {
                     javafx.scene.layout.Region parent = (javafx.scene.layout.Region) gameBoard.getParent();
                     gameBoard.layoutXProperty().bind(parent.widthProperty().subtract(gameBoard.widthProperty()).divide(2));
@@ -427,15 +232,11 @@ public class GuiController implements Initializable {
                     gameBoard.layoutXProperty().bind(gameBoard.getScene().widthProperty().subtract(gameBoard.widthProperty()).divide(2));
                     gameBoard.layoutYProperty().bind(gameBoard.getScene().heightProperty().subtract(gameBoard.heightProperty()).divide(2));
                 }
-            } catch (Exception ignored) {}
-
-            // Position score box a little to the left of the gameBoard so it stays near the board
             if (scoreBox != null) {
                 scoreBox.layoutXProperty().bind(gameBoard.layoutXProperty().subtract(SCORE_BOX_OFFSET_X));
                 scoreBox.layoutYProperty().bind(gameBoard.layoutYProperty().add(gameBoard.heightProperty().subtract(SCORE_BOX_OFFSET_FROM_BOTTOM)));
             }
 
-            // Bind the rectangle frames to the corresponding controls so they match size and position
             try {
                 if (gameBoardFrame != null && gameBoard != null) {
                     gameBoardFrame.widthProperty().bind(gameBoard.widthProperty());
@@ -450,7 +251,6 @@ public class GuiController implements Initializable {
                 }
             } catch (Exception ignored) {}
 
-            // Position timeBox to the left of the gameBoard (above scoreBox)
             if (timeBox != null && gameBoard != null) {
                 timeBox.layoutXProperty().bind(
                     javafx.beans.binding.Bindings.createDoubleBinding(
@@ -467,14 +267,10 @@ public class GuiController implements Initializable {
             }
 
             if (scoreValue != null) {
-                // remove the old smaller class and apply the high-score style class
                 scoreValue.getStyleClass().remove("scoreClass");
                 scoreValue.getStyleClass().add("highScoreClass");
             }
 
-            // brickPanel declared in FXML stacked over gamePanel; no runtime move required
-
-            // Center notification/group (game over) relative to gameBoard using bindings
             if (groupNotification.getParent() != null && gameBoard.getParent() != null) {
         groupNotification.layoutXProperty().bind(
             javafx.beans.binding.Bindings.createDoubleBinding(
@@ -548,18 +344,15 @@ public class GuiController implements Initializable {
     private boolean isPauseOverlayVisible = false;
 
     private void togglePauseOverlay() {
-        // If game is already over, ignore pause
         if (isGameOver.getValue() == Boolean.TRUE) return;
 
         if (!isPauseOverlayVisible) {
-            // show overlay
             javafx.application.Platform.runLater(() -> {
                 try {
                     Scene scene = gameBoard.getScene();
                     if (scene == null) return;
                     // create overlay root
                     pauseOverlay = new StackPane();
-                    // mark overlay with well-known id so multiplayer mode can remove duplicates
                     pauseOverlay.setId("GLOBAL_PAUSE_OVERLAY");
                     pauseOverlay.setPickOnBounds(true);
 
@@ -582,31 +375,26 @@ public class GuiController implements Initializable {
                     resume.getStyleClass().add("menu-button");
                     settings.getStyleClass().add("menu-button");
                     // attach hover/click sound handlers
-                    try { attachButtonSoundHandlers(resume); } catch (Exception ignored) {}
-                    try { attachButtonSoundHandlers(settings); } catch (Exception ignored) {}
+                    attachButtonSoundHandlers(resume);
+                    attachButtonSoundHandlers(settings);
 
                     resume.setOnAction(ev -> {
                         ev.consume();
                         hidePauseOverlay();
                     });
 
-                    // Settings: open controls overlay so user can rebind keys. In multiplayer this will
-                    // open the per-player controls overlay (left/right) and return to the pause menu
-                    // after Save/Cancel (does not resume the game).
                     settings.setOnAction(ev -> {
                         ev.consume();
                         try {
-                            // If a multiplayer coordinator (or local handler) registered a
-                            // multiplayer controls handler, prefer that overlay. This allows
-                            // modes that keep isMultiplayer=false (e.g. coop single-root UI)
-                            // to still present a two-player controls pane by registering
-                            // a handler without changing game-over behavior.
                             if (multiplayerRequestControlsHandler != null) {
-                                try { multiplayerRequestControlsHandler.accept(this); } catch (Exception ignored) {}
+                                try {
+                                    multiplayerRequestControlsHandler.accept(this);
+                                } catch (Exception ex) {
+                                    System.err.println("[GuiController] Exception in multiplayerRequestControlsHandler: " + ex);
+                                }
                                 return;
                             }
 
-                            // Load controls.fxml and present it as a modal overlay above the pause dialog.
                             URL loc = getClass().getClassLoader().getResource("controls.fxml");
                             if (loc == null) {
                                 hidePauseOverlay();
@@ -616,42 +404,33 @@ public class GuiController implements Initializable {
                             javafx.scene.layout.StackPane pane = fx.load();
                             com.comp2042.ControlsController cc = fx.getController();
 
-                            // initialize with current keys (use instance ctrl mappings or legacy defaults)
                             KeyCode left = ctrlMoveLeft != null ? ctrlMoveLeft : KeyCode.A;
                             KeyCode right = ctrlMoveRight != null ? ctrlMoveRight : KeyCode.D;
                             KeyCode rotate = ctrlRotate != null ? ctrlRotate : KeyCode.W;
                             KeyCode down = ctrlSoftDrop != null ? ctrlSoftDrop : KeyCode.S;
                             KeyCode hard = ctrlHardDrop != null ? ctrlHardDrop : KeyCode.SHIFT;
                             KeyCode sw = ctrlSwap != null ? ctrlSwap : KeyCode.C;
-                            try { cc.init(left, right, rotate, down, hard, sw); } catch (Exception ignored) {}
-                            // When embedded in multiplayer, show player-specific defaults and header so
-                            // the Default column reflects that player's typical keys (and Save persists
-                            // to mpLeft_/mpRight_ keys handled below).
+                            cc.init(left, right, rotate, down, hard, sw);
+
                             try {
                                 if (isMultiplayer && multiplayerPlayerId != null) {
                                     if ("left".equalsIgnoreCase(multiplayerPlayerId)) {
-                                        // Left player defaults: A,D, W, S, SHIFT, swap=Q
                                         cc.setDefaultKeys(KeyCode.A, KeyCode.D, KeyCode.W, KeyCode.S, KeyCode.SHIFT, KeyCode.Q);
                                         cc.setHeaderText("Left Player Controls");
                                     } else if ("right".equalsIgnoreCase(multiplayerPlayerId)) {
-                                        // Right player defaults: Numpad (4=left, 6=right, 8=rotate/up, 5=soft-drop), SPACE, swap=C
                                         cc.setDefaultKeys(KeyCode.NUMPAD4, KeyCode.NUMPAD6, KeyCode.NUMPAD8, KeyCode.NUMPAD5, KeyCode.SPACE, KeyCode.C);
                                         cc.setHeaderText("Right Player Controls");
                                     } else {
-                                        // fallback to generic in-game defaults
                                         cc.setDefaultKeys(KeyCode.A, KeyCode.D, KeyCode.W, KeyCode.S, KeyCode.SHIFT, KeyCode.C);
                                         cc.setHeaderText("In-Game Controls");
                                     }
                                 } else {
-                                    // single-player defaults
                                     cc.setDefaultKeys(KeyCode.A, KeyCode.D, KeyCode.W, KeyCode.S, KeyCode.SHIFT, KeyCode.C);
                                     cc.setHeaderText("In-Game Controls");
                                 }
                             } catch (Exception ignored) {}
-                            // hide the embedded controller's own action buttons so we only show the top-bar Save/Cancel
-                            try { cc.hideActionButtons(); } catch (Exception ignored) {}
-                            try { cc.setHeaderText("In-Game Controls"); } catch (Exception ignored) {}
-                            // create overlay container
+                            cc.hideActionButtons();
+                            cc.setHeaderText("In-Game Controls");
                             StackPane overlay = new StackPane();
                             overlay.setStyle("-fx-padding:0;");
                             Rectangle dark2 = new Rectangle();
@@ -674,8 +453,8 @@ public class GuiController implements Initializable {
                             javafx.scene.control.Button btnSave2 = new javafx.scene.control.Button("Save");
                             btnCancel2.getStyleClass().add("menu-button"); btnSave2.getStyleClass().add("menu-button");
                             // attach sounds for these action buttons
-                            try { attachButtonSoundHandlers(btnCancel2); } catch (Exception ignored) {}
-                            try { attachButtonSoundHandlers(btnSave2); } catch (Exception ignored) {}
+                            attachButtonSoundHandlers(btnCancel2);
+                            attachButtonSoundHandlers(btnSave2);
                             actionBox.getChildren().addAll(btnCancel2, btnSave2);
                             BorderPane topBar = new BorderPane();
                             topBar.setLeft(header);
@@ -690,23 +469,19 @@ public class GuiController implements Initializable {
                             btnCancel2.setOnAction(ev2 -> {
                                 ev2.consume();
                                 // remove this controls overlay and restore pause overlay visibility
-                                try {
-                                    if (overlay.getParent() instanceof javafx.scene.layout.Pane) {
-                                        javafx.scene.layout.Pane root = (javafx.scene.layout.Pane) overlay.getParent();
-                                        root.getChildren().remove(overlay);
-                                    }
-                                } catch (Exception ignored) {}
+                                if (overlay.getParent() instanceof javafx.scene.layout.Pane) {
+                                    javafx.scene.layout.Pane root = (javafx.scene.layout.Pane) overlay.getParent();
+                                    root.getChildren().remove(overlay);
+                                }
                                 // restore any previously-hidden pause overlay nodes
-                                try {
-                                    Object o = overlay.getProperties().get("hiddenPauseNodes");
-                                    if (o instanceof java.util.List<?>) {
-                                        for (Object n : (java.util.List<?>) o) {
-                                            if (n instanceof javafx.scene.Node) ((javafx.scene.Node) n).setVisible(true);
-                                        }
+                                Object o = overlay.getProperties().get("hiddenPauseNodes");
+                                if (o instanceof java.util.List<?>) {
+                                    for (Object n : (java.util.List<?>) o) {
+                                        if (n instanceof javafx.scene.Node) ((javafx.scene.Node) n).setVisible(true);
                                     }
-                                } catch (Exception ignored) {}
+                                }
                                 // ensure the pause overlay flag is correct so UI remains paused
-                                try { isPauseOverlayVisible = true; isPause.setValue(Boolean.TRUE); } catch (Exception ignored) {}
+                                isPauseOverlayVisible = true; isPause.setValue(Boolean.TRUE);
                             });
 
                             btnSave2.setOnAction(ev2 -> {
@@ -757,44 +532,34 @@ public class GuiController implements Initializable {
                                     }
                                 } catch (Exception ignored) {}
                                 // remove overlay and restore pause overlay nodes
-                                try {
-                                    if (overlay.getParent() instanceof javafx.scene.layout.Pane) {
-                                        javafx.scene.layout.Pane root = (javafx.scene.layout.Pane) overlay.getParent();
-                                        root.getChildren().remove(overlay);
+                                if (overlay.getParent() instanceof javafx.scene.layout.Pane) {
+                                    javafx.scene.layout.Pane root = (javafx.scene.layout.Pane) overlay.getParent();
+                                    root.getChildren().remove(overlay);
+                                }
+                                Object o2 = overlay.getProperties().get("hiddenPauseNodes");
+                                if (o2 instanceof java.util.List<?>) {
+                                    for (Object n : (java.util.List<?>) o2) {
+                                        if (n instanceof javafx.scene.Node) ((javafx.scene.Node) n).setVisible(true);
                                     }
-                                } catch (Exception ignored) {}
-                                try {
-                                    Object o = overlay.getProperties().get("hiddenPauseNodes");
-                                    if (o instanceof java.util.List<?>) {
-                                        for (Object n : (java.util.List<?>) o) {
-                                            if (n instanceof javafx.scene.Node) ((javafx.scene.Node) n).setVisible(true);
-                                        }
-                                    }
-                                } catch (Exception ignored) {}
-                                try { isPauseOverlayVisible = true; isPause.setValue(Boolean.TRUE); } catch (Exception ignored) {}
+                                }
+                                isPauseOverlayVisible = true; isPause.setValue(Boolean.TRUE);
                             });
 
                             overlay.getChildren().addAll(dark2, container);
-                            // hide the pause overlay (it remains in memory) and show controls overlay
-                            try {
-                                // add overlay to scene root
-                                if (sceneLocal != null && sceneLocal.getRoot() instanceof javafx.scene.layout.Pane) {
-                                    javafx.scene.layout.Pane root = (javafx.scene.layout.Pane) sceneLocal.getRoot();
-                                    // Instead of removing the pause overlay, hide it so state remains consistent
-                                    try {
-                                        java.util.List<javafx.scene.Node> hidden = new java.util.ArrayList<>();
-                                        for (javafx.scene.Node n : root.getChildren()) {
-                                            if (n != null && "GLOBAL_PAUSE_OVERLAY".equals(n.getId())) {
-                                                n.setVisible(false);
-                                                hidden.add(n);
-                                            }
-                                        }
-                                        // store hidden nodes so we can restore them when controls overlay closes
-                                        overlay.getProperties().put("hiddenPauseNodes", hidden);
-                                    } catch (Exception ignored) {}
-                                    root.getChildren().add(overlay);
+                            if (sceneLocal != null && sceneLocal.getRoot() instanceof javafx.scene.layout.Pane) {
+                                javafx.scene.layout.Pane root = (javafx.scene.layout.Pane) sceneLocal.getRoot();
+                                // Instead of removing the pause overlay, hide it so state remains consistent
+                                java.util.List<javafx.scene.Node> hidden = new java.util.ArrayList<>();
+                                for (javafx.scene.Node n : root.getChildren()) {
+                                    if (n != null && "GLOBAL_PAUSE_OVERLAY".equals(n.getId())) {
+                                        n.setVisible(false);
+                                        hidden.add(n);
+                                    }
                                 }
-                            } catch (Exception ignored) {}
+                                // store hidden nodes so we can restore them when controls overlay closes
+                                overlay.getProperties().put("hiddenPauseNodes", hidden);
+                                root.getChildren().add(overlay);
+                            }
 
                         } catch (Exception ex) {
                             // fallback: just close pause overlay
@@ -830,22 +595,16 @@ public class GuiController implements Initializable {
                         groupNotification.getChildren().add(pauseOverlay);
                     }
 
-                    // stop gameplay timeline and block input
-                    try { if (timeLine != null) timeLine.pause(); } catch (Exception ignored) {}
-                        // pause clock and remember elapsed time so we don't count paused duration
-                        try {
-                            if (clockTimeline != null && clockTimeline.getStatus() == Timeline.Status.RUNNING) {
-                                // capture elapsed so far
-                                pausedElapsedMs = System.currentTimeMillis() - startTimeMs;
-                                clockTimeline.pause();
-                            }
-                        } catch (Exception ignored) {}
+                    if (timeLine != null) timeLine.pause();
+                    if (clockTimeline != null && clockTimeline.getStatus() == Timeline.Status.RUNNING) {
+                        pausedElapsedMs = System.currentTimeMillis() - startTimeMs;
+                        clockTimeline.pause();
+                    }
                     isPause.setValue(Boolean.TRUE);
                     isPauseOverlayVisible = true;
-                    // notify multiplayer coordinator (if any) that this player paused
-                    try {
-                        if (!suppressMultiplayerPauseNotify && multiplayerPauseHandler != null) multiplayerPauseHandler.accept(Boolean.TRUE);
-                    } catch (Exception ignored) {}
+                    if (!suppressMultiplayerPauseNotify && multiplayerPauseHandler != null) {
+                        try { multiplayerPauseHandler.accept(Boolean.TRUE); } catch (Exception ex) { System.err.println("[GuiController] multiplayerPauseHandler threw: " + ex); }
+                    }
                 } catch (Exception ignored) {}
             });
         } else {
@@ -857,82 +616,62 @@ public class GuiController implements Initializable {
         javafx.application.Platform.runLater(() -> {
             try {
                 // remove any existing global pause overlays from the scene root or groupNotification
-                try {
-                    Scene scene = gameBoard.getScene();
-                    if (scene != null && scene.getRoot() instanceof javafx.scene.layout.Pane) {
-                        javafx.scene.layout.Pane root = (javafx.scene.layout.Pane) scene.getRoot();
-                        java.util.List<javafx.scene.Node> toRemove = new java.util.ArrayList<>();
-                        for (javafx.scene.Node n : root.getChildren()) {
-                            if (n != null && "GLOBAL_PAUSE_OVERLAY".equals(n.getId())) toRemove.add(n);
-                        }
-                        root.getChildren().removeAll(toRemove);
+                Scene scene = gameBoard.getScene();
+                if (scene != null && scene.getRoot() instanceof javafx.scene.layout.Pane) {
+                    javafx.scene.layout.Pane root = (javafx.scene.layout.Pane) scene.getRoot();
+                    java.util.List<javafx.scene.Node> toRemove = new java.util.ArrayList<>();
+                    for (javafx.scene.Node n : root.getChildren()) {
+                        if (n != null && "GLOBAL_PAUSE_OVERLAY".equals(n.getId())) toRemove.add(n);
                     }
-                } catch (Exception ignored) {}
-                try {
-                    if (groupNotification != null) {
-                        java.util.List<javafx.scene.Node> toRemove2 = new java.util.ArrayList<>();
-                        for (javafx.scene.Node n : groupNotification.getChildren()) {
-                            if (n != null && "GLOBAL_PAUSE_OVERLAY".equals(n.getId())) toRemove2.add(n);
-                        }
-                        groupNotification.getChildren().removeAll(toRemove2);
+                    root.getChildren().removeAll(toRemove);
+                }
+                if (groupNotification != null) {
+                    java.util.List<javafx.scene.Node> toRemove2 = new java.util.ArrayList<>();
+                    for (javafx.scene.Node n : groupNotification.getChildren()) {
+                        if (n != null && "GLOBAL_PAUSE_OVERLAY".equals(n.getId())) toRemove2.add(n);
                     }
-                } catch (Exception ignored) {}
+                    groupNotification.getChildren().removeAll(toRemove2);
+                }
                 pauseOverlay = null;
                 // resume timeline and input
-                try { if (timeLine != null) timeLine.play(); } catch (Exception ignored) {}
+                if (timeLine != null) timeLine.play();
                 isPause.setValue(Boolean.FALSE);
                 isPauseOverlayVisible = false;
                 // notify multiplayer coordinator (if any) that this player resumed
-                try {
-                    if (!suppressMultiplayerPauseNotify && multiplayerPauseHandler != null) multiplayerPauseHandler.accept(Boolean.FALSE);
-                } catch (Exception ignored) {}
-                // resume clock but account for paused elapsed time
-                try {
-                    // startClock uses pausedElapsedMs to resume without counting paused duration
-                    startClock();
-                } catch (Exception ignored) {}
-                // restore keyboard focus so Scene-level handlers continue receiving key events
-                try { gamePanel.requestFocus(); } catch (Exception ignored) {}
+                if (!suppressMultiplayerPauseNotify && multiplayerPauseHandler != null) {
+                    try { multiplayerPauseHandler.accept(Boolean.FALSE); } catch (Exception ex) { System.err.println("[GuiController] multiplayerPauseHandler threw: " + ex); }
+                }
+                startClock();
+                gamePanel.requestFocus();
             } catch (Exception ignored) {}
         });
     }
 
-    /**
-     * Remove any scene-level key handlers that this controller installed.
-     * Subclasses may override onSceneDetach() to remove any filters they installed.
-     */
     private void detachSceneKeyHandlers() {
         try {
             javafx.application.Platform.runLater(() -> {
-                System.out.println("[" + controllerId + "] detachSceneKeyHandlers invoked");
+                
                 try {
                     if (gamePanel != null && gamePanel.getScene() != null) {
                         javafx.scene.Scene s = gamePanel.getScene();
-                        System.out.println("[" + controllerId + "] removing handlers from scene=" + s.hashCode());
-                        try { if (globalPressHandler != null) s.removeEventHandler(KeyEvent.KEY_PRESSED, globalPressHandler); } catch (Exception ignored) {}
-                        try { if (globalReleaseHandler != null) s.removeEventHandler(KeyEvent.KEY_RELEASED, globalReleaseHandler); } catch (Exception ignored) {}
-                        try { if (escHandler != null) s.removeEventHandler(KeyEvent.KEY_PRESSED, escHandler); } catch (Exception ignored) {}
+                        
+                        if (globalPressHandler != null) s.removeEventHandler(KeyEvent.KEY_PRESSED, globalPressHandler);
+                        if (globalReleaseHandler != null) s.removeEventHandler(KeyEvent.KEY_RELEASED, globalReleaseHandler);
+                        if (escHandler != null) s.removeEventHandler(KeyEvent.KEY_PRESSED, escHandler);
                     }
                     // give subclasses a chance to remove their own filters
-                    try { onSceneDetach(); System.out.println("[" + controllerId + "] onSceneDetach completed"); } catch (Exception ignored) {}
+                    try { onSceneDetach(); } catch (Exception ex) { System.err.println("[GuiController] onSceneDetach threw: " + ex); }
                 } catch (Exception ignored) {}
             });
         } catch (Exception ignored) {}
     }
 
-    /**
-     * Hook for subclasses to remove any scene filters or other resources when this view is torn down.
-     */
     protected void onSceneDetach() {
-        // default no-op; subclasses (e.g., CoopGuiController) can override
     }
 
-    /**
-     * Perform a best-effort cleanup of long-lived resources before the scene root is replaced.
-     */
     public void cleanup() {
         try {
-            System.out.println("[" + controllerId + "] cleanup called");
+            
             // stop timelines
             try { if (timeLine != null) timeLine.stop(); } catch (Exception ignored) {}
             try { if (clockTimeline != null) clockTimeline.stop(); } catch (Exception ignored) {}
@@ -942,59 +681,42 @@ public class GuiController implements Initializable {
             try { stopCountdownMusic(); } catch (Exception ignored) {}
             // detach handlers and allow subclasses to remove filters
             try { detachSceneKeyHandlers(); } catch (Exception ignored) {}
-            System.out.println("[" + controllerId + "] cleanup finished");
+            
         } catch (Exception ignored) {}
     }
 
-    // Key processing helpers attached to the Scene to ensure they receive events
     private void processKeyPressed(KeyEvent keyEvent) {
-        // When running in cooperative GUI, the CoopGuiController installs its own
-        // scene-level filters and should fully handle keys. Prevent the base
-        // single-player handler from running for coop mode to avoid duplicate
-        // processing (e.g., WASD affecting both players).
         try { if (this instanceof CoopGuiController) return; } catch (Exception ignored) {}
 
         if (isPause.getValue() == Boolean.FALSE && isGameOver.getValue() == Boolean.FALSE) {
             KeyCode code = keyEvent.getCode();
             boolean handled = false;
-            // Handle each action independently. If a custom key is configured for the
-            // action, honor it; otherwise fall back to the legacy key set for that action.
-            // This prevents a partially-configured custom mapping (some null ctrl* values)
-            // from disabling all legacy keys.
 
-            // Move Left
             if ((ctrlMoveLeft != null && code == ctrlMoveLeft) || (ctrlMoveLeft == null && (code == KeyCode.LEFT || code == KeyCode.A))) {
                 refreshBrick(eventListener.onLeftEvent(new MoveEvent(EventType.LEFT, EventSource.USER)));
                 handled = true;
             }
-            // Move Right
             else if ((ctrlMoveRight != null && code == ctrlMoveRight) || (ctrlMoveRight == null && (code == KeyCode.RIGHT || code == KeyCode.D))) {
                 refreshBrick(eventListener.onRightEvent(new MoveEvent(EventType.RIGHT, EventSource.USER)));
                 handled = true;
             }
-            // Rotate
             else if ((ctrlRotate != null && code == ctrlRotate) || (ctrlRotate == null && (code == KeyCode.UP || code == KeyCode.W))) {
                 refreshBrick(eventListener.onRotateEvent(new MoveEvent(EventType.ROTATE, EventSource.USER)));
                 handled = true;
             }
-            // Soft Drop
             else if ((ctrlSoftDrop != null && code == ctrlSoftDrop) || (ctrlSoftDrop == null && (code == KeyCode.DOWN || code == KeyCode.S))) {
                 if (timeLine != null) timeLine.setRate(SOFT_DROP_RATE);
                 moveDown(new MoveEvent(EventType.DOWN, EventSource.USER));
                 handled = true;
             }
-            // Hard Drop (only when explicitly configured OR when legacy keys are pressed and no custom hard-drop exists)
             else if ((ctrlHardDrop != null && code == ctrlHardDrop) || (ctrlHardDrop == null && (code == KeyCode.SPACE || code == KeyCode.SHIFT))) {
-                // Respect the hard-drop enable setting: if disabled, ignore hard-drop keys
                 if (hardDropAllowed) {
                     lastWasHardDrop = true;
                     hardDrop();
                     handled = true;
                 } else {
-                    // explicitly do nothing; leave handled=false so other key handling (if any) can proceed
                 }
             }
-            // Swap key (always respect explicit swap mapping)
             if (!handled && ctrlSwap != null && code == ctrlSwap) {
                 try { if (eventListener != null) eventListener.onSwapEvent(); } catch (Exception ignored) {}
                 handled = true;
@@ -1006,10 +728,6 @@ public class GuiController implements Initializable {
         }
     }
 
-    /**
-     * Hard drop the current piece to the bottom (like repeated DOWN presses).
-     * This calls the model via eventListener.onDownEvent and updates UI until the piece lands.
-     */
     private void hardDrop() {
         if (isPause.getValue() == Boolean.FALSE && isGameOver.getValue() == Boolean.FALSE && eventListener != null) {
             // temporarily speed up timeline to normal while performing hard drop
@@ -1027,7 +745,6 @@ public class GuiController implements Initializable {
                     groupNotification.getChildren().add(notificationPanel);
                     notificationPanel.showScore(groupNotification.getChildren());
                 }
-                // update view
                 refreshBrick(v);
                     // if clearRow is non-null it means the piece could not move and was merged -> landing occurred
                     if (d.getClearRow() != null) {
@@ -1111,10 +828,8 @@ public class GuiController implements Initializable {
             }
         }
 
-        // After layout, measure actual cell size from the background rectangles and reposition overlays
         javafx.application.Platform.runLater(() -> {
             try {
-                // find a reference rectangle from displayMatrix (first visible row)
                 Rectangle ref = null;
                 for (int r = 2; r < displayMatrix.length; r++) {
                     for (int c = 0; c < displayMatrix[r].length; c++) {
@@ -1131,7 +846,6 @@ public class GuiController implements Initializable {
                     // include gaps
                     cellW = measuredW + gamePanel.getHgap();
                     cellH = measuredH + gamePanel.getVgap();
-                    // compute the actual top-left origin of the first visible cell using scene->local conversion
                     try {
                         javafx.geometry.Point2D scenePt = ref.localToScene(0.0, 0.0);
                         if (brickPanel != null && brickPanel.getParent() != null) {
@@ -1155,7 +869,6 @@ public class GuiController implements Initializable {
                 cellW = initialCellW;
                 cellH = initialCellH;
             }
-            // draw procedural background grid on the canvas so it exactly matches measured cell sizes
             try {
                 if (bgCanvas != null) {
                     double width = cellW * boardMatrix[0].length;
@@ -1163,10 +876,7 @@ public class GuiController implements Initializable {
                     bgCanvas.setWidth(Math.round(width));
                     bgCanvas.setHeight(Math.round(height));
                     GraphicsContext gc = bgCanvas.getGraphicsContext2D();
-                    // clear
                     gc.clearRect(0, 0, bgCanvas.getWidth(), bgCanvas.getHeight());
-                    // draw a subtle inner panel and a clearer grid
-                    // inner translucent background slightly lighter so grid lines contrast better
                     gc.setFill(new javafx.scene.paint.LinearGradient(
                         0, 0, 0, 1, true, javafx.scene.paint.CycleMethod.NO_CYCLE,
                         new javafx.scene.paint.Stop[] {
@@ -1176,15 +886,11 @@ public class GuiController implements Initializable {
                     ));
                     gc.fillRect(0, 0, bgCanvas.getWidth(), bgCanvas.getHeight());
 
-                    // minor grid lines (brighter for gameplay clarity)
                     javafx.scene.paint.Color minorCol = javafx.scene.paint.Color.rgb(85, 90, 92, 0.60);
-                    // major grid lines previously were brighter (divider). Use same color as minor to avoid a strong divider
-                    // majorCol intentionally same as minor to avoid a strong divider
 
                     // draw vertical lines
                     for (int c = 0; c <= boardMatrix[0].length; c++) {
                         double x = Math.round(c * cellW) + 0.5; // 0.5 to draw crisp 1px lines
-                        // draw all lines with the same appearance so no standout divider exists
                         gc.setStroke(minorCol);
                         gc.setLineWidth(1.0);
                         gc.strokeLine(x, 0, x, bgCanvas.getHeight());
@@ -1238,8 +944,8 @@ public class GuiController implements Initializable {
             // position the procedural canvas so it lines up with the grid origin
             try {
                     if (bgCanvas != null) {
-                    bgCanvas.setTranslateX(Math.round(baseOffsetX + nudgeX));
-                    bgCanvas.setTranslateY(Math.round(baseOffsetY + nudgeY));
+                    bgCanvas.setTranslateX(Math.round(baseOffsetX));
+                    bgCanvas.setTranslateY(Math.round(baseOffsetY));
                 }
             } catch (Exception ignored) {}
             // re-render nextBox using measured sizes so previews match the main board cells
@@ -1254,8 +960,7 @@ public class GuiController implements Initializable {
                     refreshBrick(brick);
                 }
             } catch (Exception ignored) {}
-            // ensure nextBox has a minimum size so the frame is visible. Visual styling is handled
-            // by CSS and the Rectangle frame nodes to avoid compositing artifacts.
+
             try {
                 if (nextBox != null) {
                     double minW = Math.round(cellW * 4) + 24; // 4 columns + padding
@@ -1279,34 +984,20 @@ public class GuiController implements Initializable {
     javafx.application.Platform.runLater(() -> updateGhost(brick, currentBoardMatrix));
     }
 
-    /**
-     * Set a handler that the embedded GUI should call when the user requests to return to
-     * the Main Menu while running inside a multiplayer coordinator. The coordinator should
-     * perform any necessary cleanup (stop shared music players) and navigate the scene.
-     */
     public void setMultiplayerExitToMenuHandler(Runnable handler) {
         this.multiplayerExitToMenuHandler = handler;
     }
 
-    /**
-     * Start a countdown overlay (e.g. 3,2,1,Start) then begin the game timeline and clock.
-     * This leaves the board visible but frozen until the countdown completes.
-     */
     public void startCountdown(int seconds) {
         if (seconds <= 0) seconds = 3;
-        // capture the high score snapshot at the start of this game so we can compare at game over
         try { prevHighBeforeGame = highScore; } catch (Exception ignored) {}
-    // prevent any user input until countdown completes
         isPause.setValue(Boolean.TRUE);
-    // mark countdown as not finished yet
-    countdownFinished.setValue(Boolean.FALSE);
-        // mark countdown as not started yet
+        countdownFinished.setValue(Boolean.FALSE);
         try { countdownStarted.setValue(Boolean.FALSE); } catch (Exception ignored) {}
         final Text countdown = new Text();
         countdown.getStyleClass().add("gameOverStyle");
         countdown.setStyle("-fx-font-size: 96px; -fx-fill: yellow; -fx-stroke: black; -fx-stroke-width:2;");
 
-        // ensure panels are hidden during countdown even if view data isn't available yet
         try {
             javafx.application.Platform.runLater(() -> {
                 try {
@@ -1316,7 +1007,6 @@ public class GuiController implements Initializable {
             });
         } catch (Exception ignored) {}
 
-        // realign visible falling brick to match ghost position (if available) while paused
         try {
             if (this.currentViewData != null && this.currentBoardMatrix != null) {
                 // refresh positions using cached view data so the visible block matches the ghost
@@ -1331,7 +1021,7 @@ public class GuiController implements Initializable {
                         if (brickPanel != null) brickPanel.setVisible(false);
                         if (ghostPanel != null) ghostPanel.setVisible(false);
                         // debug: print both translate positions so we can compare
-                        System.out.println("DEBUG ALIGN: brick translate=(" + brickPanel.getTranslateX() + "," + brickPanel.getTranslateY() + ") ghost translate=(" + ghostPanel.getTranslateX() + "," + ghostPanel.getTranslateY() + ")");
+                        
                     } catch (Exception ignored) {}
                 });
             }
@@ -1407,9 +1097,7 @@ public class GuiController implements Initializable {
                     isPause.setValue(Boolean.FALSE);
                     // signal that countdown completed and gameplay started
                     try { countdownFinished.setValue(Boolean.TRUE); } catch (Exception ignored) {}
-                    // restore brick position (in case we snapped it to ghost during countdown)
                     try { if (currentViewData != null) doRefreshBrick(currentViewData); } catch (Exception ignored) {}
-                    // restore visibility of brick and ghost after countdown
                     javafx.application.Platform.runLater(() -> {
                         try {
                             if (brickPanel != null) brickPanel.setVisible(true);
@@ -1431,37 +1119,21 @@ public class GuiController implements Initializable {
     cd.playFromStart();
     }
 
-    /**
-     * Observable property that becomes true when the start countdown finishes and gameplay begins.
-     */
     public BooleanProperty countdownFinishedProperty() {
         return countdownFinished;
     }
 
-    /**
-     * Observable property that becomes true when the start countdown visuals/music have begun.
-     * Coordinators can listen to this to start a single shared countdown audio for multiplayer.
-     */
     public BooleanProperty countdownStartedProperty() {
         return countdownStarted;
     }
 
-    /**
-     * Expose the game-over property so external coordinators (multiplayer) can listen
-     * for when this player's board becomes game over.
-     */
     public BooleanProperty isGameOverProperty() {
         return isGameOver;
     }
 
-    /**
-     * Adjust the automatic drop interval (milliseconds) used by the game timeline.
-     * Call before starting the game to affect falling speed.
-     */
     public void setDropIntervalMs(int ms) {
         if (ms <= 0) return;
         this.dropIntervalMs = ms;
-        // if timeline already exists, recreate it with new interval
         try {
             boolean running = false;
             if (timeLine != null) {
@@ -1480,15 +1152,12 @@ public class GuiController implements Initializable {
         } catch (Exception ignored) {}
     }
 
-    // compute landing position and update ghostPanel visibility/translate
     private void updateGhost(ViewData brick, int[][] boardMatrix) {
         if (brick == null || boardMatrix == null) return;
         int startX = brick.getxPosition();
         int startY = brick.getyPosition();
         int[][] shape = brick.getBrickData();
-        // simulate dropping: find the smallest y >= startY such that intersectForGhost becomes true
         int landingY = startY;
-        // Determine effective brick height (ignore trailing empty rows at bottom)
         int effectiveBrickHeight = shape.length;
         for (int i = shape.length - 1; i >= 0; i--) {
             boolean rowHas = false;
@@ -1502,29 +1171,7 @@ public class GuiController implements Initializable {
         for (int y = startY; y <= maxY; y++) {
             boolean conflict = MatrixOperations.intersectForGhost(boardMatrix, shape, startX, y);
             if (conflict) {
-                // diagnose which cell caused the conflict for debugging
-                String reason = "unknown";
-                outer:
-                for (int i = 0; i < shape.length; i++) {
-                    for (int j = 0; j < shape[i].length; j++) {
-                        if (shape[i][j] == 0) continue;
-                        int tY = y + i;
-                        int tX = startX + j;
-                        if (tX < 0 || tX >= boardMatrix[0].length) {
-                            reason = "horizontal OOB at (" + tX + "," + tY + ")";
-                            break outer;
-                        }
-                        if (tY >= boardMatrix.length) {
-                            reason = "below board at (" + tX + "," + tY + ")";
-                            break outer;
-                        }
-                        if (tY >= 0 && boardMatrix[tY][tX] != 0) {
-                            reason = "filled cell at (" + tX + "," + tY + ")";
-                            break outer;
-                        }
-                    }
-                }
-                System.out.println("ghost conflict at trialY=" + y + " reason=" + reason);
+                // conflict detected while computing ghost landing position
                 landingY = y - 1;
                 break;
             }
@@ -1532,18 +1179,11 @@ public class GuiController implements Initializable {
             if (y == maxY) landingY = y;
         }
 
-        // place ghostPanel at landingY (account for hidden rows)
-        // use measured cell size (cellW/cellH) computed after layout so background tiles and cells align
-        // use helper to convert board coords (visible rows) to pixels
         javafx.geometry.Point2D pt = boardToPixel(startX, landingY - 2);
-            // snap to whole pixels (boardToPixel already includes nudge)
+            // snap to whole pixels (boardToPixel returns base pixel coordinates)
             ghostPanel.setTranslateX(Math.round(pt.getX()));
             ghostPanel.setTranslateY(Math.round(pt.getY()));
-    System.out.println("updateGhost start=(" + startX + "," + startY + ") landingY=" + landingY + " translate=(" + pt.getX() + "," + pt.getY() + ")");
-
-        // update ghost rectangles visibility to match shape
-        // Update ghost rectangle visibility. If the mapped board row < 2 (hidden area) or out of horizontal range,
-        // hide that ghost cell to avoid overlap with already placed bricks or showing above the view.
+    
         for (int i = 0; i < shape.length; i++) {
             for (int j = 0; j < shape[i].length; j++) {
                 Rectangle r = ghostRectangles[i][j];
@@ -1555,46 +1195,30 @@ public class GuiController implements Initializable {
                 int boardY = landingY + i; // absolute board row
                 int boardX = startX + j;
                 boolean visible = true;
-                // hide if horizontal out-of-range
                 if (boardX < 0 || boardX >= boardMatrix[0].length) visible = false;
-                // hide if above the visible area (hidden rows)
                 if (boardY < 2) visible = false;
-                // hide if overlapping an existing cell (safety)
                 if (boardY >= 0 && boardY < boardMatrix.length && boardMatrix[boardY][boardX] != 0) visible = false;
                 r.setVisible(visible);
             }
         }
     }
 
-    /**
-     * Render up to three upcoming bricks in the right-hand preview VBox.
-     * This uses a smaller preview cell size (half the normal cellW) so previews fit comfortably.
-     */
     public void showNextBricks(java.util.List<com.comp2042.logic.bricks.Brick> upcoming) {
     if (nextContent == null) return;
     nextContent.getChildren().clear();
         if (upcoming == null) return;
-        // store cache so we can re-render once actual measured sizes are available
         upcomingCache = new java.util.ArrayList<>(upcoming);
-        // Delegate the actual construction to a helper so external callers can reuse the same visuals
         javafx.scene.layout.VBox built = buildNextPreview(upcoming);
         if (built != null) {
             nextContent.getChildren().addAll(built.getChildren());
         }
     }
 
-    /**
-     * Build a VBox containing the next-brick preview visuals for a given upcoming list.
-     * This returns a standalone node which can be embedded either into the internal nextContent
-     * or into an external container (used by multiplayer ScoreBattle layout where embedded nextBox
-     * may be clipped inside a SubScene).
-     */
     public javafx.scene.layout.VBox buildNextPreview(java.util.List<com.comp2042.logic.bricks.Brick> upcoming) {
         javafx.scene.layout.VBox container = new javafx.scene.layout.VBox(8);
         container.setAlignment(Pos.TOP_CENTER);
         if (upcoming == null || upcoming.isEmpty()) return container;
 
-        // Use the same cell size as the main board so preview blocks match approximately.
         double pW = Math.max(4.0, cellW);
         double pH = Math.max(4.0, cellH);
 
@@ -1692,38 +1316,24 @@ public class GuiController implements Initializable {
     }
 
     private void refreshBrick(ViewData brick) {
-        // always cache the most recent view data so other UI flows can realign if needed
         this.currentViewData = brick;
         if (isPause.getValue() == Boolean.FALSE) {
             doRefreshBrick(brick);
         }
     }
 
-    // Internal UI update extracted so it can be invoked even when paused (for alignment)
     private void doRefreshBrick(ViewData brick) {
         if (brick == null) return;
         int offsetX = brick.getxPosition();
-        int offsetY = brick.getyPosition() - 2; // account for hidden rows
+        int offsetY = brick.getyPosition() - 2;
 
-        // Compute integer-aligned pixel positions using unified conversion helper
         javafx.geometry.Point2D pt = boardToPixel(offsetX, offsetY);
-        double tx = Math.round(pt.getX() + blockNudgeX);
-        double ty = Math.round(pt.getY() + blockNudgeY);
+        double tx = Math.round(pt.getX());
+        double ty = Math.round(pt.getY());
 
-        // Debug: print board->pixel conversion inputs and outputs for diagnosis
-        System.out.printf("DBG POS: baseOffset=(%.3f,%.3f) cell=(%.3f,%.3f) boardOffset=(%d,%d) -> pixel=(%.3f,%.3f) rounded=(%.1f,%.1f)%n",
-                baseOffsetX, baseOffsetY, cellW, cellH, offsetX, offsetY, pt.getX(), pt.getY(), tx, ty);
-
-        // Snap brick panel to integer pixel positions
         brickPanel.setTranslateX(tx);
         brickPanel.setTranslateY(ty);
 
-        System.out.printf(
-            "refreshBrick view(x,y)=%d,%d -> translate=(%.1f,%.1f)%n",
-            brick.getxPosition(), brick.getyPosition(), tx, ty
-        );
-
-        // Update brick cell rectangles
         int[][] data = brick.getBrickData();
         for (int i = 0; i < data.length; i++) {
             for (int j = 0; j < data[i].length; j++) {
@@ -1731,21 +1341,17 @@ public class GuiController implements Initializable {
                 int val = data[i][j];
                 setRectangleData(val, r);
                 r.setVisible(val != 0);
-                // Optional: pixel snap individual rects (extra precision on high DPI)
                 r.setLayoutX(Math.round(j * cellW));
                 r.setLayoutY(Math.round(i * cellH));
             }
         }
 
-        // Update ghost alignment
         updateGhost(brick, currentBoardMatrix);
     }
 
-    // convert board coordinates (visible-origin) to pixel coordinates using measured baseOffset and cell sizes
-    // boardX, boardY should be coordinates already adjusted to visible rows (i.e. y = boardRow - 2 when needed)
     private javafx.geometry.Point2D boardToPixel(int boardX, int boardY) {
-        double x = baseOffsetX + (boardX * cellW) + nudgeX;
-        double y = baseOffsetY + (boardY * cellH) + nudgeY;
+        double x = baseOffsetX + (boardX * cellW);
+        double y = baseOffsetY + (boardY * cellH);
         return new javafx.geometry.Point2D(x, y);
     }
     
@@ -1764,141 +1370,23 @@ public class GuiController implements Initializable {
         rectangle.setArcWidth(9);
     }
 
-    // ---------- UI sound helpers ----------
     private void attachButtonSoundHandlers(javafx.scene.control.Button btn) {
         if (btn == null) return;
-        try {
-            btn.addEventHandler(MouseEvent.MOUSE_ENTERED, e -> { e.getSource().toString(); playHoverSound(); });
-            // mouse press for immediate click feedback
-            btn.addEventHandler(MouseEvent.MOUSE_PRESSED, e -> { e.getSource().toString(); playClickSound(); });
-            // also listen for action events (keyboard activation)
-            btn.addEventHandler(javafx.event.ActionEvent.ACTION, e -> { e.getSource().toString(); playClickSound(); });
-        } catch (Exception ignored) {}
+        btn.addEventHandler(MouseEvent.MOUSE_ENTERED, e -> { if (soundManager != null) { try { soundManager.playHoverSound(); } catch (Exception ignored) {} } });
+        // mouse press for immediate click feedback
+        btn.addEventHandler(MouseEvent.MOUSE_PRESSED, e -> { if (soundManager != null) { try { soundManager.playClickSound(); } catch (Exception ignored) {} } });
+        // also listen for action events (keyboard activation)
+        btn.addEventHandler(javafx.event.ActionEvent.ACTION, e -> { if (soundManager != null) { try { soundManager.playClickSound(); } catch (Exception ignored) {} } });
     }
 
-    private void playHoverSound() {
-        try {
-            if (hoverClip != null) {
-                System.out.println("[GuiController] playHoverSound: playing hoverClip");
-                hoverClip.play();
-            } else {
-                System.out.println("[GuiController] playHoverSound: hoverClip is null");
-                if (hoverClipFallback != null) {
-                    // play fallback clip (reset to start)
-                    try {
-                        new Thread(() -> {
-                            try {
-                                synchronized (hoverClipFallback) {
-                                    hoverClipFallback.stop();
-                                    hoverClipFallback.setFramePosition(0);
-                                    hoverClipFallback.start();
-                                }
-                            } catch (Exception ex) { System.err.println("[GuiController] failed to play hoverClipFallback: " + ex); }
-                        }, "hover-sound").start();
-                    } catch (Exception ex) { System.err.println("[GuiController] hover fallback play exception: " + ex); }
-                } else if (fallbackToBeep) Toolkit.getDefaultToolkit().beep();
-            }
-        } catch (Exception ex) {
-            System.err.println("[GuiController] Exception while playing hoverClip: " + ex);
-            ex.printStackTrace();
-        }
-    }
-
-    private void playClickSound() {
-        try {
-            if (clickClip != null) {
-                System.out.println("[GuiController] playClickSound: playing clickClip");
-                clickClip.play();
-            } else {
-                System.out.println("[GuiController] playClickSound: clickClip is null");
-                if (clickClipFallback != null) {
-                    try {
-                        new Thread(() -> {
-                            try {
-                                synchronized (clickClipFallback) {
-                                    clickClipFallback.stop();
-                                    clickClipFallback.setFramePosition(0);
-                                    clickClipFallback.start();
-                                }
-                            } catch (Exception ex) { System.err.println("[GuiController] failed to play clickClipFallback: " + ex); }
-                        }, "click-sound").start();
-                    } catch (Exception ex) { System.err.println("[GuiController] click fallback play exception: " + ex); }
-                } else if (fallbackToBeep) Toolkit.getDefaultToolkit().beep();
-            }
-        } catch (Exception ex) {
-            System.err.println("[GuiController] Exception while playing clickClip: " + ex);
-            ex.printStackTrace();
-        }
-    }
-
-    /**
-     * Play the hard-drop sound effect (one-shot). Prefers JavaFX AudioClip but falls back to javax.sound Clip.
-     */
     protected void playHardDropSound() {
-        try {
-            if (hardDropClip != null) {
-                System.out.println("[GuiController] playHardDropSound: playing hardDropClip");
-                hardDropClip.play();
-            } else {
-                System.out.println("[GuiController] playHardDropSound: hardDropClip is null");
-                if (hardDropClipFallback != null) {
-                    try {
-                        new Thread(() -> {
-                            try {
-                                synchronized (hardDropClipFallback) {
-                                    hardDropClipFallback.stop();
-                                    hardDropClipFallback.setFramePosition(0);
-                                    hardDropClipFallback.start();
-                                }
-                            } catch (Exception ex) { System.err.println("[GuiController] failed to play hardDropClipFallback: " + ex); }
-                        }, "harddrop-sound").start();
-                    } catch (Exception ex) { System.err.println("[GuiController] harddrop fallback play exception: " + ex); }
-                } else if (fallbackToBeep) Toolkit.getDefaultToolkit().beep();
-            }
-        } catch (Exception ex) {
-            System.err.println("[GuiController] Exception while playing hardDrop sound: " + ex);
-            ex.printStackTrace();
-        }
+        try { if (soundManager != null) soundManager.playHardDropSound(); } catch (Exception ignored) {}
     }
 
-    /**
-     * Play the GameOver music once. Prefer JavaFX MediaPlayer; fallback to javax.sound Clip.
-     */
     private void playGameOverMusic() {
+        if (isMultiplayer) return;
         try {
-            // In multiplayer modes the coordinator is responsible for any shared music.
-            // Prevent embedded GuiControllers from playing their own GameOver tune to avoid duplicates.
-            try { if (isMultiplayer) { System.out.println("[GuiController] multiplayer mode - skip local GameOver music"); return; } } catch (Exception ignored) {}
-            // avoid multiple instances
-            stopGameOverMusic();
-            URL mus = getClass().getClassLoader().getResource("sounds/GameOver.wav");
-            if (mus == null) mus = getClass().getResource("/sounds/GameOver.wav");
-            if (mus != null) {
-                try {
-                    Media m = new Media(mus.toExternalForm());
-                    gameOverMusicPlayer = new MediaPlayer(m);
-                    gameOverMusicPlayer.setCycleCount(1);
-                    gameOverMusicPlayer.setAutoPlay(true);
-                    gameOverMusicPlayer.setOnError(() -> System.err.println("[GuiController] GameOver music error: " + gameOverMusicPlayer.getError()));
-                    return;
-                } catch (Exception ex) {
-                    System.err.println("[GuiController] Failed to initialize GameOver MediaPlayer: " + ex);
-                    ex.printStackTrace();
-                }
-                // fallback to javax.sound
-                try (AudioInputStream ais = AudioSystem.getAudioInputStream(mus)) {
-                    javax.sound.sampled.Clip c = AudioSystem.getClip();
-                    c.open(ais);
-                    gameOverClipFallback = c;
-                    gameOverClipFallback.setFramePosition(0);
-                    gameOverClipFallback.start();
-                    return;
-                } catch (Exception ex2) {
-                    System.err.println("[GuiController] GameOver fallback clip failed: " + ex2);
-                }
-            }
-            // last resort: beep
-            if (fallbackToBeep) Toolkit.getDefaultToolkit().beep();
+            if (soundManager != null) soundManager.playGameOverMusic();
         } catch (Exception ex) {
             System.err.println("[GuiController] Exception while playing GameOver music: " + ex);
             ex.printStackTrace();
@@ -1906,58 +1394,14 @@ public class GuiController implements Initializable {
     }
 
     private void stopGameOverMusic() {
-        try {
-            if (gameOverMusicPlayer != null) {
-                try { gameOverMusicPlayer.stop(); } catch (Exception ignored) {}
-                try { gameOverMusicPlayer.dispose(); } catch (Exception ignored) {}
-                gameOverMusicPlayer = null;
-            }
-            if (gameOverClipFallback != null) {
-                try { gameOverClipFallback.stop(); } catch (Exception ignored) {}
-                try { gameOverClipFallback.close(); } catch (Exception ignored) {}
-                gameOverClipFallback = null;
-            }
-        } catch (Exception ignored) {}
+        if (soundManager == null) return;
+        try { soundManager.stopGameOverMusic(); } catch (Exception ignored) {}
     }
 
-    /**
-     * Play the countdown music while the start countdown is active.
-     * Skips playback for embedded multiplayer GUIs to avoid duplicate sound.
-     */
     private void playCountdownMusic() {
+        if (isMultiplayer) return;
         try {
-            try { if (isMultiplayer) { System.out.println("[GuiController] multiplayer mode - skip local Countdown music"); return; } } catch (Exception ignored) {}
-            // avoid multiple instances
-            stopCountdownMusic();
-            URL mus = getClass().getClassLoader().getResource("sounds/Countdown.wav");
-            if (mus == null) mus = getClass().getResource("/sounds/Countdown.wav");
-            if (mus != null) {
-                try {
-                    Media m = new Media(mus.toExternalForm());
-                    countdownMusicPlayer = new MediaPlayer(m);
-                    countdownMusicPlayer.setCycleCount(MediaPlayer.INDEFINITE);
-                    countdownMusicPlayer.setAutoPlay(true);
-                    // apply persisted audio settings (master * music)
-                    try { countdownMusicPlayer.setVolume(com.comp2042.AudioSettings.getMasterVolume() * com.comp2042.AudioSettings.getMusicVolume()); } catch (Exception ignored) {}
-                    countdownMusicPlayer.setOnError(() -> System.err.println("[GuiController] Countdown music error: " + countdownMusicPlayer.getError()));
-                    return;
-                } catch (Exception ex) {
-                    System.err.println("[GuiController] Failed to initialize Countdown MediaPlayer: " + ex);
-                    ex.printStackTrace();
-                }
-                // fallback to javax.sound
-                try (AudioInputStream ais = AudioSystem.getAudioInputStream(mus)) {
-                    javax.sound.sampled.Clip c = AudioSystem.getClip();
-                    c.open(ais);
-                    countdownClipFallback = c;
-                    countdownClipFallback.setFramePosition(0);
-                    countdownClipFallback.loop(javax.sound.sampled.Clip.LOOP_CONTINUOUSLY);
-                    return;
-                } catch (Exception ex2) {
-                    System.err.println("[GuiController] Countdown fallback clip failed: " + ex2);
-                }
-            }
-            if (fallbackToBeep) Toolkit.getDefaultToolkit().beep();
+            if (soundManager != null) soundManager.playCountdownMusic();
         } catch (Exception ex) {
             System.err.println("[GuiController] Exception while playing Countdown music: " + ex);
             ex.printStackTrace();
@@ -1965,25 +1409,12 @@ public class GuiController implements Initializable {
     }
 
     private void stopCountdownMusic() {
-        try {
-            if (countdownMusicPlayer != null) {
-                try { countdownMusicPlayer.stop(); } catch (Exception ignored) {}
-                try { countdownMusicPlayer.dispose(); } catch (Exception ignored) {}
-                countdownMusicPlayer = null;
-            }
-        } catch (Exception ignored) {}
-        try {
-            if (countdownClipFallback != null) {
-                try { countdownClipFallback.stop(); } catch (Exception ignored) {}
-                try { countdownClipFallback.close(); } catch (Exception ignored) {}
-                countdownClipFallback = null;
-            }
-        } catch (Exception ignored) {}
+        if (soundManager == null) return;
+        try { soundManager.stopCountdownMusic(); } catch (Exception ignored) {}
     }
 
 
     private void moveDown(MoveEvent event) {
-        // If the game is over, ignore any further down events and make sure the timeline is stopped
         try {
             if (Boolean.TRUE.equals(isGameOver.getValue())) {
                 try { if (timeLine != null) timeLine.stop(); } catch (Exception ignored) {}
@@ -1992,7 +1423,6 @@ public class GuiController implements Initializable {
         } catch (Exception ignored) {}
 
         if (isPause.getValue() == Boolean.FALSE) {
-            // capture starting view so we can animate a lock effect if the piece lands
             ViewData startViewForEffect = this.currentViewData;
             DownData downData = eventListener.onDownEvent(event);
             if (downData.getClearRow() != null && downData.getClearRow().getLinesRemoved() > 0) {
@@ -2001,10 +1431,8 @@ public class GuiController implements Initializable {
                 notificationPanel.showScore(groupNotification.getChildren());
             }
             refreshBrick(downData.getViewData());
-                // if the piece landed (clearRow non-null) play a softer lock effect and spawn explosion when rows removed
                 if (downData.getClearRow() != null) {
                     try {
-                        // only show lock visual when the user explicitly hard-dropped
                         if (lastWasHardDrop) {
                             try { playHardDropSound(); } catch (Exception ignored) {}
                             playLockEffect(startViewForEffect, downData.getViewData(), false);
@@ -2021,9 +1449,6 @@ public class GuiController implements Initializable {
     }
 
     /**
-     * Play a vertical light/lock effect from the starting view position to the ending view position.
-     * Creates one thin bright rectangle per column occupied by the piece and animates it downwards
-     * while fading out. Uses the existing particlePane (if available) as the parent layer.
      *
      * @param start  the ViewData before the drop (may be null)
      * @param end    the ViewData after the drop/lock (may be null)
@@ -2041,34 +1466,29 @@ public class GuiController implements Initializable {
             double cellWpx = cellW;
             double cellHpx = cellH;
 
-            // durations (ms) - increased to give a longer visible effect
             double travelMs = intense ? 420.0 : 560.0; 
             double fadeMs = intense ? 620.0 : 800.0;   
 
             java.util.List<javafx.animation.ParallelTransition> running = new java.util.ArrayList<>();
 
-            // Determine top-most filled row in the shape so the effect starts at the top of the piece
             int minR = Integer.MAX_VALUE;
             for (int rr = 0; rr < shape.length; rr++) {
                 for (int cc = 0; cc < shape[rr].length; cc++) if (shape[rr][cc] != 0) { if (rr < minR) minR = rr; }
             }
             if (minR == Integer.MAX_VALUE) minR = 0;
 
-            // compute a common start Y (top of the brick) in particlePane local coords
             javafx.geometry.Point2D topParentPt = boardToPixel(start.getxPosition(), startBoardY + minR);
             javafx.geometry.Point2D topScenePt = (brickPanel != null && brickPanel.getParent() != null)
                     ? brickPanel.getParent().localToScene(topParentPt)
                     : new javafx.geometry.Point2D(topParentPt.getX(), topParentPt.getY());
             javafx.geometry.Point2D topLocal = (particlePane != null) ? particlePane.sceneToLocal(topScenePt) : topScenePt;
 
-            // Create one visual rectangle per occupied cell so the falling visual matches the brick's shape.
             for (int r = 0; r < shape.length; r++) {
                 for (int c = 0; c < shape[r].length; c++) {
                     if (shape[r][c] == 0) continue;
                     int boardX = start.getxPosition() + c;
                     int boardYEnd = endBoardY + r;
 
-                    // compute per-cell X (start) and per-cell end position in particle local coords
                     javafx.geometry.Point2D cellStartParent = boardToPixel(boardX, startBoardY + r);
                     javafx.geometry.Point2D cellStartScene = (brickPanel != null && brickPanel.getParent() != null)
                             ? brickPanel.getParent().localToScene(cellStartParent)
@@ -2082,7 +1502,6 @@ public class GuiController implements Initializable {
                     javafx.geometry.Point2D cellEndLocal = (particlePane != null) ? particlePane.sceneToLocal(cellEndScene) : cellEndScene;
 
                     double x = Math.round(cellStartLocal.getX());
-                    // use the common topLocal Y so effect originates at the top of the piece
                     double y = Math.round(topLocal.getY());
 
                     Rectangle cellRect = new Rectangle(Math.round(cellWpx), Math.round(cellHpx));
@@ -2106,7 +1525,6 @@ public class GuiController implements Initializable {
                     double deltaY = Math.round(cellEndLocal.getY() - topLocal.getY());
                     tt.setByY(deltaY);
                     tt.setInterpolator(javafx.animation.Interpolator.EASE_OUT);
-                    // small per-row delay so the effect cascades downward smoothly
                     tt.setDelay(Duration.millis(r * 18));
 
                     FadeTransition ft = new FadeTransition(Duration.millis(fadeMs), cellRect);
@@ -2119,7 +1537,6 @@ public class GuiController implements Initializable {
                 }
             }
 
-            // start all transitions after a layout pass to ensure positions are stable
             javafx.application.Platform.runLater(() -> {
                 for (ParallelTransition pt : running) pt.play();
             });
@@ -2364,9 +1781,6 @@ public class GuiController implements Initializable {
         this.eventListener = eventListener;
     }
 
-    /**
-     * Configure multiplayer mode. When true, lock visuals only appear when the user explicitly used a hard-drop key.
-     */
     public void setMultiplayerMode(boolean multiplayer) {
         this.isMultiplayer = multiplayer;
         // If switching into multiplayer, ensure any singleplayer music is stopped to avoid overlap
@@ -2375,49 +1789,34 @@ public class GuiController implements Initializable {
         }
     }
 
-    /**
-     * Hook for subclasses to control whether the base controller should auto-start
-     * the singleplayer background music when the countdown finishes. By default
-     * we only auto-start when not in multiplayer mode. Subclasses (e.g. coop)
-     * may override to suppress the base behaviour and manage music themselves.
-     */
     protected boolean shouldStartSingleplayerMusic() {
         return !isMultiplayer;
     }
 
-    /** Enable or disable hard-drop for this GUI instance. When disabled, any hard-drop key presses are ignored. */
     public void setHardDropEnabled(boolean enabled) {
         this.hardDropAllowed = enabled;
     }
 
-    /** Register a restart handler callable provided by the multiplayer controller. */
     public void setMultiplayerRestartHandler(Runnable handler) {
         this.multiplayerRestartHandler = handler;
         if (handler != null) this.isMultiplayer = true;
     }
 
-    /** Register a pause handler provided by the multiplayer controller. The handler will be
-     * notified when this GuiController pauses or resumes due to a user action. The handler
-     * should typically forward the pause state to the other player's GuiController(s).
-     */
     public void setMultiplayerPauseHandler(java.util.function.Consumer<Boolean> handler) {
         this.multiplayerPauseHandler = handler;
         if (handler != null) this.isMultiplayer = true;
     }
 
-    /** Set an identifier for this GUI when running in multiplayer so saves persist the correct keys. */
     public void setMultiplayerPlayerId(String id) {
         this.multiplayerPlayerId = id;
         if (id != null) this.isMultiplayer = true;
     }
 
-    /** Register a handler that will be called when this GUI requests multiplayer controls UI. */
     public void setMultiplayerRequestControlsHandler(java.util.function.Consumer<GuiController> handler) {
         this.multiplayerRequestControlsHandler = handler;
         if (handler != null) this.isMultiplayer = true;
     }
 
-    // Expose current control key values so external coordinators can populate Controls panes
     public KeyCode getCtrlMoveLeft() { return this.ctrlMoveLeft; }
     public KeyCode getCtrlMoveRight() { return this.ctrlMoveRight; }
     public KeyCode getCtrlRotate() { return this.ctrlRotate; }
@@ -2425,19 +1824,10 @@ public class GuiController implements Initializable {
     public KeyCode getCtrlHardDrop() { return this.ctrlHardDrop; }
     public KeyCode getCtrlSwap() { return this.ctrlSwap; }
 
-    /**
-     * Apply a pause/unpause request that originated externally (from the multiplayer coordinator).
-     * This prevents re-notifying the coordinator while applying the visual overlay and timeline
-     * changes locally.
-     */
     public void applyExternalPause(boolean paused) {
-        // if requested state matches current visible overlay state, no-op
         if (paused == isPauseOverlayVisible) return;
         try {
             suppressMultiplayerPauseNotify = true;
-            // togglePauseOverlay will show or hide overlay depending on current state
-            // and will normally notify the multiplayer handler, but the suppress flag
-            // prevents that re-notification while we're applying an externally-driven change.
             togglePauseOverlay();
         } catch (Exception ignored) {
         } finally {
@@ -2445,16 +1835,10 @@ public class GuiController implements Initializable {
         }
     }
 
-    /** Public wrapper to refresh the visible falling brick from external controllers. */
     public void refreshCurrentView(ViewData v) {
         try { refreshBrick(v); } catch (Exception ignored) {}
     }
 
-    /**
-     * Configure per-instance control keys. If any parameter is non-null the controller
-     * will only respond to the provided keys. Pass null for any parameter to leave it
-     * unassigned. Order: moveLeft, moveRight, rotate, softDrop, hardDrop.
-     */
     public void setControlKeys(KeyCode moveLeft, KeyCode moveRight, KeyCode rotate, KeyCode softDrop, KeyCode hardDrop) {
         this.ctrlMoveLeft = moveLeft;
         this.ctrlMoveRight = moveRight;
@@ -2463,31 +1847,23 @@ public class GuiController implements Initializable {
         this.ctrlHardDrop = hardDrop;
     }
 
-    /** Set the per-instance swap key (pressing it requests a current/next swap). */
     public void setSwapKey(KeyCode swapKey) {
         this.ctrlSwap = swapKey;
     }
 
     public void bindScore(IntegerProperty integerProperty) {
-        // remember the bound score property so we can report the numeric score at game over
         this.currentScoreProperty = integerProperty;
 
-        // store a snapshot of previous high when binding occurs (will be updated at game start)
-        // Load high score (UI update only if the node exists in FXML)
         loadHighScore();
         if (highScoreValue != null) {
-            // initialize text
             highScoreValue.setText("Highest: " + highScore);
         }
-         // show "Current: X"
          scoreValue.textProperty().bind(Bindings.createStringBinding(
                  () -> "Current: " + integerProperty.get(),
                  integerProperty
          ));
  
-         // listen for changes to update high score dynamically and animate when beaten
             integerProperty.addListener((obs, oldV, newV) -> {
-                // reference unused parameters weakly to satisfy static analyzers (no-op)
                 java.util.Objects.requireNonNull(obs);
                 java.util.Objects.requireNonNull(oldV);
              int current = newV.intValue();
@@ -2496,7 +1872,6 @@ public class GuiController implements Initializable {
                  saveHighScore();
                  if (highScoreValue != null) {
                      highScoreValue.setText("Highest: " + highScore);
-                     // scale animation to make it impressive
                      try {
                          ScaleTransition st = new ScaleTransition(Duration.millis(200), highScoreValue);
                          st.setFromX(1.0);
@@ -2538,14 +1913,12 @@ public class GuiController implements Initializable {
         try { if (Boolean.TRUE.equals(isGameOver.getValue())) return; } catch (Exception ignored) {}
 
         try { if (timeLine != null) timeLine.stop(); } catch (Exception ignored) {}
-    // mark game over state and stop the clock
-    // keep legacy FXML GameOverPanel hidden so we use the new animated overlay instead
-    try { if (gameOverPanel != null) gameOverPanel.setVisible(false); } catch (Exception ignored) {}
+
+        try { if (gameOverPanel != null) gameOverPanel.setVisible(false); } catch (Exception ignored) {}
         isGameOver.setValue(Boolean.TRUE);
         stopClock();
         if (isMultiplayer) return;
 
-        // Show a simpler, elegant centered announcement (no large 'GAME OVER' text)
         javafx.application.Platform.runLater(() -> {
             try {
                 if (gameBoard == null || gameBoard.getScene() == null) return;
@@ -2555,21 +1928,16 @@ public class GuiController implements Initializable {
                 overlay.setPickOnBounds(true);
                 overlay.setStyle("-fx-background-color: transparent;");
 
-                // dim background: make the full-screen overlay nearly-black for a crisp game-over screen
                 Rectangle dark = new Rectangle();
                 dark.widthProperty().bind(scene.widthProperty());
                 dark.heightProperty().bind(scene.heightProperty());
-                // use near-opaque black to make the game-over screen appear fully black
                 dark.setFill(Color.rgb(0,0,0,0.95));
 
-                // center announcement - use a black dialog panel so the entire screen reads as black
                 VBox dialog = new VBox(14);
                 dialog.setAlignment(Pos.CENTER);
                 dialog.setMouseTransparent(false);
-                // opaque black panel with subtle corner radius so the text remains readable
                 dialog.setStyle("-fx-background-color: rgba(0,0,0,1.0); -fx-padding: 18px; -fx-background-radius: 8px;");
 
-                // Decorative title: elegant gradient + soft glow
                 Text title = new Text("Match Over");
                 title.setStyle("-fx-font-weight: 700;");
                 title.setFill(javafx.scene.paint.LinearGradient.valueOf("from 0% 0% to 100% 0% , #ffd166 0%, #ff7b7b 100%"));
@@ -2578,7 +1946,6 @@ public class GuiController implements Initializable {
                 DropShadow ds = new DropShadow(BlurType.GAUSSIAN, Color.rgb(0,0,0,0.8), 18, 0.25, 0, 6);
                 title.setEffect(ds);
 
-        // add a gold glow + gentle pulse + color accent to the title
         try {
             javafx.scene.effect.DropShadow glow = new javafx.scene.effect.DropShadow();
             glow.setColor(javafx.scene.paint.Color.web("#ffd166"));
@@ -2612,7 +1979,6 @@ public class GuiController implements Initializable {
             combined.play();
         } catch (Exception ignored) {}
 
-                // build an informative subtitle showing score and time and compare with previous best
                 String scoreStr = "";
                 int currentScore = -1;
                 try {
@@ -2668,7 +2034,6 @@ public class GuiController implements Initializable {
                 try { attachButtonSoundHandlers(btnRestart); } catch (Exception ignored) {}
                 try { attachButtonSoundHandlers(btnMenu); } catch (Exception ignored) {}
 
-                // Restart behavior: if multiplayer, delegate to multiplayer restart handler, otherwise create new game and run countdown
                 btnRestart.setOnAction(ev -> {
                     ev.consume();
             try {
@@ -2706,16 +2071,11 @@ public class GuiController implements Initializable {
                             try { stopCountdownMusic(); } catch (Exception ignored) {}
                             // stop any running title animation
                             try { if (gameOverPulse != null) { gameOverPulse.stop(); gameOverPulse = null; } } catch (Exception ignored) {}
-                        // If running as an embedded multiplayer GUI, delegate the 'Main Menu'
-                        // action to the multiplayer coordinator so it can stop shared music and
-                        // perform a coordinated scene change. Otherwise stop only singleplayer music
-                        // and navigate directly to the main menu.
                         if (isMultiplayer && multiplayerExitToMenuHandler != null) {
                                     try { detachSceneKeyHandlers(); } catch (Exception ignored) {}
                                     try { multiplayerExitToMenuHandler.run(); } catch (Exception ignored) {}
                             return;
                         }
-                        // stop singleplayer background music when returning to menu
                                 try { detachSceneKeyHandlers(); } catch (Exception ignored) {}
                                 try { stopSingleplayerMusic(); } catch (Exception ignored) {}
                         URL loc = getClass().getClassLoader().getResource("mainMenu.fxml");
@@ -2780,8 +2140,6 @@ public class GuiController implements Initializable {
     }
 
     private void startClock() {
-        // when starting (or resuming) the clock, ensure startTimeMs is adjusted so
-        // pausedElapsedMs is preserved (we want clock to exclude paused durations)
         startTimeMs = System.currentTimeMillis() - pausedElapsedMs;
         if (clockTimeline != null) clockTimeline.stop();
         clockTimeline = new Timeline(new KeyFrame(Duration.seconds(1), new javafx.event.EventHandler<javafx.event.ActionEvent>() {
@@ -2816,10 +2174,6 @@ public class GuiController implements Initializable {
         }
     }
 
-    /**
-     * Hide the on-board score and time UI elements. Intended for use by
-     * multiplayer modes (ClassicBattle) which don't display per-player score/time.
-     */
     public void hideScoreAndTimeUI() {
         try {
             javafx.application.Platform.runLater(() -> {
@@ -2845,23 +2199,13 @@ public class GuiController implements Initializable {
         gamePanel.requestFocus();
     }
 
-    /**
-     * Update the level text shown in the right-bottom levelBox (e.g. "Normal", "Hard").
-     */
     public void setLevelText(String text) {
         if (levelValue != null) {
             javafx.application.Platform.runLater(() -> levelValue.setText(text));
         }
     }
 
-    /** Stop and dispose the singleplayer background music player if present. Safe to call multiple times. */
     private void stopSingleplayerMusic() {
-        try {
-            if (singleplayerMusicPlayer != null) {
-                try { singleplayerMusicPlayer.stop(); } catch (Exception ignored) {}
-                try { singleplayerMusicPlayer.dispose(); } catch (Exception ignored) {}
-                singleplayerMusicPlayer = null;
-            }
-        } catch (Exception ignored) {}
+        try { if (soundManager != null) soundManager.stopSingleplayerMusic(); } catch (Exception ignored) {}
     }
 }
