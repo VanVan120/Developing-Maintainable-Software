@@ -25,6 +25,8 @@ public class SoundManager {
     private MediaPlayer singleplayerMusicPlayer;
     private MediaPlayer gameOverMusicPlayer;
     private MediaPlayer countdownMusicPlayer;
+    // Track dynamically-created players' volume listeners so we can remove them when disposing
+    private final java.util.Map<MediaPlayer, javafx.beans.value.ChangeListener<Number>> mpVolumeListeners = new java.util.WeakHashMap<>();
 
     public SoundManager(Class<?> resourceOwner) {
         this.resourceOwner = resourceOwner == null ? getClass() : resourceOwner;
@@ -191,6 +193,63 @@ public class SoundManager {
                 try { countdownMusicPlayer.dispose(); } catch (Exception ignored) {}
                 countdownMusicPlayer = null;
             }
+        } catch (Throwable ignored) {}
+    }
+
+    /**
+     * Create a MediaPlayer for an arbitrary resource path. The caller is responsible for
+     * keeping a reference and disposing it via {@link #disposeMediaPlayer(MediaPlayer)} when done.
+     * volumeFactor is an optional multiplier applied on top of current master*music volumes
+     * (use 0.6 to mirror previous hard-coded controller volumes).
+     */
+    public MediaPlayer createMediaPlayer(String resourcePath, boolean loop, Double volumeFactor) {
+        try {
+            URL mus = resourceOwner.getResource(resourcePath);
+            if (mus == null) mus = resourceOwner.getClassLoader().getResource(resourcePath.startsWith("/") ? resourcePath.substring(1) : resourcePath);
+            if (mus == null) return null;
+            Media m = new Media(mus.toExternalForm());
+            MediaPlayer mp = new MediaPlayer(m);
+            mp.setCycleCount(loop ? MediaPlayer.INDEFINITE : 1);
+            // initial volume uses master*music scaled by an optional factor
+            double base = AudioSettings.getMasterVolume() * AudioSettings.getMusicVolume();
+            double scaled = (volumeFactor != null) ? Math.max(0.0, Math.min(1.0, base * volumeFactor)) : base;
+            try { mp.setVolume(scaled); } catch (Exception ignored) {}
+            mp.setAutoPlay(false);
+            mp.setOnError(() -> System.err.println("[SoundManager] MediaPlayer error for " + resourcePath + ": " + mp.getError()));
+
+            // Attach a listener so runtime volume changes propagate to this player
+            javafx.beans.value.ChangeListener<Number> volListener = (obs, o, n) -> {
+                try {
+                    double b = AudioSettings.getMasterVolume() * AudioSettings.getMusicVolume();
+                    double s = (volumeFactor != null) ? Math.max(0.0, Math.min(1.0, b * volumeFactor)) : b;
+                    mp.setVolume(s);
+                } catch (Exception ignored) {}
+            };
+            AudioSettings.masterProperty().addListener(volListener);
+            AudioSettings.musicProperty().addListener(volListener);
+            // remember the listener so dispose can remove it later
+            try { mpVolumeListeners.put(mp, volListener); } catch (Exception ignored) {}
+            return mp;
+        } catch (Throwable ex) {
+            System.err.println("[SoundManager] Failed to create MediaPlayer for " + resourcePath + ": " + ex);
+            return null;
+        }
+    }
+
+    /** Safely stop and dispose a MediaPlayer created by this manager. */
+    public void disposeMediaPlayer(MediaPlayer mp) {
+        if (mp == null) return;
+        try {
+            // remove attached listener if present
+            try {
+                javafx.beans.value.ChangeListener<Number> l = mpVolumeListeners.remove(mp);
+                if (l != null) {
+                    AudioSettings.masterProperty().removeListener(l);
+                    AudioSettings.musicProperty().removeListener(l);
+                }
+            } catch (Exception ignored) {}
+            try { mp.stop(); } catch (Exception ignored) {}
+            try { mp.dispose(); } catch (Exception ignored) {}
         } catch (Throwable ignored) {}
     }
 }

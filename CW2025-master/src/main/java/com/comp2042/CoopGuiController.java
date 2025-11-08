@@ -227,8 +227,7 @@ public class CoopGuiController extends GuiController {
                             try { if (coopTimeline != null) coopTimeline.stop(); } catch (Exception ignored) {}
                             try {
                                 if (coopMusicPlayer != null) {
-                                    try { coopMusicPlayer.stop(); } catch (Exception ignored) {}
-                                    try { coopMusicPlayer.dispose(); } catch (Exception ignored) {}
+                                    try { SoundManager sm = getSoundManager(); if (sm != null) sm.disposeMediaPlayer(coopMusicPlayer); else { try { coopMusicPlayer.stop(); } catch (Exception ignored) {} try { coopMusicPlayer.dispose(); } catch (Exception ignored) {} } } catch (Exception ignored) {}
                                     coopMusicPlayer = null;
                                 }
                             } catch (Exception ignored) {}
@@ -271,22 +270,14 @@ public class CoopGuiController extends GuiController {
                                 try { if (coopTimeline != null) coopTimeline.play(); } catch (Exception ignored) {}
                                 try {
                                     if (coopMusicPlayer == null) {
-                                        java.net.URL mus = getClass().getClassLoader().getResource("sounds/CorporateBattle.wav");
-                                        if (mus == null) mus = getClass().getResource("/sounds/CorporateBattle.wav");
-                                        if (mus != null) {
-                                            try {
-                                                javafx.scene.media.Media mm = new javafx.scene.media.Media(mus.toExternalForm());
-                                                coopMusicPlayer = new javafx.scene.media.MediaPlayer(mm);
-                                                coopMusicPlayer.setCycleCount(javafx.scene.media.MediaPlayer.INDEFINITE);
-                                                coopMusicPlayer.setAutoPlay(true);
-                                                coopMusicPlayer.setVolume(0.6);
-                                                coopMusicPlayer.setOnError(() -> System.err.println("[CoopGuiController] CorporateBattle music error: " + coopMusicPlayer.getError()));
-                                                System.out.println("[CoopGuiController] CorporateBattle.wav loaded and playing: " + mus);
-                                            } catch (Exception ex) {
-                                                System.err.println("[CoopGuiController] Failed to initialize CorporateBattle music: " + ex);
+                                        try {
+                                            SoundManager sm = getSoundManager();
+                                            if (sm != null) {
+                                                coopMusicPlayer = sm.createMediaPlayer("/sounds/CorporateBattle.wav", true, 0.6);
+                                                if (coopMusicPlayer != null) coopMusicPlayer.play();
                                             }
-                                        } else {
-                                            System.out.println("[CoopGuiController] CorporateBattle.wav not found in resources (expected sounds/CorporateBattle.wav)");
+                                        } catch (Exception ex) {
+                                            System.err.println("[CoopGuiController] Failed to initialize CorporateBattle music: " + ex);
                                         }
                                     } else {
                                         try { coopMusicPlayer.play(); } catch (Exception ignored) {}
@@ -377,7 +368,7 @@ public class CoopGuiController extends GuiController {
         for (int i = 0; i < rows; i++) {
             for (int j = 0; j < cols; j++) {
                 Rectangle r = new Rectangle(Math.max(4.0, initialCellW - 2), Math.max(4.0, initialCellH - 2));
-                r.setFill(mapFillColor(shape[i][j]));
+                r.setFill(BoardView.mapCodeToPaint(shape[i][j]));
                 r.setLayoutX(j * initialCellW);
                 r.setLayoutY(i * initialCellH);
                 rectangles2[i][j] = r;
@@ -427,7 +418,7 @@ public class CoopGuiController extends GuiController {
             for (int j = 0; j < data[i].length; j++) {
                 Rectangle r = rectangles2[i][j];
                 int val = data[i][j];
-                r.setFill(mapFillColor(val));
+                r.setFill(BoardView.mapCodeToPaint(val));
                 r.setVisible(val != 0);
                 r.setLayoutX(Math.round(j * cellW));
                 r.setLayoutY(Math.round(i * cellH));
@@ -813,20 +804,7 @@ public class CoopGuiController extends GuiController {
         });
     }
 
-    private javafx.scene.paint.Paint mapFillColor(int i) {
-        switch (i) {
-            case 0: return Color.TRANSPARENT;
-            case 1: return Color.AQUA;
-            case 2: return Color.BLUEVIOLET;
-            case 3: return Color.DARKGREEN;
-            case 4: return Color.YELLOW;
-            case 5: return Color.RED;
-            case 6: return Color.BEIGE;
-            case 7: return Color.BURLYWOOD;
-            case 8: return Color.DARKGRAY;
-            default: return Color.WHITE;
-        }
-    }
+    
 
     private javafx.geometry.Point2D boardToPixelLocal(int boardX, int boardY) {
         double x = baseOffsetX + (boardX * cellW);
@@ -839,8 +817,7 @@ public class CoopGuiController extends GuiController {
         try { if (coopTimeline != null) coopTimeline.stop(); } catch (Exception ignored) {}
         try {
             if (coopMusicPlayer != null) {
-                try { coopMusicPlayer.stop(); } catch (Exception ignored) {}
-                try { coopMusicPlayer.dispose(); } catch (Exception ignored) {}
+                try { SoundManager sm = getSoundManager(); if (sm != null) sm.disposeMediaPlayer(coopMusicPlayer); else { try { coopMusicPlayer.stop(); } catch (Exception ignored) {} try { coopMusicPlayer.dispose(); } catch (Exception ignored) {} } } catch (Exception ignored) {}
                 coopMusicPlayer = null;
             }
         } catch (Exception ignored) {}
@@ -892,8 +869,7 @@ public class CoopGuiController extends GuiController {
     try { if (coopTimeline != null) { coopTimeline.stop(); coopTimeline = null; LOGGER.fine("[CoopGuiController] stopped coopTimeline"); } } catch (Exception ignored) {}
         try {
             if (coopMusicPlayer != null) {
-                try { coopMusicPlayer.stop(); } catch (Exception ignored) {}
-                try { coopMusicPlayer.dispose(); } catch (Exception ignored) {}
+                try { SoundManager sm = getSoundManager(); if (sm != null) sm.disposeMediaPlayer(coopMusicPlayer); else { try { coopMusicPlayer.stop(); } catch (Exception ignored) {} try { coopMusicPlayer.dispose(); } catch (Exception ignored) {} } } catch (Exception ignored) {}
                 coopMusicPlayer = null;
                 LOGGER.fine("[CoopGuiController] disposed coopMusicPlayer");
             }

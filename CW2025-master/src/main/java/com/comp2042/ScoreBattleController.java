@@ -20,9 +20,6 @@ import javafx.event.ActionEvent;
 import javafx.scene.control.Button;
 import javafx.scene.media.Media;
 import javafx.scene.media.MediaPlayer;
-import javax.sound.sampled.AudioInputStream;
-import javax.sound.sampled.AudioSystem;
-import javax.sound.sampled.Clip;
 
 import java.io.IOException;
 import java.net.URL;
@@ -74,12 +71,11 @@ public class ScoreBattleController implements Initializable {
     private MediaPlayer scoreBattleMusicPlayer = null;
     // centralized countdown player for multiplayer (played once for both GUIs)
     private MediaPlayer matchCountdownPlayer = null;
-    // fallback Clip if JavaFX Media fails for WAV playback
-    private Clip matchCountdownClipFallback = null;
     // single-shot game-over player for multiplayer (plays GameOver.wav once)
     private MediaPlayer matchGameOverPlayer = null;
-    // fallback Clip if JavaFX Media fails for WAV playback
-    private Clip matchGameOverClipFallback = null;
+
+    // centralized sound manager for multiplayer controller
+    private SoundManager soundManager = null;
 
     // flag to avoid showing multiple match-end overlays
     private volatile boolean matchEnded = false;
@@ -100,6 +96,11 @@ public class ScoreBattleController implements Initializable {
             if (fontUrl != null) {
                 javafx.scene.text.Font.loadFont(fontUrl.toExternalForm(), 38);
             }
+        } catch (Exception ignored) {}
+        // initialize centralized sound manager for multiplayer
+        try {
+            soundManager = new SoundManager(getClass());
+            soundManager.init();
         } catch (Exception ignored) {}
         // ensure the external labels use the same CSS class as single-player
         try {
@@ -127,33 +128,23 @@ public class ScoreBattleController implements Initializable {
      */
     private void playMatchGameOverSound() {
         try {
-            // if already playing, restart/cleanup
-            try { if (matchGameOverPlayer != null) { matchGameOverPlayer.stop(); matchGameOverPlayer.dispose(); matchGameOverPlayer = null; } } catch (Exception ignored) {}
-
-            URL musicUrl = getClass().getClassLoader().getResource("sounds/GameOver.wav");
-            if (musicUrl == null) musicUrl = getClass().getClassLoader().getResource("sounds/GameOver.mp3");
-            if (musicUrl != null) {
-                Media m = new Media(musicUrl.toExternalForm());
-                matchGameOverPlayer = new MediaPlayer(m);
-                matchGameOverPlayer.setCycleCount(1);
-                matchGameOverPlayer.setAutoPlay(true);
-                matchGameOverPlayer.setOnEndOfMedia(() -> {
-                    try { matchGameOverPlayer.dispose(); } catch (Exception ignored) {}
-                    matchGameOverPlayer = null;
-                });
-                return;
-            }
-        } catch (Exception ignored) {}
-
-        // Fallback using javax.sound Clip for WAV files
-        try {
-            try { if (matchGameOverClipFallback != null && matchGameOverClipFallback.isRunning()) { matchGameOverClipFallback.stop(); matchGameOverClipFallback.close(); matchGameOverClipFallback = null; } } catch (Exception ignored) {}
-            java.net.URL u = getClass().getClassLoader().getResource("sounds/GameOver.wav");
-            if (u != null) {
-                AudioInputStream ais = AudioSystem.getAudioInputStream(u);
-                matchGameOverClipFallback = AudioSystem.getClip();
-                matchGameOverClipFallback.open(ais);
-                matchGameOverClipFallback.start();
+            if (soundManager != null) {
+                soundManager.playGameOverMusic();
+            } else {
+                // fallback: try to play via local MediaPlayer
+                try { if (matchGameOverPlayer != null) { matchGameOverPlayer.stop(); matchGameOverPlayer.dispose(); matchGameOverPlayer = null; } } catch (Exception ignored) {}
+                URL musicUrl = getClass().getClassLoader().getResource("sounds/GameOver.wav");
+                if (musicUrl == null) musicUrl = getClass().getClassLoader().getResource("sounds/GameOver.mp3");
+                if (musicUrl != null) {
+                    Media m = new Media(musicUrl.toExternalForm());
+                    matchGameOverPlayer = new MediaPlayer(m);
+                    matchGameOverPlayer.setCycleCount(1);
+                    matchGameOverPlayer.setAutoPlay(true);
+                    matchGameOverPlayer.setOnEndOfMedia(() -> {
+                        try { matchGameOverPlayer.dispose(); } catch (Exception ignored) {}
+                        matchGameOverPlayer = null;
+                    });
+                }
             }
         } catch (Exception ignored) {}
     }
@@ -163,17 +154,14 @@ public class ScoreBattleController implements Initializable {
      */
     private void stopMatchGameOverSound() {
         try {
-            if (matchGameOverPlayer != null) {
-                try { matchGameOverPlayer.stop(); } catch (Exception ignored) {}
-                try { matchGameOverPlayer.dispose(); } catch (Exception ignored) {}
-                matchGameOverPlayer = null;
-            }
-        } catch (Exception ignored) {}
-        try {
-            if (matchGameOverClipFallback != null) {
-                try { matchGameOverClipFallback.stop(); } catch (Exception ignored) {}
-                try { matchGameOverClipFallback.close(); } catch (Exception ignored) {}
-                matchGameOverClipFallback = null;
+            if (soundManager != null) {
+                soundManager.stopGameOverMusic();
+            } else {
+                if (matchGameOverPlayer != null) {
+                    try { matchGameOverPlayer.stop(); } catch (Exception ignored) {}
+                    try { matchGameOverPlayer.dispose(); } catch (Exception ignored) {}
+                    matchGameOverPlayer = null;
+                }
             }
         } catch (Exception ignored) {}
     }
@@ -183,32 +171,21 @@ public class ScoreBattleController implements Initializable {
      */
     private void playMatchCountdownSound() {
         try {
-            // cleanup any previous player
-            try { if (matchCountdownPlayer != null) { matchCountdownPlayer.stop(); matchCountdownPlayer.dispose(); matchCountdownPlayer = null; } } catch (Exception ignored) {}
-
-            URL musicUrl = getClass().getClassLoader().getResource("sounds/Countdown.wav");
-            if (musicUrl == null) musicUrl = getClass().getClassLoader().getResource("sounds/Countdown.mp3");
-            if (musicUrl != null) {
-                try {
-                    Media m = new Media(musicUrl.toExternalForm());
-                    matchCountdownPlayer = new MediaPlayer(m);
-                    matchCountdownPlayer.setCycleCount(MediaPlayer.INDEFINITE);
-                    matchCountdownPlayer.setAutoPlay(true);
-                    matchCountdownPlayer.setVolume(0.75);
-                    return;
-                } catch (Exception ignored) {}
-            }
-        } catch (Exception ignored) {}
-
-        // Fallback using javax.sound Clip for WAV files
-        try {
-            try { if (matchCountdownClipFallback != null && matchCountdownClipFallback.isRunning()) { matchCountdownClipFallback.stop(); matchCountdownClipFallback.close(); matchCountdownClipFallback = null; } } catch (Exception ignored) {}
-            java.net.URL u = getClass().getClassLoader().getResource("sounds/Countdown.wav");
-            if (u != null) {
-                AudioInputStream ais = AudioSystem.getAudioInputStream(u);
-                matchCountdownClipFallback = AudioSystem.getClip();
-                matchCountdownClipFallback.open(ais);
-                matchCountdownClipFallback.loop(Clip.LOOP_CONTINUOUSLY);
+            if (soundManager != null) {
+                soundManager.playCountdownMusic();
+            } else {
+                try { if (matchCountdownPlayer != null) { matchCountdownPlayer.stop(); matchCountdownPlayer.dispose(); matchCountdownPlayer = null; } } catch (Exception ignored) {}
+                URL musicUrl = getClass().getClassLoader().getResource("sounds/Countdown.wav");
+                if (musicUrl == null) musicUrl = getClass().getClassLoader().getResource("sounds/Countdown.mp3");
+                if (musicUrl != null) {
+                    try {
+                        Media m = new Media(musicUrl.toExternalForm());
+                        matchCountdownPlayer = new MediaPlayer(m);
+                        matchCountdownPlayer.setCycleCount(MediaPlayer.INDEFINITE);
+                        matchCountdownPlayer.setAutoPlay(true);
+                        matchCountdownPlayer.setVolume(0.75);
+                    } catch (Exception ignored) {}
+                }
             }
         } catch (Exception ignored) {}
     }
@@ -218,17 +195,14 @@ public class ScoreBattleController implements Initializable {
      */
     private void stopMatchCountdownSound() {
         try {
-            if (matchCountdownPlayer != null) {
-                try { matchCountdownPlayer.stop(); } catch (Exception ignored) {}
-                try { matchCountdownPlayer.dispose(); } catch (Exception ignored) {}
-                matchCountdownPlayer = null;
-            }
-        } catch (Exception ignored) {}
-        try {
-            if (matchCountdownClipFallback != null) {
-                try { matchCountdownClipFallback.stop(); } catch (Exception ignored) {}
-                try { matchCountdownClipFallback.close(); } catch (Exception ignored) {}
-                matchCountdownClipFallback = null;
+            if (soundManager != null) {
+                soundManager.stopCountdownMusic();
+            } else {
+                if (matchCountdownPlayer != null) {
+                    try { matchCountdownPlayer.stop(); } catch (Exception ignored) {}
+                    try { matchCountdownPlayer.dispose(); } catch (Exception ignored) {}
+                    matchCountdownPlayer = null;
+                }
             }
         } catch (Exception ignored) {}
     }
@@ -511,7 +485,7 @@ public class ScoreBattleController implements Initializable {
         javafx.application.Platform.runLater(() -> {
             try {
                 // stop any playing match music before restarting
-                try { if (scoreBattleMusicPlayer != null) { scoreBattleMusicPlayer.stop(); scoreBattleMusicPlayer.dispose(); scoreBattleMusicPlayer = null; } } catch (Exception ignored) {}
+                try { if (scoreBattleMusicPlayer != null) { try { if (soundManager != null) soundManager.disposeMediaPlayer(scoreBattleMusicPlayer); else { scoreBattleMusicPlayer.stop(); scoreBattleMusicPlayer.dispose(); } } catch (Exception ignored) {} scoreBattleMusicPlayer = null; } } catch (Exception ignored) {}
                 try { stopMatchCountdownSound(); } catch (Exception ignored) {}
                 try { stopMatchGameOverSound(); } catch (Exception ignored) {}
                 // stop match timer and preview poller while restarting
@@ -686,7 +660,7 @@ public class ScoreBattleController implements Initializable {
                     try { if (leftGui != null) leftGui.gameOver(); } catch (Exception ignored) {}
                     try { if (rightGui != null) rightGui.gameOver(); } catch (Exception ignored) {}
                         // stop match music immediately so we can play a game-over track later
-                        try { if (scoreBattleMusicPlayer != null) { scoreBattleMusicPlayer.stop(); scoreBattleMusicPlayer.dispose(); scoreBattleMusicPlayer = null; } } catch (Exception ignored) {}
+                        try { if (scoreBattleMusicPlayer != null) { try { if (soundManager != null) soundManager.disposeMediaPlayer(scoreBattleMusicPlayer); else { scoreBattleMusicPlayer.stop(); scoreBattleMusicPlayer.dispose(); } } catch (Exception ignored) {} scoreBattleMusicPlayer = null; } } catch (Exception ignored) {}
                         // play centralized match GameOver sound
                         try { playMatchGameOverSound(); } catch (Exception ignored) {}
                     int lscore = (leftController != null ? leftController.getScoreProperty().get() : 0);
@@ -712,7 +686,7 @@ public class ScoreBattleController implements Initializable {
                     try { if (leftGui != null) leftGui.gameOver(); } catch (Exception ignored) {}
                     try { if (rightGui != null) rightGui.gameOver(); } catch (Exception ignored) {}
                         // stop match music immediately so we can play a game-over track later
-                        try { if (scoreBattleMusicPlayer != null) { scoreBattleMusicPlayer.stop(); scoreBattleMusicPlayer.dispose(); scoreBattleMusicPlayer = null; } } catch (Exception ignored) {}
+                        try { if (scoreBattleMusicPlayer != null) { try { if (soundManager != null) soundManager.disposeMediaPlayer(scoreBattleMusicPlayer); else { scoreBattleMusicPlayer.stop(); scoreBattleMusicPlayer.dispose(); } } catch (Exception ignored) {} scoreBattleMusicPlayer = null; } } catch (Exception ignored) {}
                         // play centralized match GameOver sound
                         try { playMatchGameOverSound(); } catch (Exception ignored) {}
                     int lscore = (leftController != null ? leftController.getScoreProperty().get() : 0);
@@ -1007,7 +981,7 @@ public class ScoreBattleController implements Initializable {
             ex.printStackTrace();
         }
         try { if (previewPoller != null) previewPoller.stop(); } catch (Exception ignored) {}
-    try { if (scoreBattleMusicPlayer != null) { scoreBattleMusicPlayer.stop(); scoreBattleMusicPlayer.dispose(); scoreBattleMusicPlayer = null; } } catch (Exception ignored) {}
+    try { if (scoreBattleMusicPlayer != null) { try { if (soundManager != null) soundManager.disposeMediaPlayer(scoreBattleMusicPlayer); else { scoreBattleMusicPlayer.stop(); scoreBattleMusicPlayer.dispose(); } } catch (Exception ignored) {} scoreBattleMusicPlayer = null; } } catch (Exception ignored) {}
     try { stopMatchGameOverSound(); } catch (Exception ignored) {}
     try { stopMatchCountdownSound(); } catch (Exception ignored) {}
     }
@@ -1055,14 +1029,21 @@ public class ScoreBattleController implements Initializable {
                         // start or resume match music and ensure it loops indefinitely
                         try {
                             if (scoreBattleMusicPlayer == null) {
-                                URL musicUrl = getClass().getClassLoader().getResource("sounds/ScoreBattle.wav");
-                                if (musicUrl == null) musicUrl = getClass().getClassLoader().getResource("sounds/ScoreBattle.mp3");
-                                if (musicUrl != null) {
-                                    Media m = new Media(musicUrl.toExternalForm());
-                                    scoreBattleMusicPlayer = new MediaPlayer(m);
-                                    scoreBattleMusicPlayer.setCycleCount(MediaPlayer.INDEFINITE);
-                                    scoreBattleMusicPlayer.setAutoPlay(true);
-                                }
+                                try {
+                                    if (soundManager != null) {
+                                        scoreBattleMusicPlayer = soundManager.createMediaPlayer("/sounds/ScoreBattle.wav", true, null);
+                                        if (scoreBattleMusicPlayer != null) scoreBattleMusicPlayer.play();
+                                    } else {
+                                        URL musicUrl = getClass().getClassLoader().getResource("sounds/ScoreBattle.wav");
+                                        if (musicUrl == null) musicUrl = getClass().getClassLoader().getResource("sounds/ScoreBattle.mp3");
+                                        if (musicUrl != null) {
+                                            Media m = new Media(musicUrl.toExternalForm());
+                                            scoreBattleMusicPlayer = new MediaPlayer(m);
+                                            scoreBattleMusicPlayer.setCycleCount(MediaPlayer.INDEFINITE);
+                                            scoreBattleMusicPlayer.setAutoPlay(true);
+                                        }
+                                    }
+                                } catch (Exception ex) { ex.printStackTrace(); }
                             } else {
                                 try { scoreBattleMusicPlayer.play(); } catch (Exception ignored) {}
                             }
@@ -1088,7 +1069,7 @@ public class ScoreBattleController implements Initializable {
 
     private void endMatchAndAnnounceWinner() {
         // stop any match music immediately
-        try { if (scoreBattleMusicPlayer != null) { scoreBattleMusicPlayer.stop(); scoreBattleMusicPlayer.dispose(); scoreBattleMusicPlayer = null; } } catch (Exception ignored) {}
+    try { if (scoreBattleMusicPlayer != null) { try { if (soundManager != null) soundManager.disposeMediaPlayer(scoreBattleMusicPlayer); else { scoreBattleMusicPlayer.stop(); scoreBattleMusicPlayer.dispose(); } } catch (Exception ignored) {} scoreBattleMusicPlayer = null; } } catch (Exception ignored) {}
         try { stopMatchCountdownSound(); } catch (Exception ignored) {}
         try { playMatchGameOverSound(); } catch (Exception ignored) {}
         // stop both games
