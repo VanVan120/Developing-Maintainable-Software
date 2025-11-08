@@ -16,16 +16,20 @@ public class Main extends Application {
     public void start(Stage primaryStage) throws Exception {
 
         URL location = getClass().getClassLoader().getResource("mainMenu.fxml");
+        if (location == null) {
+            // Fail fast with a clear message if the resource is missing (helps during refactor)
+            throw new IllegalStateException("FXML resource 'mainMenu.fxml' not found on classpath");
+        }
         FXMLLoader fxmlLoader = new FXMLLoader(location);
         Parent root = fxmlLoader.load();
 
         primaryStage.setTitle("Tetris Nexus");
-    // Make the application open fullscreen on startup (maximize + full screen)
-    Rectangle2D visualBounds = Screen.getPrimary().getVisualBounds();
-    Scene scene = new Scene(root, visualBounds.getWidth(), visualBounds.getHeight());
+        // Make the application open fullscreen on startup (maximize + full screen)
+        Rectangle2D visualBounds = Screen.getPrimary().getVisualBounds();
+        Scene scene = new Scene(root, visualBounds.getWidth(), visualBounds.getHeight());
         // apply menu stylesheet if available
         try {
-            String css = getClass().getClassLoader().getResource("menu.css").toExternalForm();
+            String css = getClass().getClassLoader().getResource("css/menu.css").toExternalForm();
             scene.getStylesheets().add(css);
         } catch (Exception ignored) {}
         primaryStage.setScene(scene);

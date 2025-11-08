@@ -37,6 +37,7 @@ import javafx.scene.shape.Rectangle;
 import javafx.scene.media.AudioClip;
 import javafx.scene.input.MouseEvent;
 import java.awt.Toolkit;
+import javafx.beans.value.ChangeListener;
 
 public class MainMenuController {
 
@@ -59,53 +60,42 @@ public class MainMenuController {
     @FXML private MediaView menuMediaView;
     @FXML private javafx.scene.layout.StackPane mediaContainer;
     @FXML private javafx.scene.layout.StackPane rootStack;
-    private String menuMediaUrl;
-    // background music player for main menu
-    private MediaPlayer menuMusicPlayer = null;
-    // UI audio for menu (hover / click). Files should be in resources/sounds/
-    private AudioClip menuHoverClip = null;
-    private AudioClip menuClickClip = null;
-    private boolean menuFallbackBeep = true;
-    
-    // --- SETTINGS VARIABLES ---
     @FXML private javafx.scene.layout.StackPane settingsOptions;
     @FXML private Button controlsBtn;
     @FXML private Button handlingBtn;
     @FXML private Button audioBtn;
     @FXML private Button settingsBackBtn;
-    
-    // --- NEW CONTROLS SUB-MENU VARIABLES ---
     @FXML private StackPane controlsOptions;
     @FXML private Button singlePlayerConfigBtn;
     @FXML private Button multiPlayerConfigBtn;
     @FXML private Button controlsBackBtn;
 
-    // stored singleplayer control overrides
+    private String menuMediaUrl;
+    private MediaPlayer menuMusicPlayer = null;
+    private AudioClip menuHoverClip = null;
+    private AudioClip menuClickClip = null;
+    private boolean menuFallbackBeep = true;
+    private ChangeListener<Number> masterVolListener = null;
+    private ChangeListener<Number> musicVolListener = null;
+    private ChangeListener<Number> sfxVolListener = null;
     private KeyCode spLeft = null;
     private KeyCode spRight = null;
     private KeyCode spRotate = null;
     private KeyCode spDown = null;
     private KeyCode spHard = null;
     private KeyCode spSwitch = null;
-
-    // Preferences node for persisting settings
     private final Preferences prefs = Preferences.userNodeForPackage(MainMenuController.class);
-
-    // --- Handling settings (stored) ---
-    private int settingArrMs = 50; // Auto Repeat Rate in ms
-    private int settingDasMs = 120; // Delayed Auto Shift in ms
-    private int settingDcdMs = 20; // DAS Cancel Delay in ms
-    private double settingSdf = 1.0; // Soft Drop Factor (multiplier)
-    private boolean settingHardDropEnabled = true; // hard drop enabled
-    
-    // stored multiplayer control overrides (left player = upper, right player = bottom)
+    private int settingArrMs = 50; 
+    private int settingDasMs = 120;
+    private int settingDcdMs = 20; 
+    private double settingSdf = 1.0; 
+    private boolean settingHardDropEnabled = true;
     private KeyCode mpLeft_left = null;
     private KeyCode mpLeft_right = null;
     private KeyCode mpLeft_rotate = null;
     private KeyCode mpLeft_down = null;
     private KeyCode mpLeft_hard = null;
     private KeyCode mpLeft_switch = null;
-
     private KeyCode mpRight_left = null;
     private KeyCode mpRight_right = null;
     private KeyCode mpRight_rotate = null;
@@ -115,16 +105,13 @@ public class MainMenuController {
     
     @FXML
     public void initialize() {
-        // load persisted settings if available
         try { loadHandlingSettings(); } catch (Exception ignored) {}
         try { loadControlSettings(); } catch (Exception ignored) {}
-        // set a background if available
         try {
             URL bg = getClass().getClassLoader().getResource("GUI.gif");
-            if (bg != null && bgImage != null) bgImage.setImage(new Image(bg.toExternalForm()));
+                if (bg != null && bgImage != null) bgImage.setImage(new Image(bg.toExternalForm(), true));
         } catch (Exception ignored) {}
 
-        // Settings button: shows the 'settingsOptions' overlay
         if (settingsBtn != null) {
             settingsBtn.setOnAction(new EventHandler<ActionEvent>() {
                 @Override
@@ -134,7 +121,6 @@ public class MainMenuController {
             });
         }
 
-        // --- (MediaView logic remains unchanged) ---
         try {
             if (menuMediaView != null && mediaContainer != null) {
                 String[] candidates = {"menu.mp4", "tetris_preview.mp4", "preview.mp4", "Tetris.mp4"};
@@ -219,13 +205,20 @@ public class MainMenuController {
             if (c != null) menuClickClip = new AudioClip(c.toExternalForm());
         } catch (Exception ignored) {}
 
-        // Apply persisted audio volumes to menu media and clips
         try {
             applyAudioVolumesToMenu();
-            // listen for changes so runtime changes update menu immediately
-            try { AudioSettings.masterProperty().addListener((obs, o, n) -> applyAudioVolumesToMenu()); } catch (Exception ignored) {}
-            try { AudioSettings.musicProperty().addListener((obs, o, n) -> applyAudioVolumesToMenu()); } catch (Exception ignored) {}
-            try { AudioSettings.sfxProperty().addListener((obs, o, n) -> applyAudioVolumesToMenu()); } catch (Exception ignored) {}
+            try {
+                masterVolListener = (obs, o, n) -> applyAudioVolumesToMenu();
+                AudioSettings.masterProperty().addListener(masterVolListener);
+            } catch (Exception ignored) {}
+            try {
+                musicVolListener = (obs, o, n) -> applyAudioVolumesToMenu();
+                AudioSettings.musicProperty().addListener(musicVolListener);
+            } catch (Exception ignored) {}
+            try {
+                sfxVolListener = (obs, o, n) -> applyAudioVolumesToMenu();
+                AudioSettings.sfxProperty().addListener(sfxVolListener);
+            } catch (Exception ignored) {}
         } catch (Exception ignored) {}
 
         try {
@@ -294,10 +287,7 @@ public class MainMenuController {
                 }
             });
         }
-        
-        // --- SETTINGS MENU BUTTON HANDLERS ---
-        
-        // "Back" button on Settings menu (goes to Main Menu)
+                
         if (settingsBackBtn != null) {
             settingsBackBtn.setOnAction(new EventHandler<ActionEvent>() {
                 @Override
@@ -307,12 +297,10 @@ public class MainMenuController {
             });
         }
         
-        // "Controls" button (goes to Controls Sub-Menu)
         if (controlsBtn != null) {
             controlsBtn.setOnAction(new EventHandler<ActionEvent>() {
                 @Override
                 public void handle(ActionEvent event) {
-                    // Transition from Settings -> Controls sub-menu
                     transitionFrom(settingsOptions);
                     transitionTo(controlsOptions);
                 }
@@ -331,40 +319,31 @@ public class MainMenuController {
             audioBtn.setOnAction(new EventHandler<ActionEvent>() {
                 @Override
                 public void handle(ActionEvent event) {
-                    // open audio settings overlay
                     loadAudioSettings();
                 }
             });
         }
 
-        // --- NEW CONTROLS SUB-MENU HANDLERS ---
-
-        // "Back" button on Controls sub-menu (goes to Settings)
         if (controlsBackBtn != null) {
             controlsBackBtn.setOnAction(e -> {
-                // Transition from Controls sub-menu -> Settings
                 transitionFrom(controlsOptions);
                 transitionTo(settingsOptions);
             });
         }
 
-        // "Single Player" button (loads the final controls.fxml overlay)
         if (singlePlayerConfigBtn != null) {
             singlePlayerConfigBtn.setOnAction(e -> {
                 loadSinglePlayerControls();
             });
         }
 
-        // "Multiplayer" button (placeholder)
         if (multiPlayerConfigBtn != null) {
             multiPlayerConfigBtn.setOnAction(e -> {
-                // Open multiplayer controls overlay (two player configurator)
                 loadMultiplayerControls();
             });
         }
 
 
-        // --- (Multiplayer game buttons remain unchanged) ---
             if (scoreBattleBtn != null) {
                 scoreBattleBtn.setOnAction(new EventHandler<ActionEvent>() {
                     @Override
@@ -450,13 +429,7 @@ public class MainMenuController {
                         URL location = getClass().getClassLoader().getResource("gameLayout.fxml");
                         if (location == null) return;
                         FXMLLoader fxmlLoader = new FXMLLoader(location);
-                        // use our CoopGuiController instance as the controller so we can render two pieces
                         CoopGuiController coopGui = new CoopGuiController();
-                        // The FXML already has fx:controller set to GuiController. Instead of calling
-                        // setController (which conflicts with fx:controller), provide a controller
-                        // factory that returns our CoopGuiController when the loader requests a
-                        // GuiController instance. For other controller types fall back to default
-                        // instantiation.
                         fxmlLoader.setControllerFactory((Class<?> c) -> {
                             if (c == GuiController.class) return coopGui;
                             try {
@@ -488,7 +461,6 @@ public class MainMenuController {
                             stage.show();
                         }
 
-                        // create coop model with same dimensions as single-player board
                         CoopGameController coopModel = new CoopGameController(10, 25);
                         coopModel.createNewGame();
                         // initialize coop GUI with model
@@ -502,7 +474,6 @@ public class MainMenuController {
             });
         }
 
-        // --- (Solo game buttons remain unchanged) ---
         normalBtn.setOnAction(new EventHandler<ActionEvent>() {
             @Override
             public void handle(ActionEvent event) {
@@ -552,17 +523,11 @@ public class MainMenuController {
             public void handle(ActionEvent event) { loadGame("Hard"); }
         });
 
-        // --- (Hover effects remain unchanged, but with new buttons added) ---
         Platform.runLater(() -> {
             try {
                 final double expansion = 30; 
                 final double[] baseWidth = new double[1];
                 Runnable recompute = () -> {
-                    // Always recompute the preferred widths to keep the main menu cards consistent.
-                    // Avoid skipping when the mouse is hovering: leaving the previous early-return in place
-                    // could leave widths mismatched (and therefore heights differ due to text wrapping)
-                    // when returning to the menu while the cursor is over a button. Compute the max
-                    // only when the buttons report a positive width.
                     if (multiPlayerBtn == null || singlePlayerBtn == null || settingsBtn == null) return;
                     double w1 = multiPlayerBtn.getWidth();
                     double w2 = singlePlayerBtn.getWidth();
@@ -629,11 +594,17 @@ public class MainMenuController {
                 
             } catch (Exception ignored) {}
         });
+        // Ensure the menu styles are loaded into the active scene when it becomes available
+        Platform.runLater(() -> {
+            try {
+                javafx.scene.Scene s = null;
+                if (rootStack != null) s = rootStack.getScene();
+                if (s == null && backBtn != null) s = backBtn.getScene();
+                ensureMainMenuStylesheet(s);
+            } catch (Exception ignored) {}
+        });
     }
 
-    /**
-     * Apply audio volumes from AudioSettings to the main menu music and menu UI clips.
-     */
     private void applyAudioVolumesToMenu() {
         try {
             double masterVol = AudioSettings.getMasterVolume();
@@ -653,15 +624,13 @@ public class MainMenuController {
         } catch (Exception ignored) {}
     }
 
-    /**
-     * Show a simple audio settings overlay with sliders for Master / Music / SFX volumes.
-     */
     private void loadAudioSettings() {
         try {
             StackPane overlay = new StackPane();
-            overlay.setStyle("-fx-padding:0;");
+            overlay.getStyleClass().add("menu-overlay");
             Rectangle dark = new Rectangle();
             dark.setFill(javafx.scene.paint.Color.rgb(8,8,10,0.82));
+            dark.getStyleClass().add("menu-overlay-dark");
             javafx.application.Platform.runLater(() -> {
                 try {
                     if (overlay.getScene() != null) {
@@ -674,10 +643,10 @@ public class MainMenuController {
             BorderPane container = new BorderPane();
             container.setMaxWidth(Double.MAX_VALUE);
             container.setMaxHeight(Double.MAX_VALUE);
-            container.setStyle("-fx-padding:18;");
+            container.getStyleClass().add("menu-overlay-container");
 
             javafx.scene.text.Text header = new javafx.scene.text.Text("Audio");
-            header.setStyle("-fx-font-size:34px; -fx-fill: #9fb0ff; -fx-font-weight:700;");
+            header.getStyleClass().add("menu-overlay-header");
 
             javafx.scene.layout.HBox actionBox = new javafx.scene.layout.HBox(10);
             actionBox.setAlignment(javafx.geometry.Pos.CENTER_RIGHT);
@@ -690,38 +659,35 @@ public class MainMenuController {
             BorderPane topBar = new BorderPane();
             topBar.setLeft(header);
             topBar.setRight(actionBox);
-            topBar.setStyle("-fx-padding:8 18 18 18;");
+            topBar.getStyleClass().add("menu-overlay-topbar");
             container.setTop(topBar);
 
             // sliders
             javafx.scene.layout.VBox center = new javafx.scene.layout.VBox(14);
-            center.setStyle("-fx-padding:12; -fx-background-color: transparent;");
+            center.getStyleClass().add("menu-overlay-center");
             center.setAlignment(javafx.geometry.Pos.TOP_LEFT);
 
             javafx.scene.control.Label lMaster = new javafx.scene.control.Label("Master Volume");
             // make the label brighter and larger for better readability
-            lMaster.setStyle("-fx-text-fill: rgba(255,255,255,0.95); -fx-font-size: 20px; -fx-font-weight: bold;");
+            lMaster.getStyleClass().add("menu-label");
             javafx.scene.control.Slider sMaster = new javafx.scene.control.Slider(0, 1, AudioSettings.getMasterVolume());
             // hide built-in slider tick labels (we provide clearer custom labels below)
             sMaster.setShowTickLabels(false); sMaster.setShowTickMarks(true); sMaster.setBlockIncrement(0.05);
 
             javafx.scene.control.Label lMusic = new javafx.scene.control.Label("Music Volume");
             // make the label brighter and larger for better readability
-            lMusic.setStyle("-fx-text-fill: rgba(255,255,255,0.95); -fx-font-size: 20px; -fx-font-weight: bold;");
+            lMusic.getStyleClass().add("menu-label");
             javafx.scene.control.Slider sMusic = new javafx.scene.control.Slider(0, 1, AudioSettings.getMusicVolume());
             // hide built-in slider tick labels (we provide clearer custom labels below)
             sMusic.setShowTickLabels(false); sMusic.setShowTickMarks(true); sMusic.setBlockIncrement(0.05);
 
             javafx.scene.control.Label lSfx = new javafx.scene.control.Label("SFX Volume");
             // make the label brighter and larger for better readability
-            lSfx.setStyle("-fx-text-fill: rgba(255,255,255,0.95); -fx-font-size: 20px; -fx-font-weight: bold;");
+            lSfx.getStyleClass().add("menu-label");
             javafx.scene.control.Slider sSfx = new javafx.scene.control.Slider(0, 1, AudioSettings.getSfxVolume());
             // hide built-in slider tick labels (we provide clearer custom labels below)
             sSfx.setShowTickLabels(false); sSfx.setShowTickMarks(true); sSfx.setBlockIncrement(0.05);
 
-            // (we'll restore persisted values on cancel by re-applying AudioSettings below)
-
-            // live preview: update menu music and sfx immediately as sliders move (without saving)
             sMaster.valueProperty().addListener((obs, o, n) -> {
                 try {
                     double combinedMusic = n.doubleValue() * sMusic.getValue();
@@ -745,16 +711,14 @@ public class MainMenuController {
                 } catch (Exception ignored) {}
             });
 
-            // add labels and sliders (preview buttons removed)
-            // Add explicit tick labels (0 / 1) under each slider to ensure clear visibility against the background
             javafx.scene.layout.HBox ticksMaster = new javafx.scene.layout.HBox();
             javafx.scene.control.Label tMaster0 = new javafx.scene.control.Label("0");
             javafx.scene.control.Label tMaster05 = new javafx.scene.control.Label("0.5");
             javafx.scene.control.Label tMaster1 = new javafx.scene.control.Label("1");
             // make the main tick labels larger and higher contrast and add subtle drop shadow
-            tMaster0.setStyle("-fx-text-fill: rgba(255,255,255,0.97); -fx-font-size:20px; -fx-font-weight:700; -fx-padding:4 8 0 8; -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.75), 4, 0.5, 0, 2);");
-            tMaster05.setStyle("-fx-text-fill: rgba(255,255,255,0.92); -fx-font-size:14px; -fx-font-weight:600; -fx-padding:2 6 0 6; -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.6), 3, 0.4, 0, 1);");
-            tMaster1.setStyle("-fx-text-fill: rgba(255,255,255,0.97); -fx-font-size:20px; -fx-font-weight:700; -fx-padding:4 8 0 8; -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.75), 4, 0.5, 0, 2);");
+            tMaster0.getStyleClass().add("menu-tick-large");
+            tMaster05.getStyleClass().add("menu-tick-medium");
+            tMaster1.getStyleClass().add("menu-tick-large");
             javafx.scene.layout.Region spacerMasterLeft = new javafx.scene.layout.Region();
             javafx.scene.layout.Region spacerMasterRight = new javafx.scene.layout.Region();
             javafx.scene.layout.HBox.setHgrow(spacerMasterLeft, javafx.scene.layout.Priority.ALWAYS);
@@ -765,9 +729,9 @@ public class MainMenuController {
             javafx.scene.control.Label tMusic0 = new javafx.scene.control.Label("0");
             javafx.scene.control.Label tMusic05 = new javafx.scene.control.Label("0.5");
             javafx.scene.control.Label tMusic1 = new javafx.scene.control.Label("1");
-            tMusic0.setStyle("-fx-text-fill: rgba(255,255,255,0.97); -fx-font-size:20px; -fx-font-weight:700; -fx-padding:4 8 0 8; -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.75), 4, 0.5, 0, 2);");
-            tMusic05.setStyle("-fx-text-fill: rgba(255,255,255,0.92); -fx-font-size:14px; -fx-font-weight:600; -fx-padding:2 6 0 6; -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.6), 3, 0.4, 0, 1);");
-            tMusic1.setStyle("-fx-text-fill: rgba(255,255,255,0.97); -fx-font-size:20px; -fx-font-weight:700; -fx-padding:4 8 0 8; -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.75), 4, 0.5, 0, 2);");
+            tMusic0.getStyleClass().add("menu-tick-large");
+            tMusic05.getStyleClass().add("menu-tick-medium");
+            tMusic1.getStyleClass().add("menu-tick-large");
             javafx.scene.layout.Region spacerMusicLeft = new javafx.scene.layout.Region();
             javafx.scene.layout.Region spacerMusicRight = new javafx.scene.layout.Region();
             javafx.scene.layout.HBox.setHgrow(spacerMusicLeft, javafx.scene.layout.Priority.ALWAYS);
@@ -778,9 +742,9 @@ public class MainMenuController {
             javafx.scene.control.Label tSfx0 = new javafx.scene.control.Label("0");
             javafx.scene.control.Label tSfx05 = new javafx.scene.control.Label("0.5");
             javafx.scene.control.Label tSfx1 = new javafx.scene.control.Label("1");
-            tSfx0.setStyle("-fx-text-fill: rgba(255,255,255,0.97); -fx-font-size:20px; -fx-font-weight:700; -fx-padding:4 8 0 8; -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.75), 4, 0.5, 0, 2);");
-            tSfx05.setStyle("-fx-text-fill: rgba(255,255,255,0.92); -fx-font-size:14px; -fx-font-weight:600; -fx-padding:2 6 0 6; -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.6), 3, 0.4, 0, 1);");
-            tSfx1.setStyle("-fx-text-fill: rgba(255,255,255,0.97); -fx-font-size:20px; -fx-font-weight:700; -fx-padding:4 8 0 8; -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.75), 4, 0.5, 0, 2);");
+            tSfx0.getStyleClass().add("menu-tick-large");
+            tSfx05.getStyleClass().add("menu-tick-medium");
+            tSfx1.getStyleClass().add("menu-tick-large");
             javafx.scene.layout.Region spacerSfxLeft = new javafx.scene.layout.Region();
             javafx.scene.layout.Region spacerSfxRight = new javafx.scene.layout.Region();
             javafx.scene.layout.HBox.setHgrow(spacerSfxLeft, javafx.scene.layout.Priority.ALWAYS);
@@ -822,8 +786,6 @@ public class MainMenuController {
                 });
             });
 
-            // preview buttons removed: users can rely on slider live preview and Save to persist
-
             overlay.getChildren().addAll(dark, container);
             try { if (settingsOptions != null) settingsOptions.setVisible(false); rootStack.getChildren().add(overlay); } catch (Exception ignored) {}
             transitionTo(overlay);
@@ -831,9 +793,6 @@ public class MainMenuController {
         } catch (Exception ex) { ex.printStackTrace(); }
     }
 
-    /**
-     * Load handling settings overlay: ARR, DAS, DCD, SDF and Hard Drop toggle.
-     */
     private void loadHandlingControls() {
         try {
             URL loc = getClass().getClassLoader().getResource("handling.fxml");
@@ -852,9 +811,10 @@ public class MainMenuController {
             try { hc.hideActionButtons(); } catch (Exception ignored) {}
 
             StackPane overlay = new StackPane();
-            overlay.setStyle("-fx-padding:0;");
+            overlay.getStyleClass().add("menu-overlay");
             Rectangle dark = new Rectangle();
             dark.setFill(javafx.scene.paint.Color.rgb(8,8,10,0.82));
+            dark.getStyleClass().add("menu-overlay-dark");
             javafx.application.Platform.runLater(() -> {
                 try {
                     if (overlay.getScene() != null) {
@@ -867,10 +827,10 @@ public class MainMenuController {
             BorderPane container = new BorderPane();
             container.setMaxWidth(Double.MAX_VALUE);
             container.setMaxHeight(Double.MAX_VALUE);
-            container.setStyle("-fx-padding:18;");
+            container.getStyleClass().add("menu-overlay-container");
 
             javafx.scene.text.Text header = new javafx.scene.text.Text("Handling");
-            header.setStyle("-fx-font-size:34px; -fx-fill: #9fb0ff; -fx-font-weight:700;");
+            header.getStyleClass().add("menu-overlay-header");
             BorderPane.setAlignment(header, javafx.geometry.Pos.CENTER_LEFT);
 
             javafx.scene.layout.HBox actionBox = new javafx.scene.layout.HBox(10);
@@ -884,11 +844,11 @@ public class MainMenuController {
             BorderPane topBar = new BorderPane();
             topBar.setLeft(header);
             topBar.setRight(actionBox);
-            topBar.setStyle("-fx-padding:8 18 18 18;");
+            topBar.getStyleClass().add("menu-overlay-topbar");
             container.setTop(topBar);
 
             javafx.scene.layout.VBox center = new javafx.scene.layout.VBox(18);
-            center.setStyle("-fx-padding:12; -fx-background-color: transparent;");
+            center.getStyleClass().add("menu-overlay-center");
             center.getChildren().add(pane);
             container.setCenter(center);
 
@@ -936,14 +896,9 @@ public class MainMenuController {
 
         } catch (Exception ex) { ex.printStackTrace(); }
     }
-    
-    /**
-     * This method now loads the final controls.fxml overlay.
-     * It is called by the 'singlePlayerConfigBtn'.
-     */
+
     private void loadSinglePlayerControls() {
         try {
-            // Build a top-bar overlay that matches the multiplayer design but with a single Controls pane.
             URL loc = getClass().getClassLoader().getResource("controls.fxml");
             if (loc == null) {
                 System.err.println("Cannot find controls.fxml");
@@ -964,10 +919,11 @@ public class MainMenuController {
             // Create overlay shell similar to multiplayer overlay but for single pane
 
             StackPane overlay = new StackPane();
-            overlay.setStyle("-fx-padding:0;");
+            overlay.getStyleClass().add("menu-overlay");
 
             Rectangle dark = new Rectangle();
             dark.setFill(javafx.scene.paint.Color.rgb(8,8,10,0.82));
+            dark.getStyleClass().add("menu-overlay-dark");
             javafx.application.Platform.runLater(() -> {
                 try {
                     if (overlay.getScene() != null) {
@@ -980,10 +936,10 @@ public class MainMenuController {
             BorderPane container = new BorderPane();
             container.setMaxWidth(Double.MAX_VALUE);
             container.setMaxHeight(Double.MAX_VALUE);
-            container.setStyle("-fx-padding:18;");
+            container.getStyleClass().add("menu-overlay-container");
 
             javafx.scene.text.Text header = new javafx.scene.text.Text("Single Player");
-            header.setStyle("-fx-font-size:34px; -fx-fill: #9fb0ff; -fx-font-weight:700;");
+            header.getStyleClass().add("menu-overlay-header");
             BorderPane.setAlignment(header, javafx.geometry.Pos.CENTER_LEFT);
 
             // Top-right action buttons
@@ -998,24 +954,21 @@ public class MainMenuController {
             BorderPane topBar = new BorderPane();
             topBar.setLeft(header);
             topBar.setRight(actionBox);
-            topBar.setStyle("-fx-padding:8 18 18 18;");
+            topBar.getStyleClass().add("menu-overlay-topbar");
             container.setTop(topBar);
 
             // Center: the single controls pane
             javafx.scene.layout.VBox center = new javafx.scene.layout.VBox(18);
-            center.setStyle("-fx-padding:12; -fx-background-color: transparent;");
+            center.getStyleClass().add("menu-overlay-center");
             center.getChildren().add(pane);
             container.setCenter(center);
 
-            // Wire Reset to restore defaults in the embedded controller
             btnReset.setOnAction(ev -> {
                 try {
-                    // Use the public API to reset internal controls to defaults
                     cc.resetToDefaults();
                 } catch (Exception ignored) {}
             });
 
-            // Cancel should remove overlay and ensure controlsOptions is visible again
             btnCancel.setOnAction(ev -> {
                 ev.consume();
                 closeOverlayWithAnimation(overlay, () -> {
@@ -1030,7 +983,6 @@ public class MainMenuController {
                 });
             });
 
-            // Save should persist values into the MainMenuController fields and close
             btnSave.setOnAction(ev -> {
                 ev.consume();
                 try {
@@ -1057,11 +1009,6 @@ public class MainMenuController {
         }
     }
 
-    /**
-     * Load multiplayer controls overlay: two instances of controls.fxml stacked vertically.
-     * Upper panel configures the left player, lower panel configures the right player.
-     * On Save we validate that no KeyCode is reused between the two players.
-     */
     private void loadMultiplayerControls() {
         try {
             URL loc = getClass().getClassLoader().getResource("controls.fxml");
@@ -1070,26 +1017,20 @@ public class MainMenuController {
                 return;
             }
 
-            // First controls pane (left / upper player)
             FXMLLoader fx1 = new FXMLLoader(loc);
             javafx.scene.layout.StackPane pane1 = fx1.load();
             ControlsController cc1 = fx1.getController();
-            // initialize with stored values (may be null) — default to WASD + SHIFT for left player
             KeyCode defaultLeft_left = (mpLeft_left != null) ? mpLeft_left : KeyCode.A;
             KeyCode defaultLeft_right = (mpLeft_right != null) ? mpLeft_right : KeyCode.D;
             KeyCode defaultLeft_rotate = (mpLeft_rotate != null) ? mpLeft_rotate : KeyCode.W;
             KeyCode defaultLeft_down = (mpLeft_down != null) ? mpLeft_down : KeyCode.S;
             KeyCode defaultLeft_hard = (mpLeft_hard != null) ? mpLeft_hard : KeyCode.SHIFT;
-            // Left-player default switch should be 'Q' (WASD player uses Q to swap)
             KeyCode defaultLeft_switch = (mpLeft_switch != null) ? mpLeft_switch : KeyCode.Q;
             cc1.init(defaultLeft_left, defaultLeft_right, defaultLeft_rotate, defaultLeft_down, defaultLeft_hard, defaultLeft_switch);
-            // set the per-panel defaults so the 'Default' column shows WASD for left player (include Switch)
             try { cc1.setDefaultKeys(defaultLeft_left, defaultLeft_right, defaultLeft_rotate, defaultLeft_down, defaultLeft_hard, defaultLeft_switch); } catch (Exception ignored) {}
-            // hide per-panel action buttons — we use the top bar's Reset/Cancel/Save instead
             try { cc1.hideActionButtons(); } catch (Exception ignored) {}
             try { cc1.setHeaderText("Left Player Controls"); } catch (Exception ignored) {}
 
-            // Second controls pane (right / bottom player)
             FXMLLoader fx2 = new FXMLLoader(loc);
             javafx.scene.layout.StackPane pane2 = fx2.load();
             ControlsController cc2 = fx2.getController();
@@ -1099,7 +1040,6 @@ public class MainMenuController {
             try { cc2.hideActionButtons(); } catch (Exception ignored) {}
             try { cc2.setHeaderText("Right Player Controls"); } catch (Exception ignored) {}
 
-            // Cross-panel key availability check: prevent assigning a key that the other player already uses
             try {
                 cc1.setKeyAvailabilityChecker((code, btn) -> {
                     if (code == null) return true;
@@ -1116,13 +1056,12 @@ public class MainMenuController {
                 });
             } catch (Exception ignored) {}
 
-            // Build a full-screen overlay with a dark background and a top bar for title + buttons
             StackPane overlay = new StackPane();
-            overlay.setStyle("-fx-padding:0;");
+            overlay.getStyleClass().add("menu-overlay");
 
             Rectangle dark = new Rectangle();
             dark.setFill(javafx.scene.paint.Color.rgb(8,8,10,0.82));
-            // bind size to scene when available
+            dark.getStyleClass().add("menu-overlay-dark");
             javafx.application.Platform.runLater(() -> {
                 try {
                     if (overlay.getScene() != null) {
@@ -1132,15 +1071,14 @@ public class MainMenuController {
                 } catch (Exception ignored) {}
             });
 
-            // Top bar with title and action buttons on the right (Reset, Cancel, Save)
             BorderPane container = new BorderPane();
             container.setMaxWidth(Double.MAX_VALUE);
             container.setMaxHeight(Double.MAX_VALUE);
-            container.setStyle("-fx-padding:18;");
+            container.getStyleClass().add("menu-overlay-container");
 
             // Title (left)
             javafx.scene.text.Text header = new javafx.scene.text.Text("Multiplayer");
-            header.setStyle("-fx-font-size:34px; -fx-fill: #9fb0ff; -fx-font-weight:700;");
+            header.getStyleClass().add("menu-overlay-header");
             BorderPane.setAlignment(header, javafx.geometry.Pos.CENTER_LEFT);
             container.setTop(new StackPane(header));
 
@@ -1159,33 +1097,27 @@ public class MainMenuController {
             BorderPane topBar = new BorderPane();
             topBar.setLeft(header);
             topBar.setRight(actionBox);
-            topBar.setStyle("-fx-padding:8 18 18 18;");
+            topBar.getStyleClass().add("menu-overlay-topbar");
             container.setTop(topBar);
 
-            // Center area: stacked left (upper) and right (bottom) player control panes, each with a small label
             javafx.scene.layout.VBox center = new javafx.scene.layout.VBox(18);
-            center.setStyle("-fx-padding:12; -fx-background-color: transparent;");
+            center.getStyleClass().add("menu-overlay-center");
 
             center.getChildren().addAll( pane1, pane2);
 
-            // Put center inside a scroll pane in case window is small
             javafx.scene.control.ScrollPane sp = new javafx.scene.control.ScrollPane(center);
             sp.setFitToWidth(true);
-            sp.setStyle("-fx-background-color: transparent; -fx-background: transparent; -fx-padding:12;");
+            sp.getStyleClass().add("menu-overlay-scroll");
             container.setCenter(sp);
 
-            // Wire Reset to restore defaults in both embedded controllers
             btnReset.setOnAction(ev -> {
                 try {
-                    // left player: WASD + SHIFT (use Q as default Switch for left player)
                     cc1.init(KeyCode.A, KeyCode.D, KeyCode.W, KeyCode.S, KeyCode.SHIFT, KeyCode.Q);
                     try { cc1.setDefaultKeys(KeyCode.A, KeyCode.D, KeyCode.W, KeyCode.S, KeyCode.SHIFT, KeyCode.C); } catch (Exception ignored) {}
-                    // right player: use ControlsController defaults (pass nulls)
                     cc2.init(null, null, null, null, null);
                 } catch (Exception ignored) {}
             });
 
-            // Cancel should remove overlay and ensure controlsOptions is visible again
             btnCancel.setOnAction(ev -> {
                 ev.consume();
                 closeOverlayWithAnimation(overlay, () -> {
@@ -1200,7 +1132,6 @@ public class MainMenuController {
                 });
             });
 
-            // Save validates uniqueness and stores values
             btnSave.setOnAction(ev -> {
                 ev.consume();
                 try {
@@ -1224,14 +1155,11 @@ public class MainMenuController {
                         return;
                     }
 
-                    // persist into fields
                     mpLeft_left = cc1.getLeft(); mpLeft_right = cc1.getRight(); mpLeft_rotate = cc1.getRotate(); mpLeft_down = cc1.getDown(); mpLeft_hard = cc1.getHard(); mpLeft_switch = cc1.getSwitch();
                     mpRight_left = cc2.getLeft(); mpRight_right = cc2.getRight(); mpRight_rotate = cc2.getRotate(); mpRight_down = cc2.getDown(); mpRight_hard = cc2.getHard(); mpRight_switch = cc2.getSwitch();
 
-                    // persist multiplayer control settings
                     try { saveControlSettings(); } catch (Exception ignored) {}
 
-                    // close overlay with animation and then restore controls pane
                     closeOverlayWithAnimation(overlay, () -> {
                         try { rootStack.getChildren().remove(overlay); } catch (Exception ignored) {}
                         try { if (controlsOptions != null) controlsOptions.setVisible(true); } catch (Exception ignored) {}
@@ -1243,7 +1171,6 @@ public class MainMenuController {
 
             overlay.getChildren().addAll(dark, container);
             try { 
-                // hide the underlying controls pane while the overlay is active to avoid duplicate animations
                 if (controlsOptions != null) controlsOptions.setVisible(false);
                 rootStack.getChildren().add(overlay); 
             } catch (Exception ignored) {}
@@ -1254,7 +1181,6 @@ public class MainMenuController {
         }
     }
     
-    // Reusable helper to attach hover effects
     private void attachHoverEffects(Button b, double expansion) {
         if (b == null) return;
         Duration dur = Duration.millis(140);
@@ -1303,7 +1229,6 @@ public class MainMenuController {
         });
     }
 
-    // Simple menu sound helpers (hover + click)
     private void attachButtonSoundHandlers(Button btn) {
         if (btn == null) return;
         try {
@@ -1327,9 +1252,7 @@ public class MainMenuController {
         } catch (Exception ex) { System.err.println("Menu click play failed: " + ex); }
     }
 
-    // Load game (remains unchanged)
     private void loadGame(String mode) {
-        // stop main menu music before entering a gameplay scene
         stopMenuMusic();
         try {
             URL location = getClass().getClassLoader().getResource("gameLayout.fxml");
@@ -1401,9 +1324,6 @@ public class MainMenuController {
         });
     }
 
-    /**
-     * Animates an overlay pane OUT to the right, without affecting main menu.
-     */
     private void transitionFrom(StackPane fromPane) {
         if (fromPane == null) return;
         Platform.runLater(() -> {
@@ -1423,10 +1343,6 @@ public class MainMenuController {
         });
     }
 
-    /**
-     * Animates an overlay pane OUT to the right and then runs the provided callback.
-     * The callback typically removes the overlay from the stack and restores the previous menu pane.
-     */
     private void closeOverlayWithAnimation(StackPane fromPane, Runnable onFinished) {
         if (fromPane == null) {
             if (onFinished != null) Platform.runLater(onFinished);
@@ -1450,9 +1366,6 @@ public class MainMenuController {
             }
         });
     }
-
-    // --- ORIGINAL show/hideOverlay METHODS ---
-    // (These interact with the main menu buttons)
 
     private void showOverlay(javafx.scene.layout.StackPane overlay) {
         if (overlay == null) return;
@@ -1497,7 +1410,6 @@ public class MainMenuController {
         try { if (mediaContainer != null) mediaContainer.setVisible(false); } catch (Exception ignored) {}
     }
 
-    /** Stop and dispose the main menu background music player if present. Safe to call multiple times. */
     private void stopMenuMusic() {
         try {
             if (menuMusicPlayer != null) {
@@ -1508,10 +1420,46 @@ public class MainMenuController {
         } catch (Exception ignored) {}
     }
 
+    public void cleanup() {
+        try { stopMenuMusic(); } catch (Exception ignored) {}
+        try {
+            if (menuHoverClip != null) { try { menuHoverClip.stop(); } catch (Exception ignored) {} menuHoverClip = null; }
+        } catch (Exception ignored) {}
+        try {
+            if (menuClickClip != null) { try { menuClickClip.stop(); } catch (Exception ignored) {} menuClickClip = null; }
+        } catch (Exception ignored) {}
+        try {
+            if (menuMediaView != null) {
+                MediaPlayer mp = menuMediaView.getMediaPlayer();
+                if (mp != null) {
+                    try { mp.stop(); } catch (Exception ignored) {}
+                    try { mp.dispose(); } catch (Exception ignored) {}
+                }
+                try { menuMediaView.setMediaPlayer(null); } catch (Exception ignored) {}
+            }
+        } catch (Exception ignored) {}
+
+        try { if (masterVolListener != null) AudioSettings.masterProperty().removeListener(masterVolListener); } catch (Exception ignored) {}
+        try { if (musicVolListener != null) AudioSettings.musicProperty().removeListener(musicVolListener); } catch (Exception ignored) {}
+        try { if (sfxVolListener != null) AudioSettings.sfxProperty().removeListener(sfxVolListener); } catch (Exception ignored) {}
+        masterVolListener = null; musicVolListener = null; sfxVolListener = null;
+
+        try {
+            Button[] btns = new Button[] { singlePlayerBtn, multiPlayerBtn, settingsBtn, easyBtn, normalBtn, hardBtn, backBtn, scoreBattleBtn, classicBattleBtn, cooperateBattleBtn, multiBackBtn, controlsBtn, handlingBtn, audioBtn, settingsBackBtn, singlePlayerConfigBtn, multiPlayerConfigBtn, controlsBackBtn };
+            for (Button b : btns) {
+                if (b == null) continue;
+                try { b.setOnAction(null); } catch (Exception ignored) {}
+                try { b.setOnMouseEntered(null); } catch (Exception ignored) {}
+                try { b.setOnMouseExited(null); } catch (Exception ignored) {}
+            }
+        } catch (Exception ignored) {}
+
+        try { if (bgImage != null) bgImage.setImage(null); } catch (Exception ignored) {}
+    }
+
     private void hideOverlay(javafx.scene.layout.StackPane overlay) {
         if (overlay == null) return;
         try {
-            // Use the new transitionFrom helper for the animation
             transitionFrom(overlay);
             
             // Restore main buttons
@@ -1535,9 +1483,6 @@ public class MainMenuController {
         }
     }
 
-    // ---------------------- Preferences persistence helpers ----------------------
-
-    /** Save control key settings (single-player and multiplayer) to Preferences. */
     private void saveControlSettings() {
         try {
             prefs.put("spLeft", spLeft != null ? spLeft.name() : "");
@@ -1595,7 +1540,6 @@ public class MainMenuController {
         }
     }
 
-    /** Save handling settings (timings, soft drop factor, hard-drop enabled) to Preferences. */
     private void saveHandlingSettings() {
         try {
             prefs.putInt("settingArrMs", settingArrMs);
@@ -1608,7 +1552,6 @@ public class MainMenuController {
         }
     }
 
-    /** Load handling settings from Preferences. */
     private void loadHandlingSettings() {
         try {
             settingArrMs = prefs.getInt("settingArrMs", settingArrMs);
@@ -1621,7 +1564,6 @@ public class MainMenuController {
         }
     }
 
-    /** Helper: safely convert a stored String back to a KeyCode, returning null on error. */
     private KeyCode safeKeyCodeOf(String name) {
         if (name == null || name.isEmpty()) return null;
         try {
@@ -1629,5 +1571,23 @@ public class MainMenuController {
         } catch (IllegalArgumentException ex) {
             return null;
         }
+    }
+
+    /** Ensure the main menu stylesheet(s) are loaded into the given Scene. */
+    private void ensureMainMenuStylesheet(javafx.scene.Scene scene) {
+        if (scene == null) return;
+        try {
+            // menu.css is the existing shared stylesheet; our file will be css/main-menu.css
+            java.net.URL menuCss = getClass().getClassLoader().getResource("css/menu.css");
+            java.net.URL myCss = getClass().getClassLoader().getResource("css/main-menu.css");
+            if (menuCss != null) {
+                String s = menuCss.toExternalForm();
+                if (!scene.getStylesheets().contains(s)) scene.getStylesheets().add(s);
+            }
+            if (myCss != null) {
+                String s2 = myCss.toExternalForm();
+                if (!scene.getStylesheets().contains(s2)) scene.getStylesheets().add(s2);
+            }
+        } catch (Exception ignored) {}
     }
 }

@@ -1720,13 +1720,13 @@ public class GuiController implements Initializable {
                         if (stage.getScene() != null) {
                             stage.getScene().setRoot(menuRoot);
                             try {
-                                String css = getClass().getClassLoader().getResource("menu.css").toExternalForm();
+                                String css = getClass().getClassLoader().getResource("css/menu.css").toExternalForm();
                                 if (!stage.getScene().getStylesheets().contains(css)) stage.getScene().getStylesheets().add(css);
                             } catch (Exception ignored) {}
                         } else {
                             Scene s2 = new Scene(menuRoot, Math.max(420, stage.getWidth()), Math.max(700, stage.getHeight()));
                             try {
-                                String css = getClass().getClassLoader().getResource("menu.css").toExternalForm();
+                                String css = getClass().getClassLoader().getResource("css/menu.css").toExternalForm();
                                 s2.getStylesheets().add(css);
                             } catch (Exception ignored) {}
                             stage.setScene(s2);

@@ -1,0 +1,43 @@
+.score-battle-match-timer {
+  -fx-font-size: 56px;
+  -fx-fill: yellow;
+  -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.85), 6, 0.0, 0, 2);
+}
+
+.score-battle-match-score {
+  -fx-font-size: 36px;
+  -fx-fill: white;
+  -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.85), 6, 0.0, 0, 2);
+}
+
+.score-battle-centerbox {
+  -fx-background-color: rgba(20,20,20,0.85);
+  -fx-padding: 28px;
+  -fx-background-radius: 6px;
+}
+
+.score-battle-match-title {
+  -fx-font-size: 72px;
+  -fx-fill: linear-gradient(from 0% 0% to 100% 0%, #ffd166 0%, #ff7b7b 100%);
+  -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.9), 12, 0.0, 0, 4);
+}
+
+.score-battle-winner-score {
+  -fx-font-size: 28px;
+  -fx-fill: white;
+}
+
+.score-battle-winner-score.highlight {
+  -fx-fill: #ffd166;
+  -fx-font-weight: bold;
+}
+
+.score-battle-reason {
+  -fx-font-size: 18px;
+  -fx-fill: #dddddd;
+  -fx-opacity: 0.95;
+}
+
+.score-battle-overlay {
+  -fx-background-color: rgba(0,0,0,1.0);
+}

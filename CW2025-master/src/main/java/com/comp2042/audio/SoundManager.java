@@ -17,7 +17,6 @@ public class SoundManager {
     private AudioClip hoverClip;
     private AudioClip clickClip;
     private AudioClip hardDropClip;
-
     private Clip hoverFallback;
     private Clip clickFallback;
     private Clip hardDropFallback;
@@ -25,25 +24,56 @@ public class SoundManager {
     private MediaPlayer singleplayerMusicPlayer;
     private MediaPlayer gameOverMusicPlayer;
     private MediaPlayer countdownMusicPlayer;
-    // Track dynamically-created players' volume listeners so we can remove them when disposing
     private final java.util.Map<MediaPlayer, javafx.beans.value.ChangeListener<Number>> mpVolumeListeners = new java.util.WeakHashMap<>();
+    private ChangeListener<Number> settingsVolumeListener = null;
 
     public SoundManager(Class<?> resourceOwner) {
         this.resourceOwner = resourceOwner == null ? getClass() : resourceOwner;
     }
 
     public void init() {
-        // Load short SFX
         hoverClip = loadAudioClip("/sounds/hover.wav", c -> hoverClip = c);
         clickClip = loadAudioClip("/sounds/click.wav", c -> clickClip = c);
         hardDropClip = loadAudioClip("/sounds/HardDrop.wav", c -> hardDropClip = c);
 
-        // Prepare music players lazily when requested - but attach listeners for volume updates
         ChangeListener<Number> volumeListener = (obs, o, n) -> applyVolumes();
-        AudioSettings.masterProperty().addListener(volumeListener);
-        AudioSettings.musicProperty().addListener(volumeListener);
-        AudioSettings.sfxProperty().addListener(volumeListener);
+        settingsVolumeListener = volumeListener;
+        AudioSettings.masterProperty().addListener(settingsVolumeListener);
+        AudioSettings.musicProperty().addListener(settingsVolumeListener);
+        AudioSettings.sfxProperty().addListener(settingsVolumeListener);
         applyVolumes();
+    }
+
+    public void dispose() {
+        try {
+            try {
+                if (settingsVolumeListener != null) {
+                    try { AudioSettings.masterProperty().removeListener(settingsVolumeListener); } catch (Exception ignored) {}
+                    try { AudioSettings.musicProperty().removeListener(settingsVolumeListener); } catch (Exception ignored) {}
+                    try { AudioSettings.sfxProperty().removeListener(settingsVolumeListener); } catch (Exception ignored) {}
+                    settingsVolumeListener = null;
+                }
+            } catch (Exception ignored) {}
+
+            try { stopSingleplayerMusic(); } catch (Exception ignored) {}
+            try { stopGameOverMusic(); } catch (Exception ignored) {}
+            try { stopCountdownMusic(); } catch (Exception ignored) {}
+
+            try {
+                java.util.List<MediaPlayer> list = new java.util.ArrayList<>(mpVolumeListeners.keySet());
+                for (MediaPlayer mp : list) {
+                    try { disposeMediaPlayer(mp); } catch (Exception ignored) {}
+                }
+            } catch (Exception ignored) {}
+
+            try { if (hoverFallback != null) { hoverFallback.close(); hoverFallback = null; } } catch (Exception ignored) {}
+            try { if (clickFallback != null) { clickFallback.close(); clickFallback = null; } } catch (Exception ignored) {}
+            try { if (hardDropFallback != null) { hardDropFallback.close(); hardDropFallback = null; } } catch (Exception ignored) {}
+
+            try { hoverClip = null; } catch (Exception ignored) {}
+            try { clickClip = null; } catch (Exception ignored) {}
+            try { hardDropClip = null; } catch (Exception ignored) {}
+        } catch (Throwable ignored) {}
     }
 
     private AudioClip loadAudioClip(String resourcePath, java.util.function.Consumer<AudioClip> setter) {
@@ -59,7 +89,6 @@ public class SoundManager {
     }
 
     private AudioClip initFallbackClip(String resourcePath, java.util.function.Consumer<AudioClip> setter) {
-        // Try to create a javax.sound Clip fallback
         try {
             URL url = resourceOwner.getResource(resourcePath);
             if (url == null) return null;
@@ -196,12 +225,6 @@ public class SoundManager {
         } catch (Throwable ignored) {}
     }
 
-    /**
-     * Create a MediaPlayer for an arbitrary resource path. The caller is responsible for
-     * keeping a reference and disposing it via {@link #disposeMediaPlayer(MediaPlayer)} when done.
-     * volumeFactor is an optional multiplier applied on top of current master*music volumes
-     * (use 0.6 to mirror previous hard-coded controller volumes).
-     */
     public MediaPlayer createMediaPlayer(String resourcePath, boolean loop, Double volumeFactor) {
         try {
             URL mus = resourceOwner.getResource(resourcePath);
@@ -210,14 +233,12 @@ public class SoundManager {
             Media m = new Media(mus.toExternalForm());
             MediaPlayer mp = new MediaPlayer(m);
             mp.setCycleCount(loop ? MediaPlayer.INDEFINITE : 1);
-            // initial volume uses master*music scaled by an optional factor
             double base = AudioSettings.getMasterVolume() * AudioSettings.getMusicVolume();
             double scaled = (volumeFactor != null) ? Math.max(0.0, Math.min(1.0, base * volumeFactor)) : base;
             try { mp.setVolume(scaled); } catch (Exception ignored) {}
             mp.setAutoPlay(false);
             mp.setOnError(() -> System.err.println("[SoundManager] MediaPlayer error for " + resourcePath + ": " + mp.getError()));
 
-            // Attach a listener so runtime volume changes propagate to this player
             javafx.beans.value.ChangeListener<Number> volListener = (obs, o, n) -> {
                 try {
                     double b = AudioSettings.getMasterVolume() * AudioSettings.getMusicVolume();
@@ -236,11 +257,9 @@ public class SoundManager {
         }
     }
 
-    /** Safely stop and dispose a MediaPlayer created by this manager. */
     public void disposeMediaPlayer(MediaPlayer mp) {
         if (mp == null) return;
         try {
-            // remove attached listener if present
             try {
                 javafx.beans.value.ChangeListener<Number> l = mpVolumeListeners.remove(mp);
                 if (l != null) {

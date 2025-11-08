@@ -64,6 +64,6 @@
         </VBox>
     </Group>
     <stylesheets>
-        <URL value="@window_style.css"/>
+        <URL value="@css/window_style.css"/>
     </stylesheets>
 </Pane>

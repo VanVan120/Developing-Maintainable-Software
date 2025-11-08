@@ -1,0 +1,54 @@
+.menu-overlay {
+    -fx-padding: 0;
+}
+
+.menu-overlay-dark {
+    -fx-fill: rgba(8,8,10,0.82);
+}
+
+.menu-overlay-container {
+    -fx-padding: 18px;
+}
+
+.menu-overlay-header {
+    -fx-font-size: 34px;
+    -fx-fill: #9fb0ff;
+    -fx-font-weight: 700;
+}
+
+.menu-overlay-topbar {
+    -fx-padding: 8px 18px 18px 18px;
+}
+
+.menu-overlay-center {
+    -fx-padding: 12px;
+    -fx-background-color: transparent;
+}
+
+.menu-label {
+    -fx-text-fill: rgba(255,255,255,0.95);
+    -fx-font-size: 20px;
+    -fx-font-weight: bold;
+}
+
+.menu-tick-large {
+    -fx-text-fill: rgba(255,255,255,0.97);
+    -fx-font-size: 20px;
+    -fx-font-weight: 700;
+    -fx-padding: 4px 8px 0 8px;
+    -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.75), 4, 0.5, 0, 2);
+}
+
+.menu-tick-medium {
+    -fx-text-fill: rgba(255,255,255,0.92);
+    -fx-font-size: 14px;
+    -fx-font-weight: 600;
+    -fx-padding: 2px 6px 0 6px;
+    -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.6), 3, 0.4, 0, 1);
+}
+
+.menu-overlay-scroll {
+    -fx-background-color: transparent;
+    -fx-background: transparent;
+    -fx-padding: 12px;
+}
