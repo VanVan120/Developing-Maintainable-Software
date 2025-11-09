@@ -5,11 +5,9 @@ import com.comp2042.logic.bricks.BrickGenerator;
 import com.comp2042.logic.bricks.RandomBrickGenerator;
 import com.comp2042.utils.BrickRotator;
 import com.comp2042.utils.MatrixOperations;
-
-import java.awt.*;
+import java.awt.Point;
 
 public class SimpleBoard implements Board {
-
     private final int width;
     private final int height;
     private final BrickGenerator brickGenerator;
@@ -18,10 +16,10 @@ public class SimpleBoard implements Board {
     private Point currentOffset;
     private final Score score;
 
+
     public SimpleBoard(int width, int height) {
         this.width = width;
         this.height = height;
-        // matrix is rows (height) by columns (width)
         currentGameMatrix = new int[height][width];
         brickGenerator = new RandomBrickGenerator();
         brickRotator = new BrickRotator();
@@ -41,7 +39,6 @@ public class SimpleBoard implements Board {
             return true;
         }
     }
-
 
     @Override
     public boolean moveBrickLeft() {

@@ -56,7 +56,11 @@ public final class CoopScore {
             } else {
                 highScore.set(0);
             }
-        } catch (Exception ignored) { highScore.set(0); }
+        } catch (Exception e) {
+            // Log and default to zero if any IO or permission error occurs while reading file
+            LOGGER.log(Level.FINER, "Failed to read coop highscore file, defaulting to 0", e);
+            highScore.set(0);
+        }
     }
 
     private void saveHighScore() {
@@ -65,7 +69,7 @@ public final class CoopScore {
             Path dir = target.getParent();
             if (dir == null) dir = Paths.get(System.getProperty("user.home"));
             // create parent dir if necessary
-            try { Files.createDirectories(dir); } catch (Exception e) { /* ignore - may already exist */ }
+            try { Files.createDirectories(dir); } catch (Exception e) { LOGGER.log(Level.FINER, "Could not create highscore parent dir", e); }
             Path tmp = Files.createTempFile(dir, ".coop_hs", ".tmp");
             Files.writeString(tmp, Integer.toString(highScore.get()), StandardCharsets.UTF_8);
             try {
