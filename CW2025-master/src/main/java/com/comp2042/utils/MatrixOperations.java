@@ -6,24 +6,39 @@ import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Deque;
 import java.util.List;
+import java.util.Objects;
 import java.util.stream.Collectors;
 
+/**
+ * Small collection of matrix helpers used by the game logic and renderer.
+ *
+ * <p>All methods here are static and intended to be side-effect free: callers
+ * receive copies where appropriate. The class intentionally keeps behaviour
+ * simple and predictable so higher-level code can reason about collisions,
+ * merges and row-clearing.
+ */
 public class MatrixOperations {
 
-
-    //We don't want to instantiate this utility class
-    private MatrixOperations(){
-
+    // We don't want to instantiate this utility class
+    private MatrixOperations() {
     }
 
-    public static boolean intersect(final int[][] matrix, final int[][] brick, int x, int y) {
+    /**
+     * Returns true if any non-zero cell of {@code brick} would collide with
+     * filled cells in {@code matrix} or would fall outside the visible board.
+     */
+    public static boolean intersect(final int[][] matrix, final int[][] brick, final int x, final int y) {
+        Objects.requireNonNull(matrix, "matrix");
+        Objects.requireNonNull(brick, "brick");
         // brick is an array of rows (i) and columns (j). matrix is matrix[row][col].
         for (int i = 0; i < brick.length; i++) {
             for (int j = 0; j < brick[i].length; j++) {
                 int targetY = y + i; // row index
                 int targetX = x + j; // column index
-                if (brick[i][j] != 0 && (checkOutOfBound(matrix, targetX, targetY) || matrix[targetY][targetX] != 0)) {
-                    return true;
+                if (brick[i][j] != 0) {
+                    if (isOutOfBounds(matrix, targetX, targetY) || matrix[targetY][targetX] != 0) {
+                        return true;
+                    }
                 }
             }
         }
@@ -31,11 +46,13 @@ public class MatrixOperations {
     }
 
     /**
-     * Similar to intersect but used for ghost/landing calculation: allow brick cells that are above
-     * the top of the board (targetY < 0) while still detecting collisions with existing filled
-     * cells and collisions that would be out of horizontal bounds or below the board.
+     * Like {@link #intersect(int[][], int[][], int, int)} but treats cells above
+     * the top of the board (targetY < 0) as non-colliding. Used for ghost/landing
+     * calculations.
      */
-    public static boolean intersectForGhost(final int[][] matrix, final int[][] brick, int x, int y) {
+    public static boolean intersectForGhost(final int[][] matrix, final int[][] brick, final int x, final int y) {
+        Objects.requireNonNull(matrix, "matrix");
+        Objects.requireNonNull(brick, "brick");
         for (int i = 0; i < brick.length; i++) {
             for (int j = 0; j < brick[i].length; j++) {
                 int targetY = y + i; // row index
@@ -52,15 +69,16 @@ public class MatrixOperations {
         return false;
     }
 
-    private static boolean checkOutOfBound(int[][] matrix, int targetX, int targetY) {
-        boolean returnValue = true;
-        if (targetX >= 0 && targetY >= 0 && targetY < matrix.length && targetX < matrix[targetY].length) {
-            returnValue = false;
-        }
-        return returnValue;
+    private static boolean isOutOfBounds(final int[][] matrix, final int targetX, final int targetY) {
+        return targetX < 0 || targetY < 0 || targetY >= matrix.length || targetX >= matrix[targetY].length;
     }
 
-    public static int[][] copy(int[][] original) {
+    /**
+     * Deep-copy a rectangular int matrix. Caller retains ownership of the returned
+     * array and may mutate it safely.
+     */
+    public static int[][] copy(final int[][] original) {
+        Objects.requireNonNull(original, "original");
         int[][] myInt = new int[original.length][];
         for (int i = 0; i < original.length; i++) {
             int[] aMatrix = original[i];
@@ -71,7 +89,13 @@ public class MatrixOperations {
         return myInt;
     }
 
-    public static int[][] merge(int[][] filledFields, int[][] brick, int x, int y) {
+    /**
+     * Return a new matrix with the brick merged into the filledFields matrix.
+     * The original filledFields is not modified.
+     */
+    public static int[][] merge(final int[][] filledFields, final int[][] brick, final int x, final int y) {
+        Objects.requireNonNull(filledFields, "filledFields");
+        Objects.requireNonNull(brick, "brick");
         int[][] copy = copy(filledFields);
         for (int i = 0; i < brick.length; i++) {
             for (int j = 0; j < brick[i].length; j++) {
@@ -85,10 +109,16 @@ public class MatrixOperations {
         return copy;
     }
 
+    /**
+     * Scan the board for full rows, return a ClearRow containing the number of
+     * cleared rows, the new matrix (with rows shifted down), the score bonus
+     * and the absolute indices of cleared rows.
+     */
     public static ClearRow checkRemoving(final int[][] matrix) {
+        Objects.requireNonNull(matrix, "matrix");
         int[][] tmp = new int[matrix.length][matrix[0].length];
         Deque<int[]> newRows = new ArrayDeque<>();
-    List<Integer> clearedRows = new ArrayList<>();
+        List<Integer> clearedRows = new ArrayList<>();
 
         for (int i = 0; i < matrix.length; i++) {
             int[] tmpRow = new int[matrix[i].length];
@@ -120,7 +150,8 @@ public class MatrixOperations {
         return new ClearRow(clearedRows.size(), tmp, scoreBonus, cleared);
     }
 
-    public static List<int[][]> deepCopyList(List<int[][]> list){
+    public static List<int[][]> deepCopyList(final List<int[][]> list) {
+        Objects.requireNonNull(list, "list");
         return list.stream().map(MatrixOperations::copy).collect(Collectors.toList());
     }
 
