@@ -12,6 +12,8 @@ import javafx.scene.layout.Pane;
 import javafx.scene.paint.Color;
 import javafx.scene.paint.Paint;
 import javafx.scene.shape.Rectangle;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 
 
@@ -22,6 +24,8 @@ import javafx.scene.shape.Rectangle;
  */
 public class BoardView {
     public static final int BRICK_SIZE = 24;
+
+    private static final Logger LOGGER = Logger.getLogger(BoardView.class.getName());
 
     private final GridPane gamePanel;
     private final Pane brickPanel;
@@ -67,14 +71,15 @@ public class BoardView {
 
         if (brick == null) return;
 
-        rectangles = new Rectangle[brick.getBrickData().length][brick.getBrickData()[0].length];
+        int[][] brickData = brick.getBrickData();
+        rectangles = new Rectangle[brickData.length][brickData[0].length];
         double initialCellW = BRICK_SIZE + (gamePanel == null ? 0 : gamePanel.getHgap());
         double initialCellH = BRICK_SIZE + (gamePanel == null ? 0 : gamePanel.getVgap());
-        for (int i = 0; i < brick.getBrickData().length; i++) {
-            for (int j = 0; j < brick.getBrickData()[i].length; j++) {
+        for (int i = 0; i < brickData.length; i++) {
+            for (int j = 0; j < brickData[i].length; j++) {
                 Rectangle rectangle = new Rectangle(BRICK_SIZE, BRICK_SIZE);
                 // bricks get a solid-ish fill and a subtle stroke to pop against the grid
-                rectangle.setFill(getFillColor(brick.getBrickData()[i][j]));
+                rectangle.setFill(getFillColor(brickData[i][j]));
                 rectangle.setStroke(Color.rgb(0,0,0,0.35));
                 rectangle.setStrokeWidth(1.0);
                 rectangles[i][j] = rectangle;
@@ -84,7 +89,7 @@ public class BoardView {
             }
         }
 
-        ghostRectangles = new Rectangle[brick.getBrickData().length][brick.getBrickData()[0].length];
+        ghostRectangles = new Rectangle[brickData.length][brickData[0].length];
         for (int i = 0; i < ghostRectangles.length; i++) {
             for (int j = 0; j < ghostRectangles[i].length; j++) {
                 Rectangle r = new Rectangle(BRICK_SIZE, BRICK_SIZE);
@@ -100,7 +105,7 @@ public class BoardView {
         }
 
         Platform.runLater(() -> {
-            try {
+                try {
                 // Measure grid origin using first non-null reference cell if possible
                 Rectangle ref = null;
                 for (int r = 2; r < displayMatrix.length; r++) {
@@ -127,7 +132,7 @@ public class BoardView {
                     cellW = Math.max(4.0, measuredW + (gamePanel == null ? 0 : gamePanel.getHgap()));
                     cellH = Math.max(4.0, measuredH + (gamePanel == null ? 0 : gamePanel.getVgap()));
                 } catch (Exception ex) {
-                    // leave defaults
+                    LOGGER.log(Level.FINER, "Failed to measure rectangle sizes, keeping defaults", ex);
                 }
 
                 // snap rectangles to measured grid
@@ -162,14 +167,14 @@ public class BoardView {
                     try {
                         drawBackgroundGrid(bgCanvas, boardMatrix);
                     } catch (Throwable t) {
-                        // non-fatal
+                        LOGGER.log(Level.FINE, "drawBackgroundGrid threw", t);
                     }
                 }
 
                 if (brick != null) refreshBrick(brick);
             } catch (Throwable t) {
                 // defensive: don't let layout measurement break the app
-                t.printStackTrace();
+                LOGGER.log(Level.WARNING, "initGameView layout measurement failed", t);
             }
         });
     }
@@ -283,15 +288,18 @@ public class BoardView {
                 Point2D parentLocal = brickPanel.getParent().sceneToLocal(scenePt);
                 brickPanel.setTranslateX(Math.round(parentLocal.getX()));
                 brickPanel.setTranslateY(Math.round(parentLocal.getY()));
-            } else {
+            } else if (brickPanel != null) {
                 Point2D pt = boardToPixel(offsetX, offsetY);
                 brickPanel.setTranslateX(Math.round(pt.getX()));
                 brickPanel.setTranslateY(Math.round(pt.getY()));
             }
         } catch (Exception ex) {
             Point2D pt = boardToPixel(offsetX, offsetY);
-            brickPanel.setTranslateX(Math.round(pt.getX()));
-            brickPanel.setTranslateY(Math.round(pt.getY()));
+            if (brickPanel != null) {
+                brickPanel.setTranslateX(Math.round(pt.getX()));
+                brickPanel.setTranslateY(Math.round(pt.getY()));
+            }
+            LOGGER.log(Level.FINER, "Failed to position brickPanel precisely, falling back", ex);
         }
 
         int[][] data = brick.getBrickData();
@@ -347,15 +355,18 @@ public class BoardView {
                 Point2D parentLocal = ghostPanel.getParent().sceneToLocal(scenePt);
                 ghostPanel.setTranslateX(Math.round(parentLocal.getX()));
                 ghostPanel.setTranslateY(Math.round(parentLocal.getY()));
-            } else {
+            } else if (ghostPanel != null) {
                 Point2D pt = boardToPixel(startX, landingY - 2);
                 ghostPanel.setTranslateX(Math.round(pt.getX()));
                 ghostPanel.setTranslateY(Math.round(pt.getY()));
             }
         } catch (Exception ex) {
             Point2D pt = boardToPixel(startX, landingY - 2);
-            ghostPanel.setTranslateX(Math.round(pt.getX()));
-            ghostPanel.setTranslateY(Math.round(pt.getY()));
+            if (ghostPanel != null) {
+                ghostPanel.setTranslateX(Math.round(pt.getX()));
+                ghostPanel.setTranslateY(Math.round(pt.getY()));
+            }
+            LOGGER.log(Level.FINER, "Failed to position ghostPanel precisely, falling back", ex);
         }
 
         for (int i = 0; i < shape.length; i++) {

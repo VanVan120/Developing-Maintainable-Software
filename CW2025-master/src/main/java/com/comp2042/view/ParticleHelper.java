@@ -15,19 +15,27 @@ import javafx.util.Duration;
 import javafx.geometry.Point2D;
 import javafx.scene.effect.DropShadow;
 import javafx.scene.effect.BlurType;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 /**
  * Small helper to centralize particle creation and flash effects so controllers can delegate to it.
  */
 public class ParticleHelper {
 
+    private static final Logger LOGGER = Logger.getLogger(ParticleHelper.class.getName());
+    // Ensure the particles stylesheet is loaded once per JVM run
+    private static volatile boolean PARTICLE_STYLES_LOADED = false;
+
     public static void flashRowAt(Pane particlePane, double leftXLocal, double topYLocal, double width, double height) {
         if (particlePane == null) return;
+        ensureParticleStyles(particlePane);
         try {
             Rectangle flash = new Rectangle(Math.round(width), Math.round(height));
             flash.setTranslateX(Math.round(leftXLocal));
             flash.setTranslateY(Math.round(topYLocal));
-            flash.setFill(Color.web("#ffffff"));
+            // default visual defined in CSS
+            flash.getStyleClass().add("particle-flash");
             flash.setOpacity(0.0);
             flash.setMouseTransparent(true);
             particlePane.getChildren().add(flash);
@@ -42,11 +50,12 @@ public class ParticleHelper {
             out.setOnFinished(event -> particlePane.getChildren().remove(flash));
             in.play();
             out.play();
-        } catch (Exception ignored) {}
+        } catch (Exception ex) { LOGGER.log(Level.FINER, "flashRowAt failed", ex); }
     }
 
     public static void spawnRowClearParticles(Pane particlePane, ClearRow clearRow, Rectangle[][] displayMatrix, BoardView bv, double baseOffsetX, double baseOffsetY, double cellW, double cellH, javafx.scene.Scene gameScene) {
         if (clearRow == null || particlePane == null || displayMatrix == null) return;
+        ensureParticleStyles(particlePane);
         try {
             int[] rows = clearRow.getClearedRows();
             if (rows == null || rows.length == 0) return;
@@ -66,7 +75,9 @@ public class ParticleHelper {
                         }
                         if (fill == null) continue;
                         if (fill == javafx.scene.paint.Color.TRANSPARENT) continue;
-                        javafx.scene.paint.Color color = (fill instanceof javafx.scene.paint.Color) ? (javafx.scene.paint.Color) fill : javafx.scene.paint.Color.WHITE;
+                        // if the board cell fill is a concrete Color, use it; otherwise
+                        // fall back to CSS-defined default color (handled by style class)
+                        javafx.scene.paint.Color color = (fill instanceof javafx.scene.paint.Color) ? (javafx.scene.paint.Color) fill : null;
 
                         // spawn a handful of small square particles for this brick
                         int particles = 4 + (int)(Math.random() * 6); // 4..9
@@ -76,7 +87,13 @@ public class ParticleHelper {
                             Rectangle sq = new Rectangle(pw, ph);
                             sq.setArcWidth(2);
                             sq.setArcHeight(2);
-                            sq.setFill(color);
+                            // if we have a concrete Color from the board cell, use it; otherwise
+                            // fall back to a CSS-defined default color.
+                            if (color != null) {
+                                sq.setFill(color);
+                            } else {
+                                sq.getStyleClass().add("particle-square-default");
+                            }
                             sq.setMouseTransparent(true);
 
                             // initial position: somewhere within the original brick cell
@@ -108,7 +125,7 @@ public class ParticleHelper {
 
                             // falling distance (to bottom of scene or a generous amount)
                             double sceneHeight = 800.0;
-                            try { if (gameScene != null) sceneHeight = gameScene.getHeight(); } catch (Exception ignored) {}
+                            try { if (gameScene != null) sceneHeight = gameScene.getHeight(); } catch (Exception ex) { LOGGER.log(Level.FINER, "Failed to get gameScene height", ex); }
                             double fallBy = sceneHeight - local.getY() + 80 + Math.random() * 120;
 
                             // duration variation (increased so particles fall longer and remain visible)
@@ -129,17 +146,18 @@ public class ParticleHelper {
 
                             ParallelTransition pt = new ParallelTransition(ttx, tt, ft);
                             final Rectangle node = sq;
-                            pt.setOnFinished(e -> { try { if (e != null) e.consume(); particlePane.getChildren().remove(node); } catch (Exception ignored) {} });
+                            pt.setOnFinished(e -> { try { if (e != null) e.consume(); particlePane.getChildren().remove(node); } catch (Exception ex) { LOGGER.log(Level.FINER, "Failed to cleanup particle node", ex); } });
                             pt.play();
                         }
-                    } catch (Exception ignored) {}
+                        } catch (Exception ex) { LOGGER.log(Level.FINER, "spawnRowClearParticles particle creation failed", ex); }
                 }
             }
-        } catch (Exception ignored) {}
+        } catch (Exception ex) { LOGGER.log(Level.FINER, "spawnRowClearParticles failed", ex); }
     }
 
     public static void flashRow(Pane particlePane, double baseOffsetX, double topY, double width, double height) {
         if (particlePane == null) return;
+        ensureParticleStyles(particlePane);
         try {
             Rectangle flash = new Rectangle(Math.round(width), Math.round(height));
             flash.setTranslateX(Math.round(baseOffsetX));
@@ -159,11 +177,12 @@ public class ParticleHelper {
             out.setOnFinished(event -> particlePane.getChildren().remove(flash));
             in.play();
             out.play();
-        } catch (Exception ignored) {}
+        } catch (Exception ex) { LOGGER.log(Level.FINER, "flashRow failed", ex); }
     }
 
     public static void spawnParticlesAt(Pane particlePane, double centerX, double centerY, int[][] brickShape) {
         if (particlePane == null) return;
+        ensureParticleStyles(particlePane);
         final int PARTICLE_COUNT = 18;
         final double MAX_SPEED = 220.0; // px/sec
         final double DURATION_MS = 600.0;
@@ -171,7 +190,7 @@ public class ParticleHelper {
         for (int i = 0; i < PARTICLE_COUNT; i++) {
             Circle c = new Circle(4 + Math.random() * 4);
             // random color sampled from brick colors (if available) or default gold
-            Paint p = Color.web("#ffd166");
+            Paint p = null; // default color is provided by CSS unless brickShape supplies fills
             if (brickShape != null) {
                 java.util.List<Paint> fills = new java.util.ArrayList<>();
                 for (int r = 0; r < brickShape.length; r++) {
@@ -182,7 +201,11 @@ public class ParticleHelper {
                 }
                 if (!fills.isEmpty()) p = fills.get((int) (Math.random() * fills.size()));
             }
-            c.setFill(p);
+            if (p != null) {
+                c.setFill(p);
+            } else {
+                c.getStyleClass().add("particle-circle-default");
+            }
             c.setOpacity(1.0);
             c.setTranslateX(centerX + (Math.random() - 0.5) * 6);
             c.setTranslateY(centerY + (Math.random() - 0.5) * 6);
@@ -209,7 +232,7 @@ public class ParticleHelper {
             st.setToY(0.3);
 
             ParallelTransition pt = new ParallelTransition(tt, ft, st);
-            pt.setOnFinished(event -> particlePane.getChildren().remove(c));
+            pt.setOnFinished(event -> { try { particlePane.getChildren().remove(c); } catch (Exception ex) { LOGGER.log(Level.FINER, "Failed to remove particle", ex); } });
             pt.play();
         }
     }
@@ -222,6 +245,7 @@ public class ParticleHelper {
     public static void playLockEffect(Pane particlePane, ViewData start, ViewData end, boolean intense,
                                       Pane brickPanel, BoardView bv, double cellWpx, double cellHpx) {
         if (start == null || end == null || particlePane == null) return;
+        ensureParticleStyles(particlePane);
         try {
             int[][] shape = start.getBrickData();
             if (shape == null) return;
@@ -251,7 +275,7 @@ public class ParticleHelper {
                                 : scenePt;
                     }
                 }
-            } catch (Exception ignored) {}
+            } catch (Exception ex) { LOGGER.log(Level.FINER, "Failed to compute topParentPt", ex); }
             Point2D topLocal = null;
             try {
                 if (topParentPt != null) {
@@ -265,6 +289,7 @@ public class ParticleHelper {
                     topLocal = (particlePane != null) ? particlePane.sceneToLocal(fallback) : fallback;
                 }
             } catch (Exception ex) {
+                LOGGER.log(Level.FINER, "Failed to compute topLocal for lock effect", ex);
                 topLocal = new Point2D(0,0);
             }
 
@@ -281,7 +306,7 @@ public class ParticleHelper {
                             javafx.geometry.Point2D scene = bv.boardCellScenePoint(boardX, startBoardY + r);
                             if (scene != null) cellStartLocal = (particlePane != null) ? particlePane.sceneToLocal(scene) : scene;
                         }
-                    } catch (Exception ignored) {}
+                    } catch (Exception ex) { LOGGER.log(Level.FINER, "Failed to compute cellStartLocal", ex); }
                     if (cellStartLocal == null) {
                         javafx.geometry.Point2D cellStartParent = new javafx.geometry.Point2D(Math.round(boardX * cellWpx), Math.round((startBoardY + r) * cellHpx));
                         javafx.geometry.Point2D cellStartScene = (brickPanel != null && brickPanel.getParent() != null)
@@ -297,7 +322,7 @@ public class ParticleHelper {
                             javafx.geometry.Point2D scene = bv.boardCellScenePoint(boardX, boardYEnd);
                             if (scene != null) cellEndLocal = (particlePane != null) ? particlePane.sceneToLocal(scene) : scene;
                         }
-                    } catch (Exception ignored) {}
+                    } catch (Exception ex) { LOGGER.log(Level.FINER, "Failed to compute cellEndLocal", ex); }
                     if (cellEndLocal == null) {
                         javafx.geometry.Point2D cellEndParent = new javafx.geometry.Point2D(Math.round(boardX * cellWpx), Math.round(boardYEnd * cellHpx));
                         javafx.geometry.Point2D cellEndScene = (brickPanel != null && brickPanel.getParent() != null)
@@ -312,7 +337,8 @@ public class ParticleHelper {
                     Rectangle cellRect = new Rectangle(Math.round(cellWpx), Math.round(cellHpx));
                     cellRect.setArcWidth(6);
                     cellRect.setArcHeight(6);
-                    cellRect.setFill(Color.web("#ffffff"));
+                    // visual properties driven by CSS class for easier theming
+                    cellRect.getStyleClass().add("particle-lock-rect");
                     cellRect.setOpacity(intense ? 0.95 : 0.85);
                     cellRect.setMouseTransparent(true);
                     cellRect.setLayoutX(x);
@@ -320,7 +346,7 @@ public class ParticleHelper {
                     cellRect.setTranslateX(0);
                     cellRect.setTranslateY(0);
 
-                    DropShadow ds = new DropShadow(BlurType.GAUSSIAN, Color.web("#ffffff"), intense ? 14.0 : 9.0, 0.35, 0.0, 0.0);
+                    DropShadow ds = new DropShadow(BlurType.GAUSSIAN, Color.WHITE, intense ? 14.0 : 9.0, 0.35, 0.0, 0.0);
                     ds.setSpread(intense ? 0.7 : 0.45);
                     cellRect.setEffect(ds);
 
@@ -337,7 +363,7 @@ public class ParticleHelper {
                     ft.setToValue(0.0);
 
                     ParallelTransition pt = new ParallelTransition(tt, ft);
-                    pt.setOnFinished(e -> { try { e.consume(); if (particlePane != null) particlePane.getChildren().remove(cellRect); } catch (Exception ignored) {} });
+                    pt.setOnFinished(e -> { try { e.consume(); if (particlePane != null) particlePane.getChildren().remove(cellRect); } catch (Exception ex) { LOGGER.log(Level.FINER, "Failed to remove cellRect after lock effect", ex); } });
                     running.add(pt);
                 }
             }
@@ -346,6 +372,31 @@ public class ParticleHelper {
                 for (ParallelTransition pt : running) pt.play();
             });
 
-        } catch (Exception ignored) {}
+    } catch (Exception ex) { LOGGER.log(Level.FINER, "playLockEffect failed", ex); }
+    }
+
+    /**
+     * Attempt to load the particles stylesheet into the pane's stylesheets list.
+     * This is a best-effort helper and will silently return if the resource
+     * cannot be located.
+     */
+    private static void ensureParticleStyles(Pane pane) {
+        if (pane == null) return;
+        if (PARTICLE_STYLES_LOADED) return;
+        synchronized (ParticleHelper.class) {
+            if (PARTICLE_STYLES_LOADED) return;
+            try {
+                java.net.URL res = ParticleHelper.class.getResource("/css/particles.css");
+                if (res != null) {
+                    String url = res.toExternalForm();
+                    javafx.collections.ObservableList<String> ss = pane.getStylesheets();
+                    if (!ss.contains(url)) ss.add(url);
+                    PARTICLE_STYLES_LOADED = true;
+                }
+            } catch (Exception ex) {
+                // loading CSS is optional; log at FINER so we don't spam by default
+                LOGGER.log(Level.FINER, "Could not load particle stylesheet", ex);
+            }
+        }
     }
 }

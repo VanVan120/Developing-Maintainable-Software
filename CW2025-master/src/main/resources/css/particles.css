@@ -1,0 +1,21 @@
+/* Particle and flash visual styles used by ParticleHelper */
+.particle-flash {
+    -fx-fill: #ffffff; /* white flash */
+}
+
+.particle-square-default {
+    -fx-fill: #ffffff; /* fallback brick particle color */
+}
+
+.particle-circle-default {
+    -fx-fill: #ffd166; /* default gold particle */
+}
+
+.particle-lock-rect {
+    -fx-fill: #ffffff; /* lock effect rectangles */
+}
+
+/* Notification small-panel text style used by NotificationPanel */
+.bonusStyle {
+    -fx-text-fill: #ffffff;
+}
