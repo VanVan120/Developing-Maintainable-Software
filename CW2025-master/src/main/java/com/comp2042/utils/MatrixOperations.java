@@ -47,7 +47,7 @@ public class MatrixOperations {
 
     /**
      * Like {@link #intersect(int[][], int[][], int, int)} but treats cells above
-     * the top of the board (targetY < 0) as non-colliding. Used for ghost/landing
+     * the top of the board (targetY &lt; 0) as non-colliding. Used for ghost/landing
      * calculations.
      */
     public static boolean intersectForGhost(final int[][] matrix, final int[][] brick, final int x, final int y) {

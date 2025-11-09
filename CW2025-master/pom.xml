@@ -76,6 +76,35 @@
                     </execution>
                 </executions>
             </plugin>
+            <!-- Generate Javadoc and attach as a javadoc-jar during package so IDEs and build servers
+                 can consume generated API docs. We keep doclint disabled and failOnError=false so
+                 missing Javadoc doesn't break the build during iterative refactors. -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-javadoc-plugin</artifactId>
+                <version>3.5.0</version>
+                <executions>
+                    <execution>
+                        <id>attach-javadocs</id>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>jar</goal>
+                        </goals>
+                    </execution>
+                </executions>
+                <configuration>
+                    <source>23</source>
+                    <encoding>${project.build.sourceEncoding}</encoding>
+                    <docencoding>${project.build.sourceEncoding}</docencoding>
+                    <charset>${project.build.sourceEncoding}</charset>
+                    <!-- avoid failing the build due to missing/incomplete Javadoc while refactoring -->
+                    <failOnError>false</failOnError>
+                    <!-- turn off strict doclint to reduce noise for student projects -->
+                    <additionalJOptions>
+                        <additionalJOption>-Xdoclint:none</additionalJOption>
+                    </additionalJOptions>
+                </configuration>
+            </plugin>
         </plugins>
     </build>
 </project>
