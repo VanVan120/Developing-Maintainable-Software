@@ -1,6 +1,7 @@
 package com.comp2042.controller;
 
 import java.util.logging.Logger;
+import java.util.logging.Level;
 import com.comp2042.audio.SoundManager;
 import com.comp2042.model.ViewData;
 import com.comp2042.model.CoopTickResult;
@@ -62,24 +63,41 @@ public class CoopGuiController extends GuiController {
         super();
     }
 
+    private javafx.scene.input.KeyCode loadKeyPref(java.util.prefs.Preferences prefs, String key, javafx.scene.input.KeyCode fallback) {
+        if (prefs == null) return fallback;
+        try {
+            String s = prefs.get(key, "");
+            if (s != null && !s.isEmpty()) return javafx.scene.input.KeyCode.valueOf(s);
+        } catch (Exception e) {
+            LOGGER.log(Level.FINER, "Failed to load key preference: " + key, e);
+        }
+        return fallback;
+    }
+
+    private void safeRun(Runnable r, Level level, String msg) {
+        if (r == null) return;
+        try { r.run(); } catch (Exception e) { LOGGER.log(level != null ? level : Level.FINER, msg, e); }
+    }
+
     public void initCoop(CoopGameController coopController) {
         this.coop = coopController;
-        try {
-            java.util.prefs.Preferences prefs = java.util.prefs.Preferences.userNodeForPackage(com.comp2042.controller.MainMenuController.class);
-            try { String s = prefs.get("mpLeft_left", ""); if (!s.isEmpty()) leftMoveLeftKey = javafx.scene.input.KeyCode.valueOf(s); } catch (Exception ignored) {}
-            try { String s = prefs.get("mpLeft_right", ""); if (!s.isEmpty()) leftMoveRightKey = javafx.scene.input.KeyCode.valueOf(s); } catch (Exception ignored) {}
-            try { String s = prefs.get("mpLeft_rotate", ""); if (!s.isEmpty()) leftRotateKey = javafx.scene.input.KeyCode.valueOf(s); } catch (Exception ignored) {}
-            try { String s = prefs.get("mpLeft_down", ""); if (!s.isEmpty()) leftDownKey = javafx.scene.input.KeyCode.valueOf(s); } catch (Exception ignored) {}
-            try { String s = prefs.get("mpLeft_hard", ""); if (!s.isEmpty()) leftHardKey = javafx.scene.input.KeyCode.valueOf(s); } catch (Exception ignored) {}
-            try { String s = prefs.get("mpLeft_switch", ""); if (!s.isEmpty()) leftSwapKey = javafx.scene.input.KeyCode.valueOf(s); } catch (Exception ignored) {}
+        java.util.prefs.Preferences prefs = null;
+        try { prefs = java.util.prefs.Preferences.userNodeForPackage(com.comp2042.controller.MainMenuController.class); } catch (Exception e) { LOGGER.log(Level.FINER, "Failed to obtain preferences node", e); }
+        if (prefs != null) {
+            leftMoveLeftKey = loadKeyPref(prefs, "mpLeft_left", leftMoveLeftKey);
+            leftMoveRightKey = loadKeyPref(prefs, "mpLeft_right", leftMoveRightKey);
+            leftRotateKey = loadKeyPref(prefs, "mpLeft_rotate", leftRotateKey);
+            leftDownKey = loadKeyPref(prefs, "mpLeft_down", leftDownKey);
+            leftHardKey = loadKeyPref(prefs, "mpLeft_hard", leftHardKey);
+            leftSwapKey = loadKeyPref(prefs, "mpLeft_switch", leftSwapKey);
 
-            try { String s = prefs.get("mpRight_left", ""); if (!s.isEmpty()) rightMoveLeftKey = javafx.scene.input.KeyCode.valueOf(s); } catch (Exception ignored) {}
-            try { String s = prefs.get("mpRight_right", ""); if (!s.isEmpty()) rightMoveRightKey = javafx.scene.input.KeyCode.valueOf(s); } catch (Exception ignored) {}
-            try { String s = prefs.get("mpRight_rotate", ""); if (!s.isEmpty()) rightRotateKey = javafx.scene.input.KeyCode.valueOf(s); } catch (Exception ignored) {}
-            try { String s = prefs.get("mpRight_down", ""); if (!s.isEmpty()) rightDownKey = javafx.scene.input.KeyCode.valueOf(s); } catch (Exception ignored) {}
-            try { String s = prefs.get("mpRight_hard", ""); if (!s.isEmpty()) rightHardKey = javafx.scene.input.KeyCode.valueOf(s); } catch (Exception ignored) {}
-            try { String s = prefs.get("mpRight_switch", ""); if (!s.isEmpty()) rightSwapKey = javafx.scene.input.KeyCode.valueOf(s); } catch (Exception ignored) {}
-        } catch (Exception ignored) {}
+            rightMoveLeftKey = loadKeyPref(prefs, "mpRight_left", rightMoveLeftKey);
+            rightMoveRightKey = loadKeyPref(prefs, "mpRight_right", rightMoveRightKey);
+            rightRotateKey = loadKeyPref(prefs, "mpRight_rotate", rightRotateKey);
+            rightDownKey = loadKeyPref(prefs, "mpRight_down", rightDownKey);
+            rightHardKey = loadKeyPref(prefs, "mpRight_hard", rightHardKey);
+            rightSwapKey = loadKeyPref(prefs, "mpRight_switch", rightSwapKey);
+        }
         ViewData leftView = coop.getViewDataLeft();
         ViewData rightView = coop.getViewDataRight();
         if (leftView == null) {
@@ -90,7 +108,7 @@ public class CoopGuiController extends GuiController {
         }
         initGameView(coop.getBoardMatrix(), leftView);
 
-        try {
+        safeRun(() -> {
             if (brickPanel != null && brickPanel.getParent() instanceof Pane) {
                 Pane parent = (Pane) brickPanel.getParent();
                 secondBrickPanel.setPickOnBounds(false);
@@ -110,51 +128,45 @@ public class CoopGuiController extends GuiController {
                 secondGhostPanel.setPickOnBounds(false);
                 ghostPanel.getChildren().add(secondGhostPanel);
             }
-        } catch (Exception ignored) {}
+        }, Level.FINER, "attach second panels");
 
         buildSecondBrickVisuals(rightView);
 
-        try {
+        safeRun(() -> {
             if (nextBox != null && gameBoard != null && gameBoard.getScene() != null) {
                 leftNextBox = new javafx.scene.layout.VBox(8);
                 leftNextBox.setAlignment(javafx.geometry.Pos.TOP_CENTER);
                 leftNextBox.getStyleClass().add("gameBoard");
                 Text t = new Text("Next:"); t.getStyleClass().add("nextBrickLabel");
                 leftNextBox.getChildren().add(t);
-                try {
+                safeRun(() -> {
                     Pane root = (Pane) gameBoard.getScene().getRoot();
                     root.getChildren().add(leftNextBox);
                     leftNextBox.layoutXProperty().bind(gameBoard.layoutXProperty().subtract(160));
                     leftNextBox.layoutYProperty().bind(gameBoard.layoutYProperty().add(8));
-                } catch (Exception ignored) {}
+                }, Level.FINER, "attach leftNextBox to scene root");
             }
-        } catch (Exception ignored) {}
+        }, Level.FINER, "setup leftNextBox");
 
-        try {
+        safeRun(() -> {
             if (scoreBox != null) {
                 scoreText = new Text("Score: 0");
                 scoreText.getStyleClass().add("scoreClass");
                 scoreBox.getChildren().clear();
                 if (highScoreValue != null) scoreBox.getChildren().add(highScoreValue);
                 scoreBox.getChildren().add(scoreText);
-                try {
-                    bindScore(coop.getTotalScoreProperty());
-                } catch (Exception ignored) {
-                    scoreText.textProperty().bind(new javafx.beans.binding.StringBinding() {
-                        { bind(coop.getTotalScoreProperty()); }
-                        @Override protected String computeValue() { return "Score: " + coop.getTotalScoreProperty().get(); }
-                    });
-                }
-                try {
-                    scoreText.textProperty().bind(
-                        javafx.beans.binding.Bindings.createStringBinding(
-                            () -> "Score: " + coop.getTotalScoreProperty().get(),
-                            coop.getTotalScoreProperty()
-                        )
-                    );
-                } catch (Exception ignored) {}
-                try {
-                    if (highScoreValue != null) {
+
+                // Try the preferred binding approach; fall back to a safe binding on failure
+                safeRun(() -> bindScore(coop.getTotalScoreProperty()), Level.FINER, "bindScore failed, falling back");
+                safeRun(() -> scoreText.textProperty().bind(
+                    javafx.beans.binding.Bindings.createStringBinding(
+                        () -> "Score: " + coop.getTotalScoreProperty().get(),
+                        coop.getTotalScoreProperty()
+                    )
+                ), Level.FINER, "scoreText binding failed");
+
+                if (highScoreValue != null) {
+                    safeRun(() -> {
                         javafx.beans.binding.IntegerBinding bindHigh = new javafx.beans.binding.IntegerBinding() {
                             { bind(coop.getTotalHighScoreProperty()); }
                             @Override protected int computeValue() { return coop.getTotalHighScoreProperty().get(); }
@@ -163,10 +175,10 @@ public class CoopGuiController extends GuiController {
                             { bind(bindHigh); }
                             @Override protected String computeValue() { return "Highest: " + bindHigh.get(); }
                         });
-                    }
-                } catch (Exception ignored) {}
+                    }, Level.FINER, "highScore binding failed");
+                }
             }
-        } catch (Exception ignored) {}
+        }, Level.FINER, "setup score box");
 
         refreshPreviews();
 
@@ -351,18 +363,24 @@ public class CoopGuiController extends GuiController {
     }
 
     private void refreshPreviews() {
-        try { if (coop == null) return; if (leftNextBox != null) {
-            leftNextBox.getChildren().removeIf(n -> !(n instanceof Text));
-            java.util.List<com.comp2042.logic.bricks.Brick> leftUp = coop.getUpcomingLeft(3);
-            javafx.scene.layout.VBox built = buildNextPreview(leftUp);
-            if (built != null) leftNextBox.getChildren().addAll(built.getChildren());
-        } } catch (Exception ignored) {}
-        try { if (nextContent != null) {
-            nextContent.getChildren().clear();
-            java.util.List<com.comp2042.logic.bricks.Brick> rightUp = coop.getUpcomingRight(3);
-            javafx.scene.layout.VBox built2 = buildNextPreview(rightUp);
-            if (built2 != null) nextContent.getChildren().addAll(built2.getChildren());
-        } } catch (Exception ignored) {}
+        safeRun(() -> {
+            if (coop == null) return;
+            if (leftNextBox != null) {
+                leftNextBox.getChildren().removeIf(n -> !(n instanceof Text));
+                java.util.List<com.comp2042.logic.bricks.Brick> leftUp = coop.getUpcomingLeft(3);
+                javafx.scene.layout.VBox built = buildNextPreview(leftUp);
+                if (built != null) leftNextBox.getChildren().addAll(built.getChildren());
+            }
+        }, Level.FINER, "refresh left previews");
+
+        safeRun(() -> {
+            if (nextContent != null) {
+                nextContent.getChildren().clear();
+                java.util.List<com.comp2042.logic.bricks.Brick> rightUp = coop.getUpcomingRight(3);
+                javafx.scene.layout.VBox built2 = buildNextPreview(rightUp);
+                if (built2 != null) nextContent.getChildren().addAll(built2.getChildren());
+            }
+        }, Level.FINER, "refresh right previews");
     }
 
     private void buildSecondBrickVisuals(ViewData rightView) {
@@ -403,7 +421,6 @@ public class CoopGuiController extends GuiController {
         BoardView bv = getBoardView();
         javafx.geometry.Point2D scenePt = null;
         if (bv != null) {
-            // offsetY was computed as v.getyPosition() - 2; convert back to board row index
             scenePt = bv.boardCellScenePoint(offsetX, offsetY + 2);
         }
         if (scenePt != null && secondBrickPanel != null && secondBrickPanel.getParent() != null) {
@@ -415,12 +432,15 @@ public class CoopGuiController extends GuiController {
             secondBrickPanel.setTranslateX(Math.round(pt.getX()));
             secondBrickPanel.setTranslateY(Math.round(pt.getY()));
         }
-    } catch (Exception ignored) {
+    } catch (Exception e) {
+        LOGGER.log(Level.FINER, "Failed to position secondBrickPanel using scene point, falling back to boardToPixelLocal", e);
         try {
             javafx.geometry.Point2D pt = boardToPixelLocal(offsetX, offsetY);
             secondBrickPanel.setTranslateX(Math.round(pt.getX()));
             secondBrickPanel.setTranslateY(Math.round(pt.getY()));
-        } catch (Exception ignored2) {}
+        } catch (Exception ignored2) {
+            LOGGER.log(Level.FINER, "Fallback positioning of secondBrickPanel failed", ignored2);
+        }
     }
         int[][] data = v.getBrickData();
         for (int i = 0; i < data.length; i++) {
@@ -465,12 +485,15 @@ public class CoopGuiController extends GuiController {
             secondGhostPanel.setTranslateX(Math.round(gpt.getX()));
             secondGhostPanel.setTranslateY(Math.round(gpt.getY()));
         }
-    } catch (Exception ignored) {
+    } catch (Exception e) {
+        LOGGER.log(Level.FINER, "Failed to position secondGhostPanel using scene point, falling back to boardToPixelLocal", e);
         try {
             javafx.geometry.Point2D gpt = boardToPixelLocal(startX, landingY - 2);
             secondGhostPanel.setTranslateX(Math.round(gpt.getX()));
             secondGhostPanel.setTranslateY(Math.round(gpt.getY()));
-        } catch (Exception ignored2) {}
+        } catch (Exception ignored2) {
+            LOGGER.log(Level.FINER, "Fallback positioning of secondGhostPanel failed", ignored2);
+        }
     }
         for (int i = 0; i < shape.length; i++) for (int j = 0; j < shape[i].length; j++) {
             Rectangle r = ghostRectangles2[i][j];
@@ -624,50 +647,25 @@ public class CoopGuiController extends GuiController {
                 try { rightCC.init(rightMoveLeftKey, rightMoveRightKey, rightRotateKey, rightDownKey, rightHardKey, rightSwapKey); } catch (Exception ignored) {}
 
                 try {
-                    java.util.prefs.Preferences overlayPrefs = java.util.prefs.Preferences.userNodeForPackage(com.comp2042.controller.MainMenuController.class);
-                    // left defaults
-                    javafx.scene.input.KeyCode defLLeft = null;
-                    javafx.scene.input.KeyCode defLRight = null;
-                    javafx.scene.input.KeyCode defLRotate = null;
-                    javafx.scene.input.KeyCode defLDown = null;
-                    javafx.scene.input.KeyCode defLHard = null;
-                    javafx.scene.input.KeyCode defLSwap = null;
-                    try { String s = overlayPrefs.get("mpLeft_left", ""); if (!s.isEmpty()) defLLeft = javafx.scene.input.KeyCode.valueOf(s); } catch (Exception ignored) {}
-                    try { String s = overlayPrefs.get("mpLeft_right", ""); if (!s.isEmpty()) defLRight = javafx.scene.input.KeyCode.valueOf(s); } catch (Exception ignored) {}
-                    try { String s = overlayPrefs.get("mpLeft_rotate", ""); if (!s.isEmpty()) defLRotate = javafx.scene.input.KeyCode.valueOf(s); } catch (Exception ignored) {}
-                    try { String s = overlayPrefs.get("mpLeft_down", ""); if (!s.isEmpty()) defLDown = javafx.scene.input.KeyCode.valueOf(s); } catch (Exception ignored) {}
-                    try { String s = overlayPrefs.get("mpLeft_hard", ""); if (!s.isEmpty()) defLHard = javafx.scene.input.KeyCode.valueOf(s); } catch (Exception ignored) {}
-                    try { String s = overlayPrefs.get("mpLeft_switch", ""); if (!s.isEmpty()) defLSwap = javafx.scene.input.KeyCode.valueOf(s); } catch (Exception ignored) {}
-                    leftCC.setDefaultKeys(
-                        defLLeft != null ? defLLeft : javafx.scene.input.KeyCode.A,
-                        defLRight != null ? defLRight : javafx.scene.input.KeyCode.D,
-                        defLRotate != null ? defLRotate : javafx.scene.input.KeyCode.W,
-                        defLDown != null ? defLDown : javafx.scene.input.KeyCode.S,
-                        defLHard != null ? defLHard : javafx.scene.input.KeyCode.SHIFT,
-                        defLSwap != null ? defLSwap : javafx.scene.input.KeyCode.Q
-                    );
+                    java.util.prefs.Preferences overlayPrefs = null;
+                    try { overlayPrefs = java.util.prefs.Preferences.userNodeForPackage(com.comp2042.controller.MainMenuController.class); } catch (Exception ex) { LOGGER.log(Level.FINER, "Failed to obtain overlay preferences", ex); }
 
-                    javafx.scene.input.KeyCode defRLeft = null;
-                    javafx.scene.input.KeyCode defRRight = null;
-                    javafx.scene.input.KeyCode defRRotate = null;
-                    javafx.scene.input.KeyCode defRDown = null;
-                    javafx.scene.input.KeyCode defRHard = null;
-                    javafx.scene.input.KeyCode defRSwap = null;
-                    try { String s = overlayPrefs.get("mpRight_left", ""); if (!s.isEmpty()) defRLeft = javafx.scene.input.KeyCode.valueOf(s); } catch (Exception ignored) {}
-                    try { String s = overlayPrefs.get("mpRight_right", ""); if (!s.isEmpty()) defRRight = javafx.scene.input.KeyCode.valueOf(s); } catch (Exception ignored) {}
-                    try { String s = overlayPrefs.get("mpRight_rotate", ""); if (!s.isEmpty()) defRRotate = javafx.scene.input.KeyCode.valueOf(s); } catch (Exception ignored) {}
-                    try { String s = overlayPrefs.get("mpRight_down", ""); if (!s.isEmpty()) defRDown = javafx.scene.input.KeyCode.valueOf(s); } catch (Exception ignored) {}
-                    try { String s = overlayPrefs.get("mpRight_hard", ""); if (!s.isEmpty()) defRHard = javafx.scene.input.KeyCode.valueOf(s); } catch (Exception ignored) {}
-                    try { String s = overlayPrefs.get("mpRight_switch", ""); if (!s.isEmpty()) defRSwap = javafx.scene.input.KeyCode.valueOf(s); } catch (Exception ignored) {}
-                    rightCC.setDefaultKeys(
-                        defRLeft != null ? defRLeft : javafx.scene.input.KeyCode.NUMPAD4,
-                        defRRight != null ? defRRight : javafx.scene.input.KeyCode.NUMPAD6,
-                        defRRotate != null ? defRRotate : javafx.scene.input.KeyCode.NUMPAD8,
-                        defRDown != null ? defRDown : javafx.scene.input.KeyCode.NUMPAD5,
-                        defRHard != null ? defRHard : javafx.scene.input.KeyCode.SPACE,
-                        defRSwap != null ? defRSwap : javafx.scene.input.KeyCode.NUMPAD7
-                    );
-                } catch (Exception ignored) {}
+                    javafx.scene.input.KeyCode defLLeft = loadKeyPref(overlayPrefs, "mpLeft_left", javafx.scene.input.KeyCode.A);
+                    javafx.scene.input.KeyCode defLRight = loadKeyPref(overlayPrefs, "mpLeft_right", javafx.scene.input.KeyCode.D);
+                    javafx.scene.input.KeyCode defLRotate = loadKeyPref(overlayPrefs, "mpLeft_rotate", javafx.scene.input.KeyCode.W);
+                    javafx.scene.input.KeyCode defLDown = loadKeyPref(overlayPrefs, "mpLeft_down", javafx.scene.input.KeyCode.S);
+                    javafx.scene.input.KeyCode defLHard = loadKeyPref(overlayPrefs, "mpLeft_hard", javafx.scene.input.KeyCode.SHIFT);
+                    javafx.scene.input.KeyCode defLSwap = loadKeyPref(overlayPrefs, "mpLeft_switch", javafx.scene.input.KeyCode.Q);
+                    leftCC.setDefaultKeys(defLLeft, defLRight, defLRotate, defLDown, defLHard, defLSwap);
+
+                    javafx.scene.input.KeyCode defRLeft = loadKeyPref(overlayPrefs, "mpRight_left", javafx.scene.input.KeyCode.NUMPAD4);
+                    javafx.scene.input.KeyCode defRRight = loadKeyPref(overlayPrefs, "mpRight_right", javafx.scene.input.KeyCode.NUMPAD6);
+                    javafx.scene.input.KeyCode defRRotate = loadKeyPref(overlayPrefs, "mpRight_rotate", javafx.scene.input.KeyCode.NUMPAD8);
+                    javafx.scene.input.KeyCode defRDown = loadKeyPref(overlayPrefs, "mpRight_down", javafx.scene.input.KeyCode.NUMPAD5);
+                    javafx.scene.input.KeyCode defRHard = loadKeyPref(overlayPrefs, "mpRight_hard", javafx.scene.input.KeyCode.SPACE);
+                    javafx.scene.input.KeyCode defRSwap = loadKeyPref(overlayPrefs, "mpRight_switch", javafx.scene.input.KeyCode.NUMPAD7);
+                    rightCC.setDefaultKeys(defRLeft, defRRight, defRRotate, defRDown, defRHard, defRSwap);
+                } catch (Exception e) { LOGGER.log(Level.FINER, "Failed to setup default keys in overlay", e); }
 
                 leftCC.setHeaderText("Left Player Controls");
                 rightCC.setHeaderText("Right Player Controls");

@@ -10,6 +10,10 @@ import javafx.animation.KeyFrame;
 import javafx.animation.Timeline;
 import javafx.stage.Modality;
 import javafx.util.Duration;
+import javafx.application.Platform;
+
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 public class ControlsController {
 
@@ -57,6 +61,8 @@ public class ControlsController {
     private java.util.function.Consumer<Boolean> closeHandler = null; 
     private Timeline warningTimeline = null;
     private java.util.function.BiPredicate<javafx.scene.input.KeyCode, javafx.scene.control.Button> keyAvailabilityChecker = null;
+
+    private static final Logger LOGGER = Logger.getLogger(ControlsController.class.getName());
 
     @FXML
     public void initialize() {
@@ -138,7 +144,9 @@ public class ControlsController {
             setButtonKey(btnHardDefault, panelDefaultHard, false);
             setButtonKey(btnRotateDefault, panelDefaultRotate, false);
             setButtonKey(btnSwitchDefault, panelDefaultSwitch, false);
-        } catch (Exception ignored) {}
+        } catch (Exception e) {
+            LOGGER.log(Level.WARNING, "Failed to set default keys", e);
+        }
     }
 
     public void setDefaultKeys(KeyCode left, KeyCode right, KeyCode rotate, KeyCode down, KeyCode hard, KeyCode sw) {
@@ -156,7 +164,9 @@ public class ControlsController {
             setButtonKey(btnHardDefault, panelDefaultHard, false);
             setButtonKey(btnRotateDefault, panelDefaultRotate, false);
             setButtonKey(btnSwitchDefault, panelDefaultSwitch, false);
-        } catch (Exception ignored) {}
+        } catch (Exception e) {
+            LOGGER.log(Level.WARNING, "Failed to set default keys (with switch)", e);
+        }
     }
 
     public void setKeyAvailabilityChecker(java.util.function.BiPredicate<KeyCode, Button> checker) {
@@ -250,7 +260,9 @@ public class ControlsController {
                         return;
                     }
                 }
-            } catch (Exception ignored) {}
+            } catch (Exception e) {
+                LOGGER.log(Level.WARNING, "Error while checking key availability", e);
+            }
         }
 
         assignToCurrentSlot(capturing, code); 
@@ -292,27 +304,29 @@ public class ControlsController {
         }));
         warningTimeline.setCycleCount(1);
         warningTimeline.play();
-
         try {
-            javafx.application.Platform.runLater(() -> {
-                try {
-                    java.awt.EventQueue.invokeLater(() -> {}); 
-                } catch (Exception ignored) {}
+            Platform.runLater(() -> {
                 try {
                     Alert a = new Alert(Alert.AlertType.WARNING);
                     try {
                         if (lblInfo.getScene() != null && lblInfo.getScene().getWindow() != null) {
                             a.initOwner(lblInfo.getScene().getWindow());
                         }
-                    } catch (Exception ignored) {}
+                    } catch (Exception e) {
+                        LOGGER.log(Level.FINER, "Could not init owner for warning dialog", e);
+                    }
                     a.initModality(Modality.APPLICATION_MODAL);
                     a.setTitle("Key already assigned");
                     a.setHeaderText("Key already assigned");
                     a.setContentText(message);
                     a.showAndWait();
-                } catch (Exception ignored) {}
+                } catch (Exception e) {
+                    LOGGER.log(Level.WARNING, "Failed to show inline warning dialog", e);
+                }
             });
-        } catch (Exception ignored) {}
+        } catch (Exception e) {
+            LOGGER.log(Level.WARNING, "Platform.runLater failed for inline warning", e);
+        }
     }
 
     private String findActionForKey(KeyCode code) {
@@ -369,13 +383,17 @@ public class ControlsController {
             if (btnSave != null) { btnSave.setVisible(false); btnSave.setManaged(false); }
             if (btnCancel != null) { btnCancel.setVisible(false); btnCancel.setManaged(false); }
             if (lblInfo != null) { lblInfo.setVisible(false); lblInfo.setManaged(false); }
-        } catch (Exception ignored) {}
+        } catch (Exception e) {
+            LOGGER.log(Level.WARNING, "Failed to hide action buttons", e);
+        }
     }
 
     public void resetToDefaults() {
         try {
             resetAllToDefaults();
-        } catch (Exception ignored) {}
+        } catch (Exception e) {
+            LOGGER.log(Level.WARNING, "Failed to reset to defaults", e);
+        }
     }
 
     public void resetToPanelDefaults() {
@@ -394,13 +412,17 @@ public class ControlsController {
             setButtonKey(btnRotateCurrent, currentRotate, true);
             setButtonKey(btnSwitchCurrent, currentSwitch, true);
             setInfoText("Reset to panel defaults");
-        } catch (Exception ignored) {}
+        } catch (Exception e) {
+            LOGGER.log(Level.WARNING, "Failed to reset to panel defaults", e);
+        }
     }
 
     public void setHeaderText(String text) {
         try {
             if (lblHeader != null) lblHeader.setText(text != null ? text : "");
-        } catch (Exception ignored) {}
+        } catch (Exception e) {
+            LOGGER.log(Level.WARNING, "Failed to set header text", e);
+        }
     }
 
     private void setInfoText(String text) {

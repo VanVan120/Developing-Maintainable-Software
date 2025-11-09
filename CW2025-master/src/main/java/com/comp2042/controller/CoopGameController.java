@@ -13,6 +13,8 @@ import com.comp2042.utils.MatrixOperations;
 import com.comp2042.utils.BrickRotator;
 
 import java.awt.Point;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import javafx.beans.property.BooleanProperty;
 import javafx.beans.property.SimpleBooleanProperty;
 
@@ -31,6 +33,7 @@ public class CoopGameController {
     private final Score rightScore = new Score();
     private final CoopScore totalScore = new CoopScore();
     private static final boolean DEBUG = false;
+    private static final Logger LOGGER = Logger.getLogger(CoopGameController.class.getName());
     private final BooleanProperty isGameOver = new SimpleBooleanProperty(false);
 
     public CoopGameController(int width, int height) {
@@ -62,7 +65,7 @@ public class CoopGameController {
         leftScore.reset();
         rightScore.reset();
         totalScore.reset();
-        try { isGameOver.set(false); } catch (Exception ignored) {}
+        try { isGameOver.set(false); } catch (Exception e) { LOGGER.log(Level.FINER, "Failed to reset isGameOver property", e); }
         spawnLeft();
         spawnRight();
     }
@@ -83,7 +86,7 @@ public class CoopGameController {
         boolean coll = MatrixOperations.intersect(tmp, shape, (int) leftOffset.getX(), (int) leftOffset.getY());
         if (DEBUG) System.out.println("[COOP SPAWN] spawnLeft at " + leftOffset + " coll=" + coll);
         if (coll) {
-            try { isGameOver.set(true); } catch (Exception ignored) {}
+            try { isGameOver.set(true); } catch (Exception e) { LOGGER.log(Level.FINER, "Failed to set isGameOver=true in spawnLeft", e); }
         }
         return coll;
     }
@@ -104,7 +107,7 @@ public class CoopGameController {
         boolean coll = MatrixOperations.intersect(tmp, shape, (int) rightOffset.getX(), (int) rightOffset.getY());
         if (DEBUG) System.out.println("[COOP SPAWN] spawnRight at " + rightOffset + " coll=" + coll);
         if (coll) {
-            try { isGameOver.set(true); } catch (Exception ignored) {}
+            try { isGameOver.set(true); } catch (Exception e) { LOGGER.log(Level.FINER, "Failed to set isGameOver=true in spawnRight", e); }
         }
         return coll;
     }
@@ -113,7 +116,7 @@ public class CoopGameController {
         Point p = new Point(leftOffset);
         p.translate(-1,0);
         int[][] tmp = MatrixOperations.copy(boardMatrix);
-        try { tmp = MatrixOperations.merge(tmp, rightRotator.getCurrentShape(), (int) rightOffset.getX(), (int) rightOffset.getY()); } catch (Exception ignored) {}
+        tmp = safeMerge(tmp, rightRotator.getCurrentShape(), rightOffset, "moveLeftPlayerLeft");
         boolean conflict = MatrixOperations.intersect(tmp, leftRotator.getCurrentShape(), (int) p.getX(), (int) p.getY());
         if (conflict) return false;
         leftOffset = p; return true;
@@ -123,7 +126,7 @@ public class CoopGameController {
         Point p = new Point(leftOffset);
         p.translate(1,0);
         int[][] tmp = MatrixOperations.copy(boardMatrix);
-        try { tmp = MatrixOperations.merge(tmp, rightRotator.getCurrentShape(), (int) rightOffset.getX(), (int) rightOffset.getY()); } catch (Exception ignored) {}
+        tmp = safeMerge(tmp, rightRotator.getCurrentShape(), rightOffset, "moveLeftPlayerRight");
         boolean conflict = MatrixOperations.intersect(tmp, leftRotator.getCurrentShape(), (int) p.getX(), (int) p.getY());
         if (conflict) return false;
         leftOffset = p; return true;
@@ -131,7 +134,7 @@ public class CoopGameController {
 
     public boolean rotateLeftPlayer() {
         int[][] tmp = MatrixOperations.copy(boardMatrix);
-        try { tmp = MatrixOperations.merge(tmp, rightRotator.getCurrentShape(), (int) rightOffset.getX(), (int) rightOffset.getY()); } catch (Exception ignored) {}
+        tmp = safeMerge(tmp, rightRotator.getCurrentShape(), rightOffset, "rotateLeftPlayer");
         NextShapeInfo next = leftRotator.getNextShape();
         int baseX = (int) leftOffset.getX();
         int baseY = (int) leftOffset.getY();
@@ -170,7 +173,7 @@ public class CoopGameController {
         Point p = new Point(rightOffset);
         p.translate(-1,0);
         int[][] tmp = MatrixOperations.copy(boardMatrix);
-        try { tmp = MatrixOperations.merge(tmp, leftRotator.getCurrentShape(), (int) leftOffset.getX(), (int) leftOffset.getY()); } catch (Exception ignored) {}
+        tmp = safeMerge(tmp, leftRotator.getCurrentShape(), leftOffset, "moveRightPlayerLeft");
         boolean conflict = MatrixOperations.intersect(tmp, rightRotator.getCurrentShape(), (int) p.getX(), (int) p.getY());
         if (conflict) return false;
         rightOffset = p; return true;
@@ -180,7 +183,7 @@ public class CoopGameController {
         Point p = new Point(rightOffset);
         p.translate(1,0);
         int[][] tmp = MatrixOperations.copy(boardMatrix);
-        try { tmp = MatrixOperations.merge(tmp, leftRotator.getCurrentShape(), (int) leftOffset.getX(), (int) leftOffset.getY()); } catch (Exception ignored) {}
+        tmp = safeMerge(tmp, leftRotator.getCurrentShape(), leftOffset, "moveRightPlayerRight");
         boolean conflict = MatrixOperations.intersect(tmp, rightRotator.getCurrentShape(), (int) p.getX(), (int) p.getY());
         if (conflict) return false;
         rightOffset = p; return true;
@@ -188,7 +191,7 @@ public class CoopGameController {
 
     public boolean rotateRightPlayer() {
         int[][] tmp = MatrixOperations.copy(boardMatrix);
-        try { tmp = MatrixOperations.merge(tmp, leftRotator.getCurrentShape(), (int) leftOffset.getX(), (int) leftOffset.getY()); } catch (Exception ignored) {}
+        tmp = safeMerge(tmp, leftRotator.getCurrentShape(), leftOffset, "rotateRightPlayer");
         NextShapeInfo next = rightRotator.getNextShape();
         int baseX = (int) rightOffset.getX();
         int baseY = (int) rightOffset.getY();
@@ -283,8 +286,8 @@ public class CoopGameController {
                 int bonus = clearRow.getScoreBonus();
                 totalScore.add(bonus);
             }
-            try { spawnLeft(); } catch (Exception ignored) {}
-            try { spawnRight(); } catch (Exception ignored) {}
+            try { spawnLeft(); } catch (Exception e) { LOGGER.log(Level.WARNING, "spawnLeft failed after merge", e); }
+            try { spawnRight(); } catch (Exception e) { LOGGER.log(Level.WARNING, "spawnRight failed after merge", e); }
 
             DownData leftData = null;
             DownData rightData = null;
@@ -338,7 +341,7 @@ public class CoopGameController {
         ClearRow cr = MatrixOperations.checkRemoving(boardMatrix);
         boardMatrix = cr.getNewMatrix();
     if (cr.getLinesRemoved() > 0) totalScore.add(cr.getScoreBonus());
-    spawnLeft(); 
+    try { spawnLeft(); } catch (Exception e) { LOGGER.log(Level.WARNING, "spawnLeft failed in onLeftDown", e); }
     return new DownData(cr, getViewDataLeft());
     }
 
@@ -349,7 +352,7 @@ public class CoopGameController {
         ClearRow cr = MatrixOperations.checkRemoving(boardMatrix);
         boardMatrix = cr.getNewMatrix();
     if (cr.getLinesRemoved() > 0) totalScore.add(cr.getScoreBonus());
-    spawnRight(); 
+    try { spawnRight(); } catch (Exception e) { LOGGER.log(Level.WARNING, "spawnRight failed in onRightDown", e); }
     return new DownData(cr, getViewDataRight());
     }
 
@@ -366,7 +369,7 @@ public class CoopGameController {
         }
         boolean replaced = leftGenerator.replaceNext(old);
         if (!replaced) {
-            try { leftGenerator.getBrick(); } catch (Exception ignored) {}
+            try { leftGenerator.getBrick(); } catch (Exception e) { LOGGER.log(Level.FINER, "leftGenerator.getBrick() failed in swapLeft", e); }
         }
         return true;
     }
@@ -382,9 +385,19 @@ public class CoopGameController {
         }
         boolean replaced = rightGenerator.replaceNext(old);
         if (!replaced) {
-            try { rightGenerator.getBrick(); } catch (Exception ignored) {}
+            try { rightGenerator.getBrick(); } catch (Exception e) { LOGGER.log(Level.FINER, "rightGenerator.getBrick() failed in swapRight", e); }
         }
         return true;
+    }
+
+    private int[][] safeMerge(int[][] base, int[][] shape, Point offset, String ctx) {
+        if (shape == null || offset == null) return base;
+        try {
+            return MatrixOperations.merge(base, shape, (int) offset.getX(), (int) offset.getY());
+        } catch (Exception e) {
+            LOGGER.log(Level.FINER, "safeMerge failed (" + ctx + ")", e);
+            return base;
+        }
     }
 
 }

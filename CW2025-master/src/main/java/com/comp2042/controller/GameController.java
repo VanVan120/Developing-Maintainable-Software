@@ -26,13 +26,20 @@ public class GameController implements InputEventListener {
         viewGuiController.setEventListener(this);
         viewGuiController.initGameView(board.getBoardMatrix(), board.getViewData());
         viewGuiController.bindScore(board.getScore().scoreProperty());
+
+        // best-effort: set swap key and show upcoming bricks; log failures
         try {
             viewGuiController.setSwapKey(javafx.scene.input.KeyCode.C);
-        } catch (Exception ignored) {}
+        } catch (Exception e) {
+            LOGGER.log(Level.FINER, "Failed to set swap key", e);
+        }
+
         try {
             java.util.List<com.comp2042.logic.bricks.Brick> upcoming = board.getUpcomingBricks(3);
             viewGuiController.showNextBricks(upcoming);
-        } catch (Exception ignored) {}
+        } catch (Exception e) {
+            LOGGER.log(Level.FINER, "Failed to show upcoming bricks on startup", e);
+        }
     }
 
     public void setClearRowHandler(java.util.function.Consumer<Integer> handler) {
@@ -40,15 +47,14 @@ public class GameController implements InputEventListener {
     }
 
     public void addGarbageRows(int count, int holeColumn) {
-        try {
-            if (count <= 0) return;
-            int[][] matrix = board.getBoardMatrix();
-            if (matrix == null || matrix.length == 0) return;
-            int h = matrix.length;
-            int w = matrix[0].length;
-            if (holeColumn < 0) holeColumn = w - 1;
-            if (holeColumn < 0 || holeColumn >= w) holeColumn = w - 1;
+        if (count <= 0) return;
+        int[][] matrix = board.getBoardMatrix();
+        if (matrix == null || matrix.length == 0) return;
+        int h = matrix.length;
+        int w = matrix[0].length;
+        if (holeColumn < 0 || holeColumn >= w) holeColumn = w - 1;
 
+        try {
             int[][] tmp = new int[h][w];
             for (int r = 0; r < h - count; r++) {
                 System.arraycopy(matrix[r + count], 0, tmp[r], 0, w);
@@ -68,7 +74,9 @@ public class GameController implements InputEventListener {
             } catch (Exception e) {
                 LOGGER.log(Level.WARNING, "Failed to refresh game background after adding garbage rows", e);
             }
-        } catch (Exception ignored) {}
+        } catch (Exception e) {
+            LOGGER.log(Level.WARNING, "Unexpected error while adding garbage rows", e);
+        }
     }
 
     public IntegerProperty getScoreProperty() {
@@ -93,6 +101,7 @@ public class GameController implements InputEventListener {
         } catch (Exception e) {
             LOGGER.log(Level.FINER, "Unable to log moveDown offset", e);
         }
+
         ClearRow clearRow = null;
         if (!canMove) {
             board.mergeBrickToBackground();
@@ -110,7 +119,7 @@ public class GameController implements InputEventListener {
                                     boolean hasGarbage = false;
                                     for (int c = 0; c < matrixBeforeClear[r].length; c++) {
                                         int v = matrixBeforeClear[r][c];
-                                        if (v == 8) { 
+                                        if (v == 8) {
                                             hasGarbage = true;
                                             break;
                                         }
@@ -119,7 +128,7 @@ public class GameController implements InputEventListener {
                                 }
                             }
                         }
-                        clearRowHandler.accept(Integer.valueOf(forwardCount));
+                        clearRowHandler.accept(forwardCount);
                     }
                 } catch (Exception e) {
                     LOGGER.log(Level.WARNING, "Clear row handler threw", e);
@@ -130,12 +139,7 @@ public class GameController implements InputEventListener {
             }
 
             viewGuiController.refreshGameBackground(board.getBoardMatrix());
-            try {
-                java.util.List<com.comp2042.logic.bricks.Brick> upcoming = board.getUpcomingBricks(3);
-                viewGuiController.showNextBricks(upcoming);
-            } catch (Exception e) {
-                LOGGER.log(Level.WARNING, "Failed to update upcoming bricks preview", e);
-            }
+            safeRefreshUpcomingBricks();
 
         } else {
             if (event.getEventSource() == EventSource.USER) {
@@ -181,7 +185,6 @@ public class GameController implements InputEventListener {
         return board.getViewData();
     }
 
-
     @Override
     public void createNewGame() {
         board.newGame();
@@ -195,11 +198,19 @@ public class GameController implements InputEventListener {
             if (swapped) {
                 viewGuiController.refreshGameBackground(board.getBoardMatrix());
                 viewGuiController.refreshCurrentView(board.getViewData());
-                java.util.List<com.comp2042.logic.bricks.Brick> upcoming = board.getUpcomingBricks(3);
-                viewGuiController.showNextBricks(upcoming);
+                safeRefreshUpcomingBricks();
             }
         } catch (Exception e) {
             LOGGER.log(Level.WARNING, "Error during swap event", e);
+        }
+    }
+
+    private void safeRefreshUpcomingBricks() {
+        try {
+            java.util.List<com.comp2042.logic.bricks.Brick> upcoming = board.getUpcomingBricks(3);
+            viewGuiController.showNextBricks(upcoming);
+        } catch (Exception e) {
+            LOGGER.log(Level.WARNING, "Failed to update upcoming bricks preview", e);
         }
     }
 }
