@@ -6,6 +6,12 @@ import java.util.Deque;
 import java.util.List;
 import java.util.concurrent.ThreadLocalRandom;
 
+/**
+ * A simple random (bag) brick generator.
+ *
+ * <p>Maintains an internal buffer of upcoming bricks and exposes a peek API so
+ * GUI code can render previews. Uses a shuffled bag approach for fairness.
+ */
 public class RandomBrickGenerator implements BrickGenerator {
 
     private final List<Brick> brickList;

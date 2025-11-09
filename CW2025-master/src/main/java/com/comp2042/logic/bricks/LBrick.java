@@ -5,6 +5,9 @@ import com.comp2042.utils.MatrixOperations;
 import java.util.ArrayList;
 import java.util.List;
 
+/**
+ * L-shaped brick and its rotation matrices.
+ */
 final class LBrick implements Brick {
 
     private final List<int[][]> brickMatrix = new ArrayList<>();

@@ -5,6 +5,12 @@ import com.comp2042.utils.MatrixOperations;
 import java.util.ArrayList;
 import java.util.List;
 
+/**
+ * I-shaped brick with its rotation matrices.
+ *
+ * Instances are immutable in practice; callers receive defensive copies of
+ * the internal rotation matrices via {@link #getShapeMatrix()}.
+ */
 final class IBrick implements Brick {
 
     private final List<int[][]> brickMatrix = new ArrayList<>();

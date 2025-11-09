@@ -2,6 +2,9 @@ package com.comp2042.logic.bricks;
 
 import javafx.scene.paint.Color;
 
+/**
+ * Enum of brick identity and their display color.
+ */
 public enum BrickShape {
     I(Color.CYAN),
     J(Color.BLUE),

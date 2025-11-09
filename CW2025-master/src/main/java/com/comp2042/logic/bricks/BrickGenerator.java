@@ -1,5 +1,10 @@
 package com.comp2042.logic.bricks;
 
+/**
+ * Produces bricks for gameplay and exposes a small preview API.
+ * Implementations may provide a queue/bag; callers can request the current
+ * brick and peek at upcoming bricks.
+ */
 public interface BrickGenerator {
 
     Brick getBrick();

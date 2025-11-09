@@ -5,6 +5,9 @@ import com.comp2042.utils.MatrixOperations;
 import java.util.ArrayList;
 import java.util.List;
 
+/**
+ * O-shaped (square) brick. Rotations are identical; only one matrix is provided.
+ */
 final class OBrick implements Brick {
 
     private final List<int[][]> brickMatrix = new ArrayList<>();
