@@ -1,12 +1,12 @@
-package com.comp2042.audio;
+package com.comp2042.audio.soundManager;
 
 import javafx.beans.value.ChangeListener;
 import javafx.scene.media.AudioClip;
 import javafx.scene.media.Media;
 import javafx.scene.media.MediaPlayer;
 
-import javax.sound.sampled.AudioInputStream;
-import javax.sound.sampled.AudioSystem;
+import com.comp2042.audio.audioSettings.AudioSettings;
+
 import javax.sound.sampled.Clip;
 import java.awt.*;
 import java.net.URL;
@@ -24,17 +24,28 @@ public class SoundManager {
     private MediaPlayer singleplayerMusicPlayer;
     private MediaPlayer gameOverMusicPlayer;
     private MediaPlayer countdownMusicPlayer;
-    private final java.util.Map<MediaPlayer, javafx.beans.value.ChangeListener<Number>> mpVolumeListeners = new java.util.WeakHashMap<>();
+    private final MediaPlayerFactory mediaFactory;
+    private final ClipLoader clipLoader;
     private ChangeListener<Number> settingsVolumeListener = null;
 
     public SoundManager(Class<?> resourceOwner) {
         this.resourceOwner = resourceOwner == null ? getClass() : resourceOwner;
+        this.mediaFactory = new MediaPlayerFactory(this.resourceOwner);
+        this.clipLoader = new ClipLoader(this.resourceOwner);
     }
 
     public void init() {
-        hoverClip = loadAudioClip("/sounds/hover.wav", c -> hoverClip = c);
-        clickClip = loadAudioClip("/sounds/click.wav", c -> clickClip = c);
-        hardDropClip = loadAudioClip("/sounds/HardDrop.wav", c -> hardDropClip = c);
+        ClipLoader.AudioLoadResult r1 = clipLoader.load("/sounds/hover.wav");
+        hoverClip = r1.audioClip;
+        hoverFallback = r1.fallbackClip;
+
+        ClipLoader.AudioLoadResult r2 = clipLoader.load("/sounds/click.wav");
+        clickClip = r2.audioClip;
+        clickFallback = r2.fallbackClip;
+
+        ClipLoader.AudioLoadResult r3 = clipLoader.load("/sounds/HardDrop.wav");
+        hardDropClip = r3.audioClip;
+        hardDropFallback = r3.fallbackClip;
 
         ChangeListener<Number> volumeListener = (obs, o, n) -> applyVolumes();
         settingsVolumeListener = volumeListener;
@@ -60,10 +71,8 @@ public class SoundManager {
             try { stopCountdownMusic(); } catch (Exception ignored) {}
 
             try {
-                java.util.List<MediaPlayer> list = new java.util.ArrayList<>(mpVolumeListeners.keySet());
-                for (MediaPlayer mp : list) {
-                    try { disposeMediaPlayer(mp); } catch (Exception ignored) {}
-                }
+                // dispose any MediaPlayers created via the factory
+                mediaFactory.disposeAll();
             } catch (Exception ignored) {}
 
             try { if (hoverFallback != null) { hoverFallback.close(); hoverFallback = null; } } catch (Exception ignored) {}
@@ -76,32 +85,7 @@ public class SoundManager {
         } catch (Throwable ignored) {}
     }
 
-    private AudioClip loadAudioClip(String resourcePath, java.util.function.Consumer<AudioClip> setter) {
-        try {
-            URL url = resourceOwner.getResource(resourcePath);
-            if (url == null) return initFallbackClip(resourcePath, setter);
-            AudioClip ac = new AudioClip(url.toExternalForm());
-            setter.accept(ac);
-            return ac;
-        } catch (Throwable ex) {
-            return initFallbackClip(resourcePath, setter);
-        }
-    }
-
-    private AudioClip initFallbackClip(String resourcePath, java.util.function.Consumer<AudioClip> setter) {
-        try {
-            URL url = resourceOwner.getResource(resourcePath);
-            if (url == null) return null;
-            try (AudioInputStream ais = AudioSystem.getAudioInputStream(url)) {
-                Clip c = AudioSystem.getClip();
-                c.open(ais);
-                if (resourcePath.contains("hover")) hoverFallback = c;
-                else if (resourcePath.contains("click")) clickFallback = c;
-                else if (resourcePath.toLowerCase().contains("harddrop")) hardDropFallback = c;
-            }
-        } catch (Throwable ignored) {}
-        return null;
-    }
+    // Audio loading moved to ClipLoader; helper methods removed to reduce duplication.
 
     private void applyVolumes() {
         double master = AudioSettings.getMasterVolume();
@@ -178,12 +162,11 @@ public class SoundManager {
         try {
             stopSingleplayerMusic();
             if (gameOverMusicPlayer != null) return;
-            URL mus = resourceOwner.getResource("/sounds/GameOver.wav");
-            if (mus == null) return;
-            Media m = new Media(mus.toExternalForm());
-            gameOverMusicPlayer = new MediaPlayer(m);
+            // use factory which will attach volume listeners for us
+            MediaPlayer mp = mediaFactory.createMediaPlayer("/sounds/GameOver.wav", false, null);
+            if (mp == null) return;
+            gameOverMusicPlayer = mp;
             gameOverMusicPlayer.setCycleCount(1);
-            gameOverMusicPlayer.setVolume(AudioSettings.getMasterVolume() * AudioSettings.getMusicVolume());
             gameOverMusicPlayer.setAutoPlay(true);
         } catch (Throwable ex) {
             System.err.println("[SoundManager] Failed to play GameOver music: " + ex);
@@ -193,8 +176,7 @@ public class SoundManager {
     public void stopGameOverMusic() {
         try {
             if (gameOverMusicPlayer != null) {
-                try { gameOverMusicPlayer.stop(); } catch (Exception ignored) {}
-                try { gameOverMusicPlayer.dispose(); } catch (Exception ignored) {}
+                mediaFactory.disposeMediaPlayer(gameOverMusicPlayer);
                 gameOverMusicPlayer = null;
             }
         } catch (Throwable ignored) {}
@@ -203,12 +185,10 @@ public class SoundManager {
     public void playCountdownMusic() {
         try {
             if (countdownMusicPlayer != null) return;
-            URL mus = resourceOwner.getResource("/sounds/Countdown.wav");
-            if (mus == null) return;
-            Media m = new Media(mus.toExternalForm());
-            countdownMusicPlayer = new MediaPlayer(m);
+            MediaPlayer mp = mediaFactory.createMediaPlayer("/sounds/Countdown.wav", true, null);
+            if (mp == null) return;
+            countdownMusicPlayer = mp;
             countdownMusicPlayer.setCycleCount(MediaPlayer.INDEFINITE);
-            countdownMusicPlayer.setVolume(AudioSettings.getMasterVolume() * AudioSettings.getMusicVolume());
             countdownMusicPlayer.setAutoPlay(true);
         } catch (Throwable ex) {
             System.err.println("[SoundManager] Failed to play Countdown music: " + ex);
@@ -218,57 +198,33 @@ public class SoundManager {
     public void stopCountdownMusic() {
         try {
             if (countdownMusicPlayer != null) {
-                try { countdownMusicPlayer.stop(); } catch (Exception ignored) {}
-                try { countdownMusicPlayer.dispose(); } catch (Exception ignored) {}
+                mediaFactory.disposeMediaPlayer(countdownMusicPlayer);
                 countdownMusicPlayer = null;
             }
         } catch (Throwable ignored) {}
     }
 
-    public MediaPlayer createMediaPlayer(String resourcePath, boolean loop, Double volumeFactor) {
-        try {
-            URL mus = resourceOwner.getResource(resourcePath);
-            if (mus == null) mus = resourceOwner.getClassLoader().getResource(resourcePath.startsWith("/") ? resourcePath.substring(1) : resourcePath);
-            if (mus == null) return null;
-            Media m = new Media(mus.toExternalForm());
-            MediaPlayer mp = new MediaPlayer(m);
-            mp.setCycleCount(loop ? MediaPlayer.INDEFINITE : 1);
-            double base = AudioSettings.getMasterVolume() * AudioSettings.getMusicVolume();
-            double scaled = (volumeFactor != null) ? Math.max(0.0, Math.min(1.0, base * volumeFactor)) : base;
-            try { mp.setVolume(scaled); } catch (Exception ignored) {}
-            mp.setAutoPlay(false);
-            mp.setOnError(() -> System.err.println("[SoundManager] MediaPlayer error for " + resourcePath + ": " + mp.getError()));
+    // Media player creation/disposal moved to MediaPlayerFactory
 
-            javafx.beans.value.ChangeListener<Number> volListener = (obs, o, n) -> {
-                try {
-                    double b = AudioSettings.getMasterVolume() * AudioSettings.getMusicVolume();
-                    double s = (volumeFactor != null) ? Math.max(0.0, Math.min(1.0, b * volumeFactor)) : b;
-                    mp.setVolume(s);
-                } catch (Exception ignored) {}
-            };
-            AudioSettings.masterProperty().addListener(volListener);
-            AudioSettings.musicProperty().addListener(volListener);
-            // remember the listener so dispose can remove it later
-            try { mpVolumeListeners.put(mp, volListener); } catch (Exception ignored) {}
-            return mp;
-        } catch (Throwable ex) {
-            System.err.println("[SoundManager] Failed to create MediaPlayer for " + resourcePath + ": " + ex);
-            return null;
-        }
+    /**
+     * Compatibility delegate to MediaPlayerFactory.
+     */
+    public MediaPlayer createMediaPlayer(String resourcePath, boolean loop, Double volumeFactor) {
+        return mediaFactory.createMediaPlayer(resourcePath, loop, volumeFactor);
     }
 
+    /**
+     * Overload accepting primitive double for existing callers.
+     */
+    public MediaPlayer createMediaPlayer(String resourcePath, boolean loop, double volumeFactor) {
+        return createMediaPlayer(resourcePath, loop, Double.valueOf(volumeFactor));
+    }
+
+    /**
+     * Delegate disposal to the factory (keeps old API intact while moving
+     * implementation into MediaPlayerFactory).
+     */
     public void disposeMediaPlayer(MediaPlayer mp) {
-        if (mp == null) return;
-        try {
-            try {
-                javafx.beans.value.ChangeListener<Number> l = mpVolumeListeners.remove(mp);
-                if (l != null) {
-                    AudioSettings.masterProperty().removeListener(l);
-                    AudioSettings.musicProperty().removeListener(l);
-                }
-            } catch (Exception ignored) {}
-            try { mp.stop(); } catch (Exception ignored) {}
-            try { mp.dispose(); } catch (Exception ignored) {}
-        } catch (Throwable ignored) {}
+        mediaFactory.disposeMediaPlayer(mp);
     }
 }

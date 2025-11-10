@@ -2,7 +2,7 @@ package com.comp2042.controller;
 
 import java.util.logging.Logger;
 import java.util.logging.Level;
-import com.comp2042.audio.SoundManager;
+import com.comp2042.audio.soundManager.SoundManager;
 import com.comp2042.model.ViewData;
 import com.comp2042.model.CoopTickResult;
 import com.comp2042.model.DownData;

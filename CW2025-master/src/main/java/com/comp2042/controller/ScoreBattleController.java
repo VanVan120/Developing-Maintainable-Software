@@ -1,6 +1,6 @@
 package com.comp2042.controller;
 
-import com.comp2042.audio.SoundManager;
+import com.comp2042.audio.soundManager.SoundManager;
 
 import javafx.fxml.FXML;
 import javafx.fxml.FXMLLoader;

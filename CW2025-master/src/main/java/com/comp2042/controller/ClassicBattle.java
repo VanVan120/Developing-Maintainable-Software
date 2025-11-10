@@ -25,21 +25,19 @@ import javafx.scene.media.MediaPlayer;
 import javax.sound.sampled.AudioInputStream;
 import javax.sound.sampled.AudioSystem;
 import javax.sound.sampled.Clip;
+import java.util.logging.Logger;
+import java.util.logging.Level;
 
 public class ClassicBattle implements Initializable {
 
     @FXML private StackPane leftHolder;
-
     @FXML private StackPane rightHolder;
-
     @FXML private javafx.scene.layout.VBox leftNextBox;
     @FXML private javafx.scene.layout.VBox leftNextContent;
     @FXML private javafx.scene.text.Text leftNextLabel;
-
     @FXML private javafx.scene.layout.VBox rightNextBox;
     @FXML private javafx.scene.layout.VBox rightNextContent;
     @FXML private javafx.scene.text.Text rightNextLabel;
-
     @FXML private Button backBtn;
 
     private GuiController leftGui;
@@ -58,99 +56,147 @@ public class ClassicBattle implements Initializable {
     private MediaPlayer matchCountdownPlayer = null;
     private Clip matchCountdownClipFallback = null;
 
-    private void playMatchGameOverSound() {
+    // Lightweight logger and helpers to avoid silent exception swallowing and
+    // centralise Platform.runLater usage in a safe, testable way.
+    private static final Logger LOGGER = Logger.getLogger(ClassicBattle.class.getName());
+
+    private static void safeRun(Runnable r, String ctx) {
         try {
-            try { if (matchGameOverPlayer != null) { matchGameOverPlayer.stop(); matchGameOverPlayer.dispose(); matchGameOverPlayer = null; } } catch (Exception ignored) {}
-            URL musicUrl = getClass().getClassLoader().getResource("sounds/GameOver.wav");
-            if (musicUrl == null) musicUrl = getClass().getClassLoader().getResource("sounds/GameOver.mp3");
-            if (musicUrl != null) {
-                try {
-                    Media m = new Media(musicUrl.toExternalForm());
-                    matchGameOverPlayer = new MediaPlayer(m);
-                    matchGameOverPlayer.setCycleCount(1);
-                    matchGameOverPlayer.setAutoPlay(true);
-                    matchGameOverPlayer.setOnEndOfMedia(() -> {
-                        try { matchGameOverPlayer.dispose(); } catch (Exception ignored) {}
-                        matchGameOverPlayer = null;
-                    });
-                    return;
-                } catch (Exception ignored) {}
+            r.run();
+        } catch (Exception ex) {
+            LOGGER.log(Level.FINER, ctx, ex);
+        }
+    }
+
+    private void safeRunLater(Runnable r, String ctx) {
+        javafx.application.Platform.runLater(() -> safeRun(r, ctx));
+    }
+
+    // Small helpers to reduce duplication when stopping/disposing audio players
+    private MediaPlayer stopAndDispose(MediaPlayer p) {
+        try {
+            if (p != null) {
+                try { p.stop(); } catch (Exception ignored) {}
+                try { p.dispose(); } catch (Exception ignored) {}
             }
         } catch (Exception ignored) {}
+        return null;
+    }
 
+    private Clip stopAndClose(Clip c) {
         try {
-            try { if (matchGameOverClipFallback != null && matchGameOverClipFallback.isRunning()) { matchGameOverClipFallback.stop(); matchGameOverClipFallback.close(); matchGameOverClipFallback = null; } } catch (Exception ignored) {}
-            java.net.URL u = getClass().getClassLoader().getResource("sounds/GameOver.wav");
-            if (u != null) {
-                AudioInputStream ais = AudioSystem.getAudioInputStream(u);
-                matchGameOverClipFallback = AudioSystem.getClip();
-                matchGameOverClipFallback.open(ais);
-                matchGameOverClipFallback.start();
+            if (c != null) {
+                try { c.stop(); } catch (Exception ignored) {}
+                try { c.close(); } catch (Exception ignored) {}
             }
+        } catch (Exception ignored) {}
+        return null;
+    }
+
+    private void ensureClassicStylesheet(Scene scene) {
+        if (scene == null) return;
+        try {
+            String css = getClass().getClassLoader().getResource("css/classic-battle.css").toExternalForm();
+            if (!scene.getStylesheets().contains(css)) scene.getStylesheets().add(css);
         } catch (Exception ignored) {}
     }
 
-    private void stopMatchGameOverSound() {
+    private void hideEmbeddedUi(Parent root) {
         try {
-            if (matchGameOverPlayer != null) {
-                try { matchGameOverPlayer.stop(); } catch (Exception ignored) {}
-                try { matchGameOverPlayer.dispose(); } catch (Exception ignored) {}
-                matchGameOverPlayer = null;
+            if (root == null) return;
+            javafx.scene.Node n = root.lookup("#pauseBtn");
+            if (n != null) { n.setVisible(false); n.setManaged(false); }
+            n = root.lookup("#nextBoxFrame");
+            if (n != null) { n.setVisible(false); n.setManaged(false); }
+            javafx.scene.Node nb = root.lookup("#nextBox");
+            if (nb != null) { nb.setVisible(false); nb.setManaged(false); }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    /**
+     * Try to load a MediaPlayer for the given base sound name
+     * Returns null if no media could be created.
+     */
+    private MediaPlayer loadMediaPlayer(String baseName, int cycleCount, Double volume, Runnable onEnd) {
+        try {
+            URL musicUrl = getClass().getClassLoader().getResource("sounds/" + baseName + ".wav");
+            if (musicUrl == null) musicUrl = getClass().getClassLoader().getResource("sounds/" + baseName + ".mp3");
+            if (musicUrl != null) {
+                Media m = new Media(musicUrl.toExternalForm());
+                MediaPlayer mp = new MediaPlayer(m);
+                mp.setCycleCount(cycleCount);
+                mp.setAutoPlay(true);
+                if (volume != null) mp.setVolume(volume.doubleValue());
+                if (onEnd != null) mp.setOnEndOfMedia(onEnd);
+                return mp;
             }
         } catch (Exception ignored) {}
+        return null;
+    }
+
+    /**
+     * Try to load a Clip for the given base sound name
+     * loopCount follows Clip.loop semantics.
+     */
+    private Clip loadClip(String baseName, int loopCount) {
         try {
-            if (matchGameOverClipFallback != null) {
-                try { matchGameOverClipFallback.stop(); } catch (Exception ignored) {}
-                try { matchGameOverClipFallback.close(); } catch (Exception ignored) {}
-                matchGameOverClipFallback = null;
+            java.net.URL u = getClass().getClassLoader().getResource("sounds/" + baseName + ".wav");
+            if (u != null) {
+                AudioInputStream ais = AudioSystem.getAudioInputStream(u);
+                Clip c = AudioSystem.getClip();
+                c.open(ais);
+                c.loop(loopCount);
+                return c;
             }
+        } catch (Exception ignored) {}
+        return null;
+    }
+
+    private void stopMatchGameOverSound() {
+        matchGameOverPlayer = stopAndDispose(matchGameOverPlayer);
+        matchGameOverClipFallback = stopAndClose(matchGameOverClipFallback);
+    }
+
+    private void playMatchGameOverSound() {
+        try {
+            // stop any existing players/clips first
+            matchGameOverPlayer = stopAndDispose(matchGameOverPlayer);
+            matchGameOverClipFallback = stopAndClose(matchGameOverClipFallback);
+
+            // Try JavaFX MediaPlayer first (tries .wav then .mp3)
+            matchGameOverPlayer = loadMediaPlayer("GameOver", 1, null, () -> {
+                matchGameOverPlayer = stopAndDispose(matchGameOverPlayer);
+            });
+            if (matchGameOverPlayer != null) return;
+        } catch (Exception ignored) {}
+
+        try {
+            // Fallback to Clip (.wav)
+            matchGameOverClipFallback = loadClip("GameOver", 1);
         } catch (Exception ignored) {}
     }
 
     private void playMatchCountdownSound() {
         try {
-            try { if (matchCountdownPlayer != null) { matchCountdownPlayer.stop(); matchCountdownPlayer.dispose(); matchCountdownPlayer = null; } } catch (Exception ignored) {}
-            URL musicUrl = getClass().getClassLoader().getResource("sounds/Countdown.wav");
-            if (musicUrl == null) musicUrl = getClass().getClassLoader().getResource("sounds/Countdown.mp3");
-            if (musicUrl != null) {
-                try {
-                    Media m = new Media(musicUrl.toExternalForm());
-                    matchCountdownPlayer = new MediaPlayer(m);
-                    matchCountdownPlayer.setCycleCount(MediaPlayer.INDEFINITE);
-                    matchCountdownPlayer.setAutoPlay(true);
-                    matchCountdownPlayer.setVolume(0.75);
-                    return;
-                } catch (Exception ignored) {}
-            }
+            matchCountdownPlayer = stopAndDispose(matchCountdownPlayer);
+            matchCountdownClipFallback = stopAndClose(matchCountdownClipFallback);
+
+            // Try JavaFX MediaPlayer first (tries .wav then .mp3)
+            matchCountdownPlayer = loadMediaPlayer("Countdown", MediaPlayer.INDEFINITE, 0.75, null);
+            if (matchCountdownPlayer != null) return;
         } catch (Exception ignored) {}
 
         try {
-            try { if (matchCountdownClipFallback != null && matchCountdownClipFallback.isRunning()) { matchCountdownClipFallback.stop(); matchCountdownClipFallback.close(); matchCountdownClipFallback = null; } } catch (Exception ignored) {}
-            java.net.URL u = getClass().getClassLoader().getResource("sounds/Countdown.wav");
-            if (u != null) {
-                AudioInputStream ais = AudioSystem.getAudioInputStream(u);
-                matchCountdownClipFallback = AudioSystem.getClip();
-                matchCountdownClipFallback.open(ais);
-                matchCountdownClipFallback.loop(Clip.LOOP_CONTINUOUSLY);
-            }
+            // Fallback to Clip (.wav)
+            matchCountdownClipFallback = loadClip("Countdown", Clip.LOOP_CONTINUOUSLY);
         } catch (Exception ignored) {}
     }
 
     private void stopMatchCountdownSound() {
-        try {
-            if (matchCountdownPlayer != null) {
-                try { matchCountdownPlayer.stop(); } catch (Exception ignored) {}
-                try { matchCountdownPlayer.dispose(); } catch (Exception ignored) {}
-                matchCountdownPlayer = null;
-            }
-        } catch (Exception ignored) {}
-        try {
-            if (matchCountdownClipFallback != null) {
-                try { matchCountdownClipFallback.stop(); } catch (Exception ignored) {}
-                try { matchCountdownClipFallback.close(); } catch (Exception ignored) {}
-                matchCountdownClipFallback = null;
-            }
-        } catch (Exception ignored) {}
+        matchCountdownPlayer = stopAndDispose(matchCountdownPlayer);
+        matchCountdownClipFallback = stopAndClose(matchCountdownClipFallback);
     }
 
     private void registerGameOverListener(GuiController gui, boolean isLeft) {
@@ -207,21 +253,19 @@ public class ClassicBattle implements Initializable {
                 if (leftNextLabel != null) {
                     leftNextLabel.setFont(f);
                     leftNextLabel.setFill(javafx.scene.paint.Color.YELLOW);
-                    leftNextLabel.setStyle("-fx-effect: dropshadow(gaussian, rgba(0,0,0,0.75), 6, 0.0, 0, 2); -fx-font-weight: bold;");
                 }
                 if (rightNextLabel != null) {
                     rightNextLabel.setFont(f);
                     rightNextLabel.setFill(javafx.scene.paint.Color.YELLOW);
-                    rightNextLabel.setStyle("-fx-effect: dropshadow(gaussian, rgba(0,0,0,0.75), 6, 0.0, 0, 2); -fx-font-weight: bold;");
                 }
             } catch (Exception ignored2) {}
         } catch (Exception ignored) {}
     }
 
     public void restartMatch() {
-        javafx.application.Platform.runLater(() -> {
+        safeRunLater(() -> {
             try {
-                try { if (classicBattleMusicPlayer != null) { classicBattleMusicPlayer.stop(); classicBattleMusicPlayer.dispose(); classicBattleMusicPlayer = null; } } catch (Exception ignored) {}
+                classicBattleMusicPlayer = stopAndDispose(classicBattleMusicPlayer);
                 try { stopMatchCountdownSound(); } catch (Exception ignored) {}
                 try { stopMatchGameOverSound(); } catch (Exception ignored) {}
                 try { if (matchTimer != null) matchTimer.stop(); } catch (Exception ignored) {}
@@ -251,7 +295,7 @@ public class ClassicBattle implements Initializable {
                     }
                 } catch (Exception ignored) {}
             } catch (Exception ignored) {}
-        });
+        }, "restartMatch");
     }
 
     public void initBothGames() throws IOException {
@@ -273,9 +317,13 @@ public class ClassicBattle implements Initializable {
             rightRoot.getStylesheets().clear();
             leftRoot.getStyleClass().remove("root");
             rightRoot.getStyleClass().remove("root");
-            String transparent = "-fx-background-color: transparent;";
-            leftRoot.setStyle(transparent);
-            rightRoot.setStyle(transparent);
+            try {
+                String css = getClass().getClassLoader().getResource("css/classic-battle.css").toExternalForm();
+                leftRoot.getStylesheets().add(css);
+                rightRoot.getStylesheets().add(css);
+                leftRoot.getStyleClass().add("transparent-root");
+                rightRoot.getStyleClass().add("transparent-root");
+            } catch (Exception ignoredCss) {}
         } catch (Exception ignored) {}
 
         try {
@@ -283,20 +331,8 @@ public class ClassicBattle implements Initializable {
                 backBtn.setVisible(false);
                 backBtn.setManaged(false);
             }
-            java.util.function.Consumer<Parent> hideEmbeddedUi = (root) -> {
-                try {
-                    javafx.scene.Node n = root.lookup("#pauseBtn");
-                    if (n != null) { n.setVisible(false); n.setManaged(false); }
-                    n = root.lookup("#nextBoxFrame");
-                    if (n != null) { n.setVisible(false); n.setManaged(false); }
-                    javafx.scene.Node nb = root.lookup("#nextBox");
-                    if (nb != null) { nb.setVisible(false); nb.setManaged(false); }
-                } catch (Exception e) {
-                    e.printStackTrace();
-                }
-            };
-            hideEmbeddedUi.accept(leftRoot);
-            hideEmbeddedUi.accept(rightRoot);
+            hideEmbeddedUi(leftRoot);
+            hideEmbeddedUi(rightRoot);
         } catch (Exception ignored) {}
 
         double measuredW = -1, measuredH = -1;
@@ -437,6 +473,9 @@ public class ClassicBattle implements Initializable {
             javafx.application.Platform.runLater(() -> {
                 Scene scene = leftHolder.getScene();
                 if (scene == null) return;
+                // Ensure our classic-battle stylesheet is present on the scene so
+                // overlays added to the scene root pick up the classes defined
+                ensureClassicStylesheet(scene);
                 centerOverlay = new javafx.scene.layout.StackPane();
                 centerOverlay.setPickOnBounds(false);
                 centerOverlay.setMouseTransparent(true);
@@ -445,10 +484,10 @@ public class ClassicBattle implements Initializable {
                 v.setAlignment(javafx.geometry.Pos.TOP_CENTER);
 
                 matchTimerText = new javafx.scene.text.Text(formatTime(remainingSeconds));
-                matchTimerText.setStyle("-fx-font-size: 56px; -fx-fill: yellow; -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.85), 6, 0.0, 0, 2);");
+                matchTimerText.getStyleClass().add("match-timer-text");
 
                 matchScoreText = new javafx.scene.text.Text("0  —  0");
-                matchScoreText.setStyle("-fx-font-size: 36px; -fx-fill: white; -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.85), 6, 0.0, 0, 2);");
+                matchScoreText.getStyleClass().add("match-score-text");
 
                 v.getChildren().addAll(matchTimerText, matchScoreText);
                 centerOverlay.getChildren().add(v);
@@ -567,7 +606,7 @@ public class ClassicBattle implements Initializable {
         try { stopMatchCountdownSound(); } catch (Exception ignored) {}
     }
 
-    private String formatTime(int seconds) {
+    public static String formatTime(int seconds) {
         int mins = seconds / 60;
         int secs = seconds % 60;
         return String.format("%02d:%02d", mins, secs);
@@ -586,6 +625,8 @@ public class ClassicBattle implements Initializable {
             try {
                 Scene scene = leftHolder.getScene();
                 if (scene == null) return;
+                // Ensure stylesheet applied to scene so controls overlay classes render
+                ensureClassicStylesheet(scene);
 
                 StackPane overlay = new StackPane();
                 overlay.setPickOnBounds(true);
@@ -595,9 +636,9 @@ public class ClassicBattle implements Initializable {
                 dark.setFill(javafx.scene.paint.Color.rgb(8,8,10,0.82));
 
                 BorderPane container = new BorderPane();
-                container.setStyle("-fx-padding:18;");
+                container.getStyleClass().add("controls-container");
                 javafx.scene.text.Text header = new javafx.scene.text.Text("Controls");
-                header.setStyle("-fx-font-size:34px; -fx-fill: #9fb0ff; -fx-font-weight:700;");
+                header.getStyleClass().add("controls-header");
                 javafx.scene.layout.HBox actionBox = new javafx.scene.layout.HBox(10);
                 actionBox.setAlignment(Pos.CENTER_RIGHT);
                 javafx.scene.control.Button btnResetTop = new javafx.scene.control.Button("Reset");
@@ -608,11 +649,11 @@ public class ClassicBattle implements Initializable {
                 BorderPane topBar = new BorderPane();
                 topBar.setLeft(header);
                 topBar.setRight(actionBox);
-                topBar.setStyle("-fx-padding:8 18 18 18;");
+                topBar.getStyleClass().add("controls-topbar");
                 container.setTop(topBar);
 
                 javafx.scene.layout.HBox center = new javafx.scene.layout.HBox(120);
-                center.setStyle("-fx-padding:12; -fx-background-color: transparent;");
+                center.getStyleClass().add("controls-center");
                 center.setAlignment(Pos.CENTER);
 
                 FXMLLoader leftFx = new FXMLLoader(getClass().getClassLoader().getResource("controls.fxml"));
@@ -798,6 +839,36 @@ public class ClassicBattle implements Initializable {
 
         int ls = (leftController != null) ? leftController.getScoreProperty().get() : 0;
         int rs = (rightController != null) ? rightController.getScoreProperty().get() : 0;
+
+        // Use the testable helper to compute title/reason for the winner
+        WinnerInfo winner = computeWinnerInfo(ls, rs);
+
+        javafx.application.Platform.runLater(() -> {
+            try {
+                Scene scene = leftHolder.getScene();
+                if (scene == null) return;
+                StackPane overlay = new StackPane();
+                overlay.setPickOnBounds(true);
+                overlay.getStyleClass().add("winner-overlay");
+
+                showWinnerOverlay(winner.title(), ls, rs, winner.reason());
+            } catch (Exception ignored) {}
+        });
+    }
+
+    /*
+     * Small value object to return winner-related strings in a single return.
+     * Made public and static so unit tests in other packages can exercise winner
+     * computation without having to instantiate the JavaFX-heavy controller.
+     */
+    public static record WinnerInfo(String title, String reason) { }
+
+    /**
+     * Compute the winner title and reason text for the given scores.
+     * Extracted from {@link #endMatchAndAnnounceWinner()} to make the logic
+     * unit-testable without JavaFX dependencies.
+     */
+    public static WinnerInfo computeWinnerInfo(int ls, int rs) {
         String title;
         if (ls > rs) title = "Left Player Wins!";
         else if (rs > ls) title = "Right Player Wins!";
@@ -811,18 +882,7 @@ public class ClassicBattle implements Initializable {
         } else {
             reason = String.format("Winner by higher score (+%d) — time expired", rs - ls);
         }
-
-        javafx.application.Platform.runLater(() -> {
-            try {
-                Scene scene = leftHolder.getScene();
-                if (scene == null) return;
-                StackPane overlay = new StackPane();
-                overlay.setPickOnBounds(true);
-                overlay.setStyle("-fx-background-color: rgba(0,0,0,0.6);");
-
-                showWinnerOverlay(title, ls, rs, reason);
-            } catch (Exception ignored) {}
-        });
+        return new WinnerInfo(title, reason);
     }
 
     private void showWinnerOverlay(String title, int ls, int rs, String reason) {
@@ -830,17 +890,19 @@ public class ClassicBattle implements Initializable {
             try {
                 Scene scene = leftHolder.getScene();
                 if (scene == null) return;
+                // Ensure stylesheet applied to scene so winner overlay classes render
+                ensureClassicStylesheet(scene);
                 StackPane overlay = new StackPane();
                 overlay.setPickOnBounds(true);
-                overlay.setStyle("-fx-background-color: rgba(0,0,0,0.88);");
+                overlay.getStyleClass().add("winner-overlay-strong");
                 activeOverlay = overlay;
 
                 VBox panel = new VBox(14);
                 panel.setAlignment(Pos.CENTER);
-                panel.setStyle("-fx-background-color: rgba(18,18,20,0.95); -fx-padding: 26px; -fx-background-radius: 8px;");
+                panel.getStyleClass().add("winner-panel");
 
-        javafx.scene.text.Text bigTitle = new javafx.scene.text.Text(title);
-        bigTitle.setStyle("-fx-font-size: 64px; -fx-font-weight: 700; -fx-fill: white;");
+            javafx.scene.text.Text bigTitle = new javafx.scene.text.Text(title);
+            bigTitle.getStyleClass().add("winner-title");
 
         try {
             javafx.scene.effect.DropShadow glow = new javafx.scene.effect.DropShadow();
@@ -876,7 +938,7 @@ public class ClassicBattle implements Initializable {
         } catch (Exception ignored) {}
 
                 javafx.scene.text.Text modeDesc = new javafx.scene.text.Text("Survive. Outlast. Win.");
-                modeDesc.setStyle("-fx-font-size: 18px; -fx-fill: #d0d0d0; -fx-text-alignment: center;");
+                modeDesc.getStyleClass().add("mode-desc");
                 modeDesc.setWrappingWidth(680);
 
                 try {

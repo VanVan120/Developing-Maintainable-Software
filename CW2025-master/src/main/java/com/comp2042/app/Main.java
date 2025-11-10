@@ -1,49 +1,16 @@
 package com.comp2042.app;
 
 import javafx.application.Application;
-import javafx.fxml.FXMLLoader;
-import javafx.geometry.Rectangle2D;
-import javafx.scene.Parent;
-import javafx.scene.Scene;
-import javafx.stage.Screen;
 import javafx.stage.Stage;
-
-import java.net.URL;
 
 public class Main extends Application {
 
     @Override
     public void start(Stage primaryStage) throws Exception {
-
-        URL location = getClass().getClassLoader().getResource("mainMenu.fxml");
-        if (location == null) {
-            // Fail fast with a clear message if the resource is missing (helps during refactor)
-            throw new IllegalStateException("FXML resource 'mainMenu.fxml' not found on classpath");
-        }
-        FXMLLoader fxmlLoader = new FXMLLoader(location);
-        Parent root = fxmlLoader.load();
-
-        primaryStage.setTitle("Tetris Nexus");
-        // Make the application open fullscreen on startup (maximize + full screen)
-        Rectangle2D visualBounds = Screen.getPrimary().getVisualBounds();
-        Scene scene = new Scene(root, visualBounds.getWidth(), visualBounds.getHeight());
-        // apply menu stylesheet if available
-        try {
-            String css = getClass().getClassLoader().getResource("css/menu.css").toExternalForm();
-            scene.getStylesheets().add(css);
-        } catch (Exception ignored) {}
-        primaryStage.setScene(scene);
-        // maximize window and request full-screen so the app fills the entire display
-        primaryStage.setMaximized(true);
-        try {
-            // request full screen; on some platforms this will hide window chrome and taskbar
-            primaryStage.setFullScreen(true);
-            // hide default full-screen exit hint to avoid overlay (optional)
-            primaryStage.setFullScreenExitHint("");
-        } catch (Exception ignored) {}
-        primaryStage.show();
+        // Delegate startup to AppInitializer which encapsulates resource lookup and stage scene configuration and is easier to unit-test.
+        AppInitializer initializer = new AppInitializer(null);
+        initializer.initialize(primaryStage);
     }
-
 
     public static void main(String[] args) {
         launch(args);
