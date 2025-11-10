@@ -1,6 +1,7 @@
 package com.comp2042.controller;
 
 import com.comp2042.audio.audioSettings.AudioSettings;
+import com.comp2042.controller.classicBattle.ClassicBattle;
 
 import javafx.fxml.FXML;
 import javafx.fxml.FXMLLoader;
