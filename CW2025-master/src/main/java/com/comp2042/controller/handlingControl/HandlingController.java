@@ -1,4 +1,4 @@
-package com.comp2042.controller;
+package com.comp2042.controller.handlingControl;
 
 import javafx.fxml.FXML;
 import javafx.scene.control.Button;
