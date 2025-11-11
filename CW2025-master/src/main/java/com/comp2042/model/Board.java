@@ -1,7 +1,8 @@
 package com.comp2042.model;
 
-import com.comp2042.logic.bricks.Brick;
 import java.util.List;
+
+import com.comp2042.logic.Brick;
 
 /**
  * Board model interface describing operations the controllers call to

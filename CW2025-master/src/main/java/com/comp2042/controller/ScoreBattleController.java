@@ -852,7 +852,7 @@ public class ScoreBattleController implements Initializable {
                 try {
                     java.util.Objects.requireNonNull(_ev);
                     if (leftController != null && leftGui != null) {
-                        java.util.List<com.comp2042.logic.bricks.Brick> up = leftController.getUpcomingBricks(3);
+                        java.util.List<com.comp2042.logic.Brick> up = leftController.getUpcomingBricks(3);
                         if (leftNextContent != null) {
                             javafx.scene.layout.VBox built = leftGui.buildNextPreview(up);
                             leftNextContent.getChildren().clear();
@@ -862,7 +862,7 @@ public class ScoreBattleController implements Initializable {
                         }
                     }
                     if (rightController != null && rightGui != null) {
-                        java.util.List<com.comp2042.logic.bricks.Brick> up2 = rightController.getUpcomingBricks(3);
+                        java.util.List<com.comp2042.logic.Brick> up2 = rightController.getUpcomingBricks(3);
                         if (rightNextContent != null) {
                             javafx.scene.layout.VBox built2 = rightGui.buildNextPreview(up2);
                             rightNextContent.getChildren().clear();

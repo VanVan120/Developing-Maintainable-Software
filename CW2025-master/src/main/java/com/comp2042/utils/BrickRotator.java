@@ -1,7 +1,7 @@
 package com.comp2042.utils;
 
+import com.comp2042.logic.Brick;
 import com.comp2042.model.NextShapeInfo;
-import com.comp2042.logic.bricks.Brick;
 
 import java.util.Objects;
 import java.util.logging.Level;

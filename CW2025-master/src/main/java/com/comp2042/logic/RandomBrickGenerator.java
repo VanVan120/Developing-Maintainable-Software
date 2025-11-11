@@ -1,10 +1,18 @@
-package com.comp2042.logic.bricks;
+package com.comp2042.logic;
 
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Deque;
 import java.util.List;
 import java.util.concurrent.ThreadLocalRandom;
+
+import com.comp2042.logic.bricks.IBrick;
+import com.comp2042.logic.bricks.JBrick;
+import com.comp2042.logic.bricks.LBrick;
+import com.comp2042.logic.bricks.OBrick;
+import com.comp2042.logic.bricks.SBrick;
+import com.comp2042.logic.bricks.TBrick;
+import com.comp2042.logic.bricks.ZBrick;
 
 /**
  * A simple random (bag) brick generator.

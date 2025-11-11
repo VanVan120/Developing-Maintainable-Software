@@ -1,0 +1,18 @@
+.coop-overlay-container {
+    -fx-padding: 18;
+}
+
+.coop-overlay-header {
+    -fx-font-size: 34px;
+    -fx-fill: #9fb0ff;
+    -fx-font-weight: 700;
+}
+
+.coop-overlay-topbar {
+    -fx-padding: 8 18 18 18;
+}
+
+.coop-overlay-center {
+    -fx-padding: 12;
+    -fx-background-color: transparent;
+}

@@ -2,7 +2,7 @@ package com.comp2042.controller;
 
 import com.comp2042.audio.soundManager.SoundManager;
 import com.comp2042.controller.controls.ControlsController;
-import com.comp2042.controller.cooperateBattle.CoopGuiController;
+import com.comp2042.controller.cooperateBattle.coopGUI.CoopGuiController;
 import com.comp2042.input.EventSource;
 import com.comp2042.input.EventType;
 import com.comp2042.input.InputEventListener;
@@ -96,7 +96,7 @@ public class GuiController implements Initializable {
     @FXML protected VBox levelBox;
     @FXML protected Text levelValue;
 
-    protected java.util.List<com.comp2042.logic.bricks.Brick> upcomingCache = null;
+    protected java.util.List<com.comp2042.logic.Brick> upcomingCache = null;
     protected Rectangle[][] displayMatrix;
     protected InputEventListener eventListener;
     protected Rectangle[][] rectangles;
@@ -1052,7 +1052,7 @@ public class GuiController implements Initializable {
         }
     }
 
-    public void showNextBricks(java.util.List<com.comp2042.logic.bricks.Brick> upcoming) {
+    public void showNextBricks(java.util.List<com.comp2042.logic.Brick> upcoming) {
     if (nextContent == null) return;
     nextContent.getChildren().clear();
         if (upcoming == null) return;
@@ -1063,7 +1063,7 @@ public class GuiController implements Initializable {
         }
     }
 
-    public javafx.scene.layout.VBox buildNextPreview(java.util.List<com.comp2042.logic.bricks.Brick> upcoming) {
+    public javafx.scene.layout.VBox buildNextPreview(java.util.List<com.comp2042.logic.Brick> upcoming) {
         javafx.scene.layout.VBox container = new javafx.scene.layout.VBox(8);
         container.setAlignment(Pos.TOP_CENTER);
         if (upcoming == null || upcoming.isEmpty()) return container;
@@ -1073,7 +1073,7 @@ public class GuiController implements Initializable {
 
         int count = Math.min(upcoming.size(), 3);
         for (int i = 0; i < count; i++) {
-            com.comp2042.logic.bricks.Brick b = upcoming.get(i);
+            com.comp2042.logic.Brick b = upcoming.get(i);
             int[][] shape = b.getShapeMatrix().get(0); // default orientation for preview
             int rows = shape.length;
             int cols = shape[0].length;

@@ -1,8 +1,8 @@
 package com.comp2042.model;
 
-import com.comp2042.logic.bricks.Brick;
-import com.comp2042.logic.bricks.BrickGenerator;
-import com.comp2042.logic.bricks.RandomBrickGenerator;
+import com.comp2042.logic.Brick;
+import com.comp2042.logic.BrickGenerator;
+import com.comp2042.logic.RandomBrickGenerator;
 import com.comp2042.utils.BrickRotator;
 import com.comp2042.utils.MatrixOperations;
 import java.awt.Point;
@@ -170,10 +170,10 @@ public class SimpleBoard implements Board {
     @Override
     public boolean swapCurrentWithNext() {
         // peek at next brick from generator
-        com.comp2042.logic.bricks.Brick next = brickGenerator.getNextBrick();
+        com.comp2042.logic.Brick next = brickGenerator.getNextBrick();
         if (next == null) return false;
         // save current brick and its rotation state
-        com.comp2042.logic.bricks.Brick oldCurrent = brickRotator.getBrick();
+        com.comp2042.logic.Brick oldCurrent = brickRotator.getBrick();
         // attempt to set the next as current and test for collision at current offset
         brickRotator.setBrick(next);
         int[][] shape = brickRotator.getCurrentShape();
@@ -199,7 +199,7 @@ public class SimpleBoard implements Board {
     }
 
     @Override
-    public java.util.List<com.comp2042.logic.bricks.Brick> getUpcomingBricks(int count) {
+    public java.util.List<com.comp2042.logic.Brick> getUpcomingBricks(int count) {
         return brickGenerator.getUpcomingBricks(count);
     }
 }

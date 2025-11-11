@@ -35,7 +35,7 @@ public class GameController implements InputEventListener {
         }
 
         try {
-            java.util.List<com.comp2042.logic.bricks.Brick> upcoming = board.getUpcomingBricks(3);
+            java.util.List<com.comp2042.logic.Brick> upcoming = board.getUpcomingBricks(3);
             viewGuiController.showNextBricks(upcoming);
         } catch (Exception e) {
             LOGGER.log(Level.FINER, "Failed to show upcoming bricks on startup", e);
@@ -83,7 +83,7 @@ public class GameController implements InputEventListener {
         return board.getScore().scoreProperty();
     }
 
-    public java.util.List<com.comp2042.logic.bricks.Brick> getUpcomingBricks(int count) {
+    public java.util.List<com.comp2042.logic.Brick> getUpcomingBricks(int count) {
         try {
             return board.getUpcomingBricks(count);
         } catch (Exception e) {
@@ -207,7 +207,7 @@ public class GameController implements InputEventListener {
 
     private void safeRefreshUpcomingBricks() {
         try {
-            java.util.List<com.comp2042.logic.bricks.Brick> upcoming = board.getUpcomingBricks(3);
+            java.util.List<com.comp2042.logic.Brick> upcoming = board.getUpcomingBricks(3);
             viewGuiController.showNextBricks(upcoming);
         } catch (Exception e) {
             LOGGER.log(Level.WARNING, "Failed to update upcoming bricks preview", e);
