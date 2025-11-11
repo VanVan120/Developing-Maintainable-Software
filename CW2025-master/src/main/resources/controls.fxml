@@ -3,7 +3,7 @@
 <?import javafx.scene.control.*?>
 <?import javafx.scene.layout.*?>
 <?import javafx.scene.text.*?>
-<StackPane xmlns="http://javafx.com/javafx/8" xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.comp2042.controller.ControlsController" prefWidth="600" prefHeight="420"> <children>
+<StackPane xmlns="http://javafx.com/javafx/8" xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.comp2042.controller.controls.ControlsController" prefWidth="600" prefHeight="420"> <children>
         <StackPane prefWidth="920" prefHeight="560">
             <GridPane hgap="12" vgap="14" style="-fx-padding:28; -fx-background-color: linear-gradient(to bottom, rgba(18,20,24,0.92), rgba(18,20,24,0.88)); -fx-background-radius:10;">
                 <columnConstraints>

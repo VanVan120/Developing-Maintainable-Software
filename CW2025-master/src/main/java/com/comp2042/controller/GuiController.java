@@ -1,6 +1,7 @@
 package com.comp2042.controller;
 
 import com.comp2042.audio.soundManager.SoundManager;
+import com.comp2042.controller.controls.ControlsController;
 import com.comp2042.input.EventSource;
 import com.comp2042.input.EventType;
 import com.comp2042.input.InputEventListener;

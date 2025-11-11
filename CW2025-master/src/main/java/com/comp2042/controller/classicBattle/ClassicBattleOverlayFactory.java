@@ -1,7 +1,8 @@
 package com.comp2042.controller.classicBattle;
 
-import com.comp2042.controller.ControlsController;
 import com.comp2042.controller.GuiController;
+import com.comp2042.controller.controls.ControlsController;
+
 import javafx.geometry.Pos;
 import javafx.scene.Scene;
 import javafx.scene.control.Button;
