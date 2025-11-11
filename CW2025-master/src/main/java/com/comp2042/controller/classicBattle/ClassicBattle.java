@@ -14,8 +14,9 @@ import java.io.IOException;
 import java.net.URL;
 import java.util.ResourceBundle;
 import javafx.scene.media.MediaPlayer;
-import com.comp2042.controller.GameController;
+
 import com.comp2042.controller.GuiController;
+import com.comp2042.controller.gameControl.GameController;
 
 import java.util.logging.Logger;
 import java.util.logging.Level;

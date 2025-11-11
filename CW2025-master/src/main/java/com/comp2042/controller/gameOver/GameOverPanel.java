@@ -1,4 +1,4 @@
-package com.comp2042.controller;
+package com.comp2042.controller.gameOver;
 
 import javafx.scene.control.Label;
 import javafx.scene.layout.BorderPane;

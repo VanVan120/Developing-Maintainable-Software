@@ -5,6 +5,7 @@ import com.comp2042.controller.classicBattle.ClassicBattle;
 import com.comp2042.controller.controls.ControlsController;
 import com.comp2042.controller.cooperateBattle.coopController.CoopGameController;
 import com.comp2042.controller.cooperateBattle.coopGUI.CoopGuiController;
+import com.comp2042.controller.gameControl.GameController;
 
 import javafx.fxml.FXML;
 import javafx.fxml.FXMLLoader;

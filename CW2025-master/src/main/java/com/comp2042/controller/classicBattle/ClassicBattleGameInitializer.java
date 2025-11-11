@@ -11,7 +11,7 @@ import javafx.fxml.FXMLLoader;
 import java.io.IOException;
 import java.net.URL;
 
-import com.comp2042.controller.GameController;
+import com.comp2042.controller.gameControl.GameController;
 
 /**
  * Extracted initializer responsible for wiring up the two game sides of ClassicBattle.
