@@ -1,4 +1,4 @@
-package com.comp2042.controller;
+package com.comp2042.controller.cooperateBattle;
 
 import com.comp2042.logic.bricks.Brick;
 import com.comp2042.logic.bricks.RandomBrickGenerator;

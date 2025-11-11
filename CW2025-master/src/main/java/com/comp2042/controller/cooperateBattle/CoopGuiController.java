@@ -1,8 +1,9 @@
-package com.comp2042.controller;
+package com.comp2042.controller.cooperateBattle;
 
 import java.util.logging.Logger;
 import java.util.logging.Level;
 import com.comp2042.audio.soundManager.SoundManager;
+import com.comp2042.controller.GuiController;
 import com.comp2042.controller.controls.ControlsController;
 import com.comp2042.model.ViewData;
 import com.comp2042.model.CoopTickResult;
