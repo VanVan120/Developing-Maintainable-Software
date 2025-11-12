@@ -1,4 +1,4 @@
-package com.tetris.gameOver;
+package com.tetris.controller.gameOver;
 
 import javafx.embed.swing.JFXPanel;
 import javafx.scene.control.Label;

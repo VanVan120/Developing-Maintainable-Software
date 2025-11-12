@@ -1,4 +1,4 @@
-package com.tetris.handlingControl;
+package com.tetris.controller.handlingControl;
 
 import javafx.embed.swing.JFXPanel;
 import javafx.scene.control.Button;
