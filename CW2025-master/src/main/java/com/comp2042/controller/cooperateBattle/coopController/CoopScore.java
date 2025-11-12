@@ -1,4 +1,4 @@
-package com.comp2042.model;
+package com.comp2042.controller.cooperateBattle.coopController;
 
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;

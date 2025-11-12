@@ -1,4 +1,7 @@
-package com.comp2042.model;
+package com.comp2042.controller.cooperateBattle.coopController;
+
+import com.comp2042.model.ClearRow;
+import com.comp2042.model.DownData;
 
 /**
  * Result of a single cooperative game tick.

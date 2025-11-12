@@ -1,9 +1,10 @@
 package com.tetris.controller.cooperateBattle.coopController;
 
 import com.comp2042.controller.cooperateBattle.coopController.CoopPlayerState;
+import com.comp2042.controller.cooperateBattle.coopController.CoopScore;
 import com.comp2042.controller.cooperateBattle.coopController.CoopTickHandler;
 import com.comp2042.logic.Brick;
-import com.comp2042.model.CoopScore;
+
 import org.junit.jupiter.api.Test;
 
 import java.awt.Point;

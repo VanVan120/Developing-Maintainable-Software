@@ -5,8 +5,8 @@ import java.util.logging.Level;
 
 import com.comp2042.controller.GuiController;
 import com.comp2042.controller.cooperateBattle.coopController.CoopGameController;
+import com.comp2042.controller.cooperateBattle.coopController.CoopTickResult;
 import com.comp2042.model.ViewData;
-import com.comp2042.model.CoopTickResult;
 import com.comp2042.model.DownData;
 import com.comp2042.view.NotificationPanel;
 import com.comp2042.input.InputEventListener;

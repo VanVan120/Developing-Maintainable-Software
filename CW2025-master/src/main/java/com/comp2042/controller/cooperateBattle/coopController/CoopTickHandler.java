@@ -2,8 +2,6 @@ package com.comp2042.controller.cooperateBattle.coopController;
 
 import com.comp2042.model.ViewData;
 import com.comp2042.model.ClearRow;
-// DownData / CoopTickResult are created in the controller after spawn; not needed here
-import com.comp2042.model.CoopScore;
 import com.comp2042.utils.MatrixOperations;
 
 import java.util.logging.Level;
