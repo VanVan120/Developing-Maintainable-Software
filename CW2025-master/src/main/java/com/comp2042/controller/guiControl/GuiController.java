@@ -29,7 +29,6 @@ import javafx.scene.Group;
 import javafx.scene.canvas.Canvas;
 import javafx.scene.effect.Reflection;
 import javafx.scene.effect.DropShadow;
-import javafx.scene.effect.BlurType;
 import javafx.scene.input.KeyCode;
 import javafx.scene.input.KeyEvent;
 import javafx.scene.layout.GridPane;
@@ -42,8 +41,6 @@ import javafx.scene.text.Text;
 import javafx.scene.text.Font;
 import javafx.util.Duration;
 import javafx.animation.ScaleTransition;
-import javafx.animation.FadeTransition;
-import javafx.animation.ParallelTransition;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
 import javafx.geometry.Pos;
@@ -149,20 +146,42 @@ public class GuiController implements Initializable {
 
     @Override
     public void initialize(URL location, ResourceBundle resources) {
-        Font.loadFont(getClass().getClassLoader().getResource("digital.ttf").toExternalForm(), 38);
-        gamePanel.setFocusTraversable(true);
-        gamePanel.requestFocus();
+        // keep initialize skinny: delegate responsibilities to helpers
+        loadFontAndFocus();
+        initSoundManager();
 
+        // Attach generic sound handlers to commonly-interacted controls (pause button etc.)
+        if (pauseBtn != null) attachButtonSoundHandlers(pauseBtn);
+
+        setupMusicAndGameListeners();
+        setupSceneKeyHandlers();
+
+        gameOverPanel.setVisible(false);
+
+        setupReflection();
+        setupLayoutBindings();
+    }
+
+    // Helper: load font and prepare focus
+    private void loadFontAndFocus() {
+        try {
+            Font.loadFont(getClass().getClassLoader().getResource("digital.ttf").toExternalForm(), 38);
+        } catch (Exception ignored) {}
+        try { if (gamePanel != null) { gamePanel.setFocusTraversable(true); gamePanel.requestFocus(); } } catch (Exception ignored) {}
+    }
+
+    // Helper: initialize SoundManager
+    private void initSoundManager() {
         try {
             soundManager = new SoundManager(getClass());
             soundManager.init();
         } catch (Exception ex) {
             System.err.println("[GuiController] sound manager init failed: " + ex.getMessage());
         }
+    }
 
-        // Attach generic sound handlers to commonly-interacted controls (pause button etc.)
-        if (pauseBtn != null) attachButtonSoundHandlers(pauseBtn);
-
+    // Helper: wire up music/game listeners
+    private void setupMusicAndGameListeners() {
         // Start singleplayer background music once the countdown finishes (gameplay begins)
         countdownFinished.addListener((obs, oldV, newV) -> {
             java.util.Objects.requireNonNull(obs);
@@ -184,7 +203,10 @@ public class GuiController implements Initializable {
                 playGameOverMusic();
             }
         });
+    }
 
+    // Helper: create and attach global key handlers
+    private void setupSceneKeyHandlers() {
         javafx.application.Platform.runLater(() -> {
             globalPressHandler = new javafx.event.EventHandler<KeyEvent>() {
                 @Override public void handle(KeyEvent keyEvent) { processKeyPressed(keyEvent); }
@@ -201,13 +223,13 @@ public class GuiController implements Initializable {
                 }
             };
 
-            if (gamePanel.getScene() != null) {
+            if (gamePanel != null && gamePanel.getScene() != null) {
                 Scene s = gamePanel.getScene();
                 attachedScene = s;
                 s.addEventHandler(KeyEvent.KEY_PRESSED, globalPressHandler);
                 s.addEventHandler(KeyEvent.KEY_RELEASED, globalReleaseHandler);
                 s.addEventHandler(KeyEvent.KEY_PRESSED, escHandler);
-            } else {
+            } else if (gamePanel != null) {
                 gamePanel.sceneProperty().addListener(new javafx.beans.value.ChangeListener<>() {
                     @Override
                     public void changed(javafx.beans.value.ObservableValue<? extends javafx.scene.Scene> observable, javafx.scene.Scene oldScene, javafx.scene.Scene newScene) {
@@ -229,129 +251,159 @@ public class GuiController implements Initializable {
                 });
             }
         });
-        gameOverPanel.setVisible(false);
+    }
 
-        final Reflection reflection = new Reflection();
-        reflection.setFraction(0.8);
-        reflection.setTopOpacity(0.9);
-        reflection.setTopOffset(-12);
+    // Helper: small visual reflection setup
+    private void setupReflection() {
+        try {
+            final Reflection reflection = new Reflection();
+            reflection.setFraction(0.8);
+            reflection.setTopOpacity(0.9);
+            reflection.setTopOffset(-12);
+        } catch (Exception ignored) {}
+    }
 
+    // Helper: all layout-related bindings executed on the FX thread
+    private void setupLayoutBindings() {
         // Center the gameBoard within the root Pane when the scene is ready
         javafx.application.Platform.runLater(() -> {
-                if (gameBoard.getParent() instanceof javafx.scene.layout.Region) {
-                    javafx.scene.layout.Region parent = (javafx.scene.layout.Region) gameBoard.getParent();
-                    gameBoard.layoutXProperty().bind(parent.widthProperty().subtract(gameBoard.widthProperty()).divide(2));
-                    gameBoard.layoutYProperty().bind(parent.heightProperty().subtract(gameBoard.heightProperty()).divide(2));
-                } else if (gameBoard.getScene() != null) {
-                    // fallback to centering within the Scene
-                    gameBoard.layoutXProperty().bind(gameBoard.getScene().widthProperty().subtract(gameBoard.widthProperty()).divide(2));
-                    gameBoard.layoutYProperty().bind(gameBoard.getScene().heightProperty().subtract(gameBoard.heightProperty()).divide(2));
-                }
-            if (scoreBox != null) {
-                scoreBox.layoutXProperty().bind(gameBoard.layoutXProperty().subtract(SCORE_BOX_OFFSET_X));
-                scoreBox.layoutYProperty().bind(gameBoard.layoutYProperty().add(gameBoard.heightProperty().subtract(SCORE_BOX_OFFSET_FROM_BOTTOM)));
-            }
-
-            try {
-                if (gameBoardFrame != null && gameBoard != null) {
-                    gameBoardFrame.widthProperty().bind(gameBoard.widthProperty());
-                    gameBoardFrame.heightProperty().bind(gameBoard.heightProperty());
-                    gameBoardFrame.layoutXProperty().bind(gameBoard.layoutXProperty());
-                    gameBoardFrame.layoutYProperty().bind(gameBoard.layoutYProperty());
-                    gameBoardFrame.setArcWidth(24);
-                    gameBoardFrame.setArcHeight(24);
-                    gameBoardFrame.setStrokeWidth(8);
-                    gameBoardFrame.setStroke(javafx.scene.paint.Color.web("#2A5058"));
-                    gameBoardFrame.setFill(javafx.scene.paint.Color.web("#111"));
-                }
-            } catch (Exception ignored) {}
-
-            if (timeBox != null && gameBoard != null) {
-                timeBox.layoutXProperty().bind(
-                    javafx.beans.binding.Bindings.createDoubleBinding(
-                        () -> gameBoard.getLayoutX() + timeBoxOffsetX.get() - timeBox.getWidth(),
-                        gameBoard.layoutXProperty(), gameBoard.widthProperty(), timeBox.widthProperty(), timeBoxOffsetX
-                    )
-                );
-                timeBox.layoutYProperty().bind(
-                    javafx.beans.binding.Bindings.createDoubleBinding(
-                        () -> gameBoard.getLayoutY() + timeBoxOffsetY.get(),
-                        gameBoard.layoutYProperty(), gameBoard.heightProperty(), timeBox.heightProperty(), timeBoxOffsetY
-                    )
-                );
-            }
-
-            if (scoreValue != null) {
-                scoreValue.getStyleClass().remove("scoreClass");
-                scoreValue.getStyleClass().add("highScoreClass");
-            }
-
-            if (groupNotification.getParent() != null && gameBoard.getParent() != null) {
-        groupNotification.layoutXProperty().bind(
-            javafx.beans.binding.Bindings.createDoubleBinding(
-                () -> gameBoard.getLayoutX() + gameBoard.getWidth() / 2.0 - groupNotification.getLayoutBounds().getWidth() / 2.0,
-                gameBoard.layoutXProperty(), gameBoard.widthProperty(), groupNotification.layoutBoundsProperty()
-            )
-        );
-
-        groupNotification.layoutYProperty().bind(
-            javafx.beans.binding.Bindings.createDoubleBinding(
-                () -> gameBoard.getLayoutY() + gameBoard.getHeight() / 2.0 - groupNotification.getLayoutBounds().getHeight() / 2.0,
-                gameBoard.layoutYProperty(), gameBoard.heightProperty(), groupNotification.layoutBoundsProperty()
-            )
-        );
-            }
-            // Position the nextBox to the right outside the gameBoard frame
-            if (nextBox != null && gameBoard != null) {
-                // horizontal offset: small gap outside the frame
-                final double outsideGap = 70.0;
-                nextBox.layoutXProperty().bind(
-                    javafx.beans.binding.Bindings.createDoubleBinding(
-                        () -> gameBoard.getLayoutX() + gameBoard.getWidth() + outsideGap,
-                        gameBoard.layoutXProperty(), gameBoard.widthProperty()
-                    )
-                );
-
-                // vertically align top of nextBox slightly below the top of the gameBoard
-                nextBox.layoutYProperty().bind(
-                    javafx.beans.binding.Bindings.createDoubleBinding(
-                        () -> gameBoard.getLayoutY() + 8.0,
-                        gameBoard.layoutYProperty(), gameBoard.heightProperty()
-                    )
-                );
-                // bind nextBoxFrame to nextBox
-                try {
-                    if (nextBoxFrame != null && nextBox != null) {
-                        nextBoxFrame.widthProperty().bind(nextBox.widthProperty());
-                        nextBoxFrame.heightProperty().bind(nextBox.heightProperty());
-                        nextBoxFrame.layoutXProperty().bind(nextBox.layoutXProperty());
-                        nextBoxFrame.layoutYProperty().bind(nextBox.layoutYProperty());
-                        nextBoxFrame.setArcWidth(24);
-                        nextBoxFrame.setArcHeight(24);
-                        nextBoxFrame.setStrokeWidth(8);
-                        nextBoxFrame.setStroke(javafx.scene.paint.Color.web("#2A5058"));
-                        nextBoxFrame.setFill(javafx.scene.paint.Color.web("#111"));
-                    }
-                } catch (Exception ignored) {}
-            }
-            // Position the levelBox to the right bottom near nextBox
-            if (levelBox != null && gameBoard != null) {
-                final double outsideGap = 70.0;
-                levelBox.layoutXProperty().bind(
-                    javafx.beans.binding.Bindings.createDoubleBinding(
-                        () -> gameBoard.getLayoutX() + gameBoard.getWidth() + outsideGap,
-                        gameBoard.layoutXProperty(), gameBoard.widthProperty()
-                    )
-                );
-                levelBox.layoutYProperty().bind(
-                    javafx.beans.binding.Bindings.createDoubleBinding(
-                        () -> gameBoard.getLayoutY() + gameBoard.getHeight() - levelBox.getHeight() - 12.0,
-                        gameBoard.layoutYProperty(), gameBoard.heightProperty(), levelBox.heightProperty()
-                    )
-                );
-            }
+                bindGameBoardCenter();
+                bindScoreBox();
+                bindGameBoardFrame();
+                bindTimeBox();
+                styleScoreValue();
+                bindGroupNotification();
+                bindNextBox();
+                bindLevelBox();
         });
+    }
 
+    // Helpers used inside Platform.runLater in setupLayoutBindings()
+    private void bindGameBoardCenter() {
+        if (gameBoard == null) return;
+        if (gameBoard.getParent() instanceof javafx.scene.layout.Region) {
+            javafx.scene.layout.Region parent = (javafx.scene.layout.Region) gameBoard.getParent();
+            gameBoard.layoutXProperty().bind(parent.widthProperty().subtract(gameBoard.widthProperty()).divide(2));
+            gameBoard.layoutYProperty().bind(parent.heightProperty().subtract(gameBoard.heightProperty()).divide(2));
+        } else if (gameBoard.getScene() != null) {
+            // fallback to centering within the Scene
+            gameBoard.layoutXProperty().bind(gameBoard.getScene().widthProperty().subtract(gameBoard.widthProperty()).divide(2));
+            gameBoard.layoutYProperty().bind(gameBoard.getScene().heightProperty().subtract(gameBoard.heightProperty()).divide(2));
+        }
+    }
+
+    private void bindScoreBox() {
+        if (scoreBox != null && gameBoard != null) {
+            scoreBox.layoutXProperty().bind(gameBoard.layoutXProperty().subtract(SCORE_BOX_OFFSET_X));
+            scoreBox.layoutYProperty().bind(gameBoard.layoutYProperty().add(gameBoard.heightProperty().subtract(SCORE_BOX_OFFSET_FROM_BOTTOM)));
+        }
+    }
+
+    private void bindGameBoardFrame() {
+        try {
+            if (gameBoardFrame != null && gameBoard != null) {
+                gameBoardFrame.widthProperty().bind(gameBoard.widthProperty());
+                gameBoardFrame.heightProperty().bind(gameBoard.heightProperty());
+                gameBoardFrame.layoutXProperty().bind(gameBoard.layoutXProperty());
+                gameBoardFrame.layoutYProperty().bind(gameBoard.layoutYProperty());
+                gameBoardFrame.setArcWidth(24);
+                gameBoardFrame.setArcHeight(24);
+                gameBoardFrame.setStrokeWidth(8);
+                gameBoardFrame.setStroke(javafx.scene.paint.Color.web("#2A5058"));
+                gameBoardFrame.setFill(javafx.scene.paint.Color.web("#111"));
+            }
+        } catch (Exception ignored) {}
+    }
+
+    private void bindTimeBox() {
+        if (timeBox != null && gameBoard != null) {
+            timeBox.layoutXProperty().bind(
+                javafx.beans.binding.Bindings.createDoubleBinding(
+                    () -> gameBoard.getLayoutX() + timeBoxOffsetX.get() - timeBox.getWidth(),
+                    gameBoard.layoutXProperty(), gameBoard.widthProperty(), timeBox.widthProperty(), timeBoxOffsetX
+                )
+            );
+            timeBox.layoutYProperty().bind(
+                javafx.beans.binding.Bindings.createDoubleBinding(
+                    () -> gameBoard.getLayoutY() + timeBoxOffsetY.get(),
+                    gameBoard.layoutYProperty(), gameBoard.heightProperty(), timeBox.heightProperty(), timeBoxOffsetY
+                )
+            );
+        }
+    }
+
+    private void styleScoreValue() {
+        if (scoreValue != null) {
+            scoreValue.getStyleClass().remove("scoreClass");
+            scoreValue.getStyleClass().add("highScoreClass");
+        }
+    }
+
+    private void bindGroupNotification() {
+        if (groupNotification != null && groupNotification.getParent() != null && gameBoard != null && gameBoard.getParent() != null) {
+            groupNotification.layoutXProperty().bind(
+                javafx.beans.binding.Bindings.createDoubleBinding(
+                    () -> gameBoard.getLayoutX() + gameBoard.getWidth() / 2.0 - groupNotification.getLayoutBounds().getWidth() / 2.0,
+                    gameBoard.layoutXProperty(), gameBoard.widthProperty(), groupNotification.layoutBoundsProperty()
+                )
+            );
+
+            groupNotification.layoutYProperty().bind(
+                javafx.beans.binding.Bindings.createDoubleBinding(
+                    () -> gameBoard.getLayoutY() + gameBoard.getHeight() / 2.0 - groupNotification.getLayoutBounds().getHeight() / 2.0,
+                    gameBoard.layoutYProperty(), gameBoard.heightProperty(), groupNotification.layoutBoundsProperty()
+                )
+            );
+        }
+    }
+
+    private void bindNextBox() {
+        if (nextBox == null || gameBoard == null) return;
+        final double outsideGap = 70.0;
+        nextBox.layoutXProperty().bind(
+            javafx.beans.binding.Bindings.createDoubleBinding(
+                () -> gameBoard.getLayoutX() + gameBoard.getWidth() + outsideGap,
+                gameBoard.layoutXProperty(), gameBoard.widthProperty()
+            )
+        );
+
+        nextBox.layoutYProperty().bind(
+            javafx.beans.binding.Bindings.createDoubleBinding(
+                () -> gameBoard.getLayoutY() + 8.0,
+                gameBoard.layoutYProperty(), gameBoard.heightProperty()
+            )
+        );
+
+        try {
+            if (nextBoxFrame != null && nextBox != null) {
+                nextBoxFrame.widthProperty().bind(nextBox.widthProperty());
+                nextBoxFrame.heightProperty().bind(nextBox.heightProperty());
+                nextBoxFrame.layoutXProperty().bind(nextBox.layoutXProperty());
+                nextBoxFrame.layoutYProperty().bind(nextBox.layoutYProperty());
+                nextBoxFrame.setArcWidth(24);
+                nextBoxFrame.setArcHeight(24);
+                nextBoxFrame.setStrokeWidth(8);
+                nextBoxFrame.setStroke(javafx.scene.paint.Color.web("#2A5058"));
+                nextBoxFrame.setFill(javafx.scene.paint.Color.web("#111"));
+            }
+        } catch (Exception ignored) {}
+    }
+
+    private void bindLevelBox() {
+        if (levelBox == null || gameBoard == null) return;
+        final double outsideGap = 70.0;
+        levelBox.layoutXProperty().bind(
+            javafx.beans.binding.Bindings.createDoubleBinding(
+                () -> gameBoard.getLayoutX() + gameBoard.getWidth() + outsideGap,
+                gameBoard.layoutXProperty(), gameBoard.widthProperty()
+            )
+        );
+        levelBox.layoutYProperty().bind(
+            javafx.beans.binding.Bindings.createDoubleBinding(
+                () -> gameBoard.getLayoutY() + gameBoard.getHeight() - levelBox.getHeight() - 12.0,
+                gameBoard.layoutYProperty(), gameBoard.heightProperty(), levelBox.heightProperty()
+            )
+        );
     }
 
     // Toggle the pause overlay: show overlay if paused, otherwise resume
@@ -366,264 +418,279 @@ public class GuiController implements Initializable {
                 try {
                     Scene scene = gameBoard.getScene();
                     if (scene == null) return;
-                    // create overlay root
-                    pauseOverlay = new StackPane();
-                    pauseOverlay.setId("GLOBAL_PAUSE_OVERLAY");
-                    pauseOverlay.setPickOnBounds(true);
-
-                    Rectangle dark = new Rectangle();
-                    dark.widthProperty().bind(scene.widthProperty());
-                    dark.heightProperty().bind(scene.heightProperty());
-                    dark.setFill(Color.rgb(0,0,0,0.55));
-
-                    VBox dialog = new VBox(14);
-                    dialog.setAlignment(Pos.CENTER);
-                    dialog.setStyle("-fx-background-color: rgba(30,30,30,0.85); -fx-padding: 18px; -fx-background-radius: 8px;");
-
-                    Label title = new Label("Paused");
-                    title.setStyle("-fx-text-fill: white; -fx-font-size: 36px; -fx-font-weight: bold;");
-
-                    HBox buttons = new HBox(10);
-                    buttons.setAlignment(Pos.CENTER);
-                    Button resume = new Button("Resume");
-                    Button settings = new Button("Settings");
-                    resume.getStyleClass().add("menu-button");
-                    settings.getStyleClass().add("menu-button");
-                    // attach hover/click sound handlers
-                    attachButtonSoundHandlers(resume);
-                    attachButtonSoundHandlers(settings);
-
-                    resume.setOnAction(ev -> {
-                        ev.consume();
-                        hidePauseOverlay();
-                    });
-
-                    settings.setOnAction(ev -> {
-                        ev.consume();
-                        try {
-                            if (multiplayerRequestControlsHandler != null) {
-                                try {
-                                    multiplayerRequestControlsHandler.accept(this);
-                                } catch (Exception ex) {
-                                    System.err.println("[GuiController] Exception in multiplayerRequestControlsHandler: " + ex);
-                                }
-                                return;
-                            }
-
-                            URL loc = getClass().getClassLoader().getResource("controls.fxml");
-                            if (loc == null) {
-                                hidePauseOverlay();
-                                return;
-                            }
-                            FXMLLoader fx = new FXMLLoader(loc);
-                            javafx.scene.layout.StackPane pane = fx.load();
-                            ControlsController cc = fx.getController();
-
-                            KeyCode left = ctrlMoveLeft != null ? ctrlMoveLeft : KeyCode.A;
-                            KeyCode right = ctrlMoveRight != null ? ctrlMoveRight : KeyCode.D;
-                            KeyCode rotate = ctrlRotate != null ? ctrlRotate : KeyCode.W;
-                            KeyCode down = ctrlSoftDrop != null ? ctrlSoftDrop : KeyCode.S;
-                            KeyCode hard = ctrlHardDrop != null ? ctrlHardDrop : KeyCode.SHIFT;
-                            KeyCode sw = ctrlSwap != null ? ctrlSwap : KeyCode.C;
-                            cc.init(left, right, rotate, down, hard, sw);
-
-                            try {
-                                if (isMultiplayer && multiplayerPlayerId != null) {
-                                    if ("left".equalsIgnoreCase(multiplayerPlayerId)) {
-                                        cc.setDefaultKeys(KeyCode.A, KeyCode.D, KeyCode.W, KeyCode.S, KeyCode.SHIFT, KeyCode.Q);
-                                        cc.setHeaderText("Left Player Controls");
-                                    } else if ("right".equalsIgnoreCase(multiplayerPlayerId)) {
-                                        cc.setDefaultKeys(KeyCode.NUMPAD4, KeyCode.NUMPAD6, KeyCode.NUMPAD8, KeyCode.NUMPAD5, KeyCode.SPACE, KeyCode.C);
-                                        cc.setHeaderText("Right Player Controls");
-                                    } else {
-                                        cc.setDefaultKeys(KeyCode.A, KeyCode.D, KeyCode.W, KeyCode.S, KeyCode.SHIFT, KeyCode.C);
-                                        cc.setHeaderText("In-Game Controls");
-                                    }
-                                } else {
-                                    cc.setDefaultKeys(KeyCode.A, KeyCode.D, KeyCode.W, KeyCode.S, KeyCode.SHIFT, KeyCode.C);
-                                    cc.setHeaderText("In-Game Controls");
-                                }
-                            } catch (Exception ignored) {}
-                            cc.hideActionButtons();
-                            cc.setHeaderText("In-Game Controls");
-                            StackPane overlay = new StackPane();
-                            overlay.setStyle("-fx-padding:0;");
-                            Rectangle dark2 = new Rectangle();
-                            Scene sceneLocal = gameBoard.getScene();
-                            if (sceneLocal != null) {
-                                dark2.widthProperty().bind(sceneLocal.widthProperty());
-                                dark2.heightProperty().bind(sceneLocal.heightProperty());
-                            }
-                            dark2.setFill(Color.rgb(8,8,10,0.82));
-                            BorderPane container = new BorderPane();
-                            container.setMaxWidth(Double.MAX_VALUE);
-                            container.setMaxHeight(Double.MAX_VALUE);
-                            container.setStyle("-fx-padding:18;");
-                            // top bar with title and action buttons
-                            javafx.scene.text.Text header = new javafx.scene.text.Text("Controls");
-                            header.setStyle("-fx-font-size:34px; -fx-fill: #9fb0ff; -fx-font-weight:700;");
-                            javafx.scene.layout.HBox actionBox = new javafx.scene.layout.HBox(10);
-                            actionBox.setAlignment(Pos.CENTER_RIGHT);
-                            javafx.scene.control.Button btnCancel2 = new javafx.scene.control.Button("Cancel");
-                            javafx.scene.control.Button btnSave2 = new javafx.scene.control.Button("Save");
-                            btnCancel2.getStyleClass().add("menu-button"); btnSave2.getStyleClass().add("menu-button");
-                            // attach sounds for these action buttons
-                            attachButtonSoundHandlers(btnCancel2);
-                            attachButtonSoundHandlers(btnSave2);
-                            actionBox.getChildren().addAll(btnCancel2, btnSave2);
-                            BorderPane topBar = new BorderPane();
-                            topBar.setLeft(header);
-                            topBar.setRight(actionBox);
-                            topBar.setStyle("-fx-padding:8 18 18 18;");
-                            container.setTop(topBar);
-                            javafx.scene.layout.VBox center = new javafx.scene.layout.VBox(18);
-                            center.setStyle("-fx-padding:12; -fx-background-color: transparent;");
-                            center.getChildren().add(pane);
-                            container.setCenter(center);
-
-                            btnCancel2.setOnAction(ev2 -> {
-                                ev2.consume();
-                                // remove this controls overlay and restore pause overlay visibility
-                                if (overlay.getParent() instanceof javafx.scene.layout.Pane) {
-                                    javafx.scene.layout.Pane root = (javafx.scene.layout.Pane) overlay.getParent();
-                                    root.getChildren().remove(overlay);
-                                }
-                                // restore any previously-hidden pause overlay nodes
-                                Object o = overlay.getProperties().get("hiddenPauseNodes");
-                                if (o instanceof java.util.List<?>) {
-                                    for (Object n : (java.util.List<?>) o) {
-                                        if (n instanceof javafx.scene.Node) ((javafx.scene.Node) n).setVisible(true);
-                                    }
-                                }
-                                // ensure the pause overlay flag is correct so UI remains paused
-                                isPauseOverlayVisible = true; isPause.setValue(Boolean.TRUE);
-                            });
-
-                            btnSave2.setOnAction(ev2 -> {
-                                ev2.consume();
-                                try {
-                                    // update local control mappings so the running game uses new keys
-                                    ctrlMoveLeft = cc.getLeft();
-                                    ctrlMoveRight = cc.getRight();
-                                    ctrlRotate = cc.getRotate();
-                                    ctrlSoftDrop = cc.getDown();
-                                    ctrlHardDrop = cc.getHard();
-                                    ctrlSwap = cc.getSwitch();
-                                } catch (Exception ignored) {}
-                                // persist the updated control mappings so they survive game over and app restarts
-                                try {
-                                    Preferences prefs = Preferences.userNodeForPackage(com.comp2042.controller.MainMenuController.class);
-                                    if (isMultiplayer && multiplayerPlayerId != null) {
-                                        if ("left".equalsIgnoreCase(multiplayerPlayerId)) {
-                                            prefs.put("mpLeft_left", ctrlMoveLeft != null ? ctrlMoveLeft.name() : "");
-                                            prefs.put("mpLeft_right", ctrlMoveRight != null ? ctrlMoveRight.name() : "");
-                                            prefs.put("mpLeft_rotate", ctrlRotate != null ? ctrlRotate.name() : "");
-                                            prefs.put("mpLeft_down", ctrlSoftDrop != null ? ctrlSoftDrop.name() : "");
-                                            prefs.put("mpLeft_hard", ctrlHardDrop != null ? ctrlHardDrop.name() : "");
-                                            prefs.put("mpLeft_switch", ctrlSwap != null ? ctrlSwap.name() : "");
-                                        } else if ("right".equalsIgnoreCase(multiplayerPlayerId)) {
-                                            prefs.put("mpRight_left", ctrlMoveLeft != null ? ctrlMoveLeft.name() : "");
-                                            prefs.put("mpRight_right", ctrlMoveRight != null ? ctrlMoveRight.name() : "");
-                                            prefs.put("mpRight_rotate", ctrlRotate != null ? ctrlRotate.name() : "");
-                                            prefs.put("mpRight_down", ctrlSoftDrop != null ? ctrlSoftDrop.name() : "");
-                                            prefs.put("mpRight_hard", ctrlHardDrop != null ? ctrlHardDrop.name() : "");
-                                            prefs.put("mpRight_switch", ctrlSwap != null ? ctrlSwap.name() : "");
-                                        } else {
-                                            // fallback to single-player keys if id unrecognized
-                                            prefs.put("spLeft", ctrlMoveLeft != null ? ctrlMoveLeft.name() : "");
-                                            prefs.put("spRight", ctrlMoveRight != null ? ctrlMoveRight.name() : "");
-                                            prefs.put("spRotate", ctrlRotate != null ? ctrlRotate.name() : "");
-                                            prefs.put("spDown", ctrlSoftDrop != null ? ctrlSoftDrop.name() : "");
-                                            prefs.put("spHard", ctrlHardDrop != null ? ctrlHardDrop.name() : "");
-                                            prefs.put("spSwitch", ctrlSwap != null ? ctrlSwap.name() : "");
-                                        }
-                                    } else {
-                                        prefs.put("spLeft", ctrlMoveLeft != null ? ctrlMoveLeft.name() : "");
-                                        prefs.put("spRight", ctrlMoveRight != null ? ctrlMoveRight.name() : "");
-                                        prefs.put("spRotate", ctrlRotate != null ? ctrlRotate.name() : "");
-                                        prefs.put("spDown", ctrlSoftDrop != null ? ctrlSoftDrop.name() : "");
-                                        prefs.put("spHard", ctrlHardDrop != null ? ctrlHardDrop.name() : "");
-                                        prefs.put("spSwitch", ctrlSwap != null ? ctrlSwap.name() : "");
-                                    }
-                                } catch (Exception ignored) {}
-                                // remove overlay and restore pause overlay nodes
-                                if (overlay.getParent() instanceof javafx.scene.layout.Pane) {
-                                    javafx.scene.layout.Pane root = (javafx.scene.layout.Pane) overlay.getParent();
-                                    root.getChildren().remove(overlay);
-                                }
-                                Object o2 = overlay.getProperties().get("hiddenPauseNodes");
-                                if (o2 instanceof java.util.List<?>) {
-                                    for (Object n : (java.util.List<?>) o2) {
-                                        if (n instanceof javafx.scene.Node) ((javafx.scene.Node) n).setVisible(true);
-                                    }
-                                }
-                                isPauseOverlayVisible = true; isPause.setValue(Boolean.TRUE);
-                            });
-
-                            overlay.getChildren().addAll(dark2, container);
-                            if (sceneLocal != null && sceneLocal.getRoot() instanceof javafx.scene.layout.Pane) {
-                                javafx.scene.layout.Pane root = (javafx.scene.layout.Pane) sceneLocal.getRoot();
-                                // Instead of removing the pause overlay, hide it so state remains consistent
-                                java.util.List<javafx.scene.Node> hidden = new java.util.ArrayList<>();
-                                for (javafx.scene.Node n : root.getChildren()) {
-                                    if (n != null && "GLOBAL_PAUSE_OVERLAY".equals(n.getId())) {
-                                        n.setVisible(false);
-                                        hidden.add(n);
-                                    }
-                                }
-                                // store hidden nodes so we can restore them when controls overlay closes
-                                overlay.getProperties().put("hiddenPauseNodes", hidden);
-                                root.getChildren().add(overlay);
-                            }
-
-                        } catch (Exception ex) {
-                            // fallback: just close pause overlay
-                            try { hidePauseOverlay(); } catch (Exception ignored) {}
-                        }
-                    });
-
-                    buttons.getChildren().addAll(resume, settings);
-                    dialog.getChildren().addAll(title, buttons);
-
-                    pauseOverlay.getChildren().addAll(dark, dialog);
-
-                    if (scene.getRoot() instanceof javafx.scene.layout.Pane) {
-                        javafx.scene.layout.Pane root = (javafx.scene.layout.Pane) scene.getRoot();
-                        // remove any existing global pause overlays first (prevents duplicates from multiplayer)
-                        try {
-                            java.util.List<javafx.scene.Node> toRemove = new java.util.ArrayList<>();
-                            for (javafx.scene.Node n : root.getChildren()) {
-                                if (n != null && "GLOBAL_PAUSE_OVERLAY".equals(n.getId())) toRemove.add(n);
-                            }
-                            root.getChildren().removeAll(toRemove);
-                        } catch (Exception ignored) {}
-                        root.getChildren().add(pauseOverlay);
-                    } else if (groupNotification != null) {
-                        // fallback: remove any existing then add
-                        try {
-                            java.util.List<javafx.scene.Node> toRemove = new java.util.ArrayList<>();
-                            for (javafx.scene.Node n : groupNotification.getChildren()) {
-                                if (n != null && "GLOBAL_PAUSE_OVERLAY".equals(n.getId())) toRemove.add(n);
-                            }
-                            groupNotification.getChildren().removeAll(toRemove);
-                        } catch (Exception ignored) {}
-                        groupNotification.getChildren().add(pauseOverlay);
-                    }
-
-                    if (timeLine != null) timeLine.pause();
-                    if (clockTimeline != null && clockTimeline.getStatus() == Timeline.Status.RUNNING) {
-                        pausedElapsedMs = System.currentTimeMillis() - startTimeMs;
-                        clockTimeline.pause();
-                    }
-                    isPause.setValue(Boolean.TRUE);
-                    isPauseOverlayVisible = true;
-                    if (!suppressMultiplayerPauseNotify && multiplayerPauseHandler != null) {
-                        try { multiplayerPauseHandler.accept(Boolean.TRUE); } catch (Exception ex) { System.err.println("[GuiController] multiplayerPauseHandler threw: " + ex); }
-                    }
+                    pauseOverlay = buildPauseOverlay(scene);
+                    addPauseOverlayToRoot(scene, pauseOverlay);
+                    pauseTimelinesAndNotify();
                 } catch (Exception ignored) {}
             });
         } else {
             hidePauseOverlay();
+        }
+    }
+
+    // Build the pause overlay (dark background + dialog) and wire resume/settings handlers
+    private StackPane buildPauseOverlay(Scene scene) {
+        StackPane overlay = new StackPane();
+        overlay.setId("GLOBAL_PAUSE_OVERLAY");
+        overlay.setPickOnBounds(true);
+
+        Rectangle dark = new Rectangle();
+        dark.widthProperty().bind(scene.widthProperty());
+        dark.heightProperty().bind(scene.heightProperty());
+        dark.setFill(Color.rgb(0,0,0,0.55));
+
+        VBox dialog = new VBox(14);
+        dialog.setAlignment(Pos.CENTER);
+        dialog.setStyle("-fx-background-color: rgba(30,30,30,0.85); -fx-padding: 18px; -fx-background-radius: 8px;");
+
+        Label title = new Label("Paused");
+        title.setStyle("-fx-text-fill: white; -fx-font-size: 36px; -fx-font-weight: bold;");
+
+        HBox buttons = new HBox(10);
+        buttons.setAlignment(Pos.CENTER);
+        Button resume = new Button("Resume");
+        Button settings = new Button("Settings");
+        resume.getStyleClass().add("menu-button");
+        settings.getStyleClass().add("menu-button");
+        attachButtonSoundHandlers(resume);
+        attachButtonSoundHandlers(settings);
+
+        resume.setOnAction(ev -> { ev.consume(); hidePauseOverlay(); });
+
+        settings.setOnAction(ev -> { ev.consume(); showControlsOverlay(); });
+
+        buttons.getChildren().addAll(resume, settings);
+        dialog.getChildren().addAll(title, buttons);
+
+        overlay.getChildren().addAll(dark, dialog);
+        return overlay;
+    }
+
+    // Show the controls overlay (opened from the pause menu settings button)
+    private void showControlsOverlay() {
+        try {
+            // Load controller and pane
+            javafx.scene.layout.StackPane[] paneOut = new javafx.scene.layout.StackPane[1];
+            ControlsController cc = loadControlsController("controls.fxml", paneOut);
+            if (cc == null || paneOut[0] == null) { hidePauseOverlay(); return; }
+
+            configureControlsController(cc);
+
+            StackPane controlsOverlay = buildControlsOverlayUI(paneOut[0], cc);
+
+            // add the overlay to the scene root, hiding any existing pause overlays
+            Scene sceneLocal = gameBoard.getScene();
+            if (sceneLocal != null && sceneLocal.getRoot() instanceof javafx.scene.layout.Pane) {
+                javafx.scene.layout.Pane root = (javafx.scene.layout.Pane) sceneLocal.getRoot();
+                java.util.List<javafx.scene.Node> hidden = new java.util.ArrayList<>();
+                for (javafx.scene.Node n : root.getChildren()) {
+                    if (n != null && "GLOBAL_PAUSE_OVERLAY".equals(n.getId())) {
+                        n.setVisible(false);
+                        hidden.add(n);
+                    }
+                }
+                controlsOverlay.getProperties().put("hiddenPauseNodes", hidden);
+                root.getChildren().add(controlsOverlay);
+            }
+
+        } catch (Exception ex) {
+            try { hidePauseOverlay(); } catch (Exception ignored) {}
+        }
+    }
+
+    // Load controls.fxml and return its controller; pane is returned via outPane[0]
+    private ControlsController loadControlsController(String resource, javafx.scene.layout.StackPane[] outPane) throws java.io.IOException {
+        if (multiplayerRequestControlsHandler != null) {
+            try { multiplayerRequestControlsHandler.accept(this); } catch (Exception ex) { System.err.println("[GuiController] Exception in multiplayerRequestControlsHandler: " + ex); }
+            return null;
+        }
+        URL loc = getClass().getClassLoader().getResource(resource);
+        if (loc == null) return null;
+        FXMLLoader fx = new FXMLLoader(loc);
+        javafx.scene.layout.StackPane pane = fx.load();
+        outPane[0] = pane;
+        return fx.getController();
+    }
+
+    // Configure initial key mappings on the ControlsController
+    private void configureControlsController(ControlsController cc) {
+        KeyCode left = ctrlMoveLeft != null ? ctrlMoveLeft : KeyCode.A;
+        KeyCode right = ctrlMoveRight != null ? ctrlMoveRight : KeyCode.D;
+        KeyCode rotate = ctrlRotate != null ? ctrlRotate : KeyCode.W;
+        KeyCode down = ctrlSoftDrop != null ? ctrlSoftDrop : KeyCode.S;
+        KeyCode hard = ctrlHardDrop != null ? ctrlHardDrop : KeyCode.SHIFT;
+        KeyCode sw = ctrlSwap != null ? ctrlSwap : KeyCode.C;
+        cc.init(left, right, rotate, down, hard, sw);
+        try {
+            if (isMultiplayer && multiplayerPlayerId != null) {
+                if ("left".equalsIgnoreCase(multiplayerPlayerId)) {
+                    cc.setDefaultKeys(KeyCode.A, KeyCode.D, KeyCode.W, KeyCode.S, KeyCode.SHIFT, KeyCode.Q);
+                    cc.setHeaderText("Left Player Controls");
+                } else if ("right".equalsIgnoreCase(multiplayerPlayerId)) {
+                    cc.setDefaultKeys(KeyCode.NUMPAD4, KeyCode.NUMPAD6, KeyCode.NUMPAD8, KeyCode.NUMPAD5, KeyCode.SPACE, KeyCode.C);
+                    cc.setHeaderText("Right Player Controls");
+                } else {
+                    cc.setDefaultKeys(KeyCode.A, KeyCode.D, KeyCode.W, KeyCode.S, KeyCode.SHIFT, KeyCode.C);
+                    cc.setHeaderText("In-Game Controls");
+                }
+            } else {
+                cc.setDefaultKeys(KeyCode.A, KeyCode.D, KeyCode.W, KeyCode.S, KeyCode.SHIFT, KeyCode.C);
+                cc.setHeaderText("In-Game Controls");
+            }
+        } catch (Exception ignored) {}
+        cc.hideActionButtons();
+        cc.setHeaderText("In-Game Controls");
+    }
+
+    // Build the controls overlay UI and wire cancel/save handlers (saves prefs and restores hidden nodes)
+    private StackPane buildControlsOverlayUI(javafx.scene.layout.StackPane pane, ControlsController cc) {
+        StackPane controlsOverlay = new StackPane();
+        controlsOverlay.setStyle("-fx-padding:0;");
+        Rectangle dark2 = new Rectangle();
+        Scene sceneLocal = gameBoard.getScene();
+        if (sceneLocal != null) {
+            dark2.widthProperty().bind(sceneLocal.widthProperty());
+            dark2.heightProperty().bind(sceneLocal.heightProperty());
+        }
+        dark2.setFill(Color.rgb(8,8,10,0.82));
+
+        BorderPane container = new BorderPane();
+        container.setMaxWidth(Double.MAX_VALUE);
+        container.setMaxHeight(Double.MAX_VALUE);
+        container.setStyle("-fx-padding:18;");
+        javafx.scene.text.Text header = new javafx.scene.text.Text("Controls");
+        header.setStyle("-fx-font-size:34px; -fx-fill: #9fb0ff; -fx-font-weight:700;");
+        javafx.scene.layout.HBox actionBox = new javafx.scene.layout.HBox(10);
+        actionBox.setAlignment(Pos.CENTER_RIGHT);
+        javafx.scene.control.Button btnCancel2 = new javafx.scene.control.Button("Cancel");
+        javafx.scene.control.Button btnSave2 = new javafx.scene.control.Button("Save");
+        btnCancel2.getStyleClass().add("menu-button"); btnSave2.getStyleClass().add("menu-button");
+        attachButtonSoundHandlers(btnCancel2);
+        attachButtonSoundHandlers(btnSave2);
+        actionBox.getChildren().addAll(btnCancel2, btnSave2);
+        BorderPane topBar = new BorderPane();
+        topBar.setLeft(header);
+        topBar.setRight(actionBox);
+        topBar.setStyle("-fx-padding:8 18 18 18;");
+        container.setTop(topBar);
+        javafx.scene.layout.VBox center = new javafx.scene.layout.VBox(18);
+        center.setStyle("-fx-padding:12; -fx-background-color: transparent;");
+        center.getChildren().add(pane);
+        container.setCenter(center);
+
+        // Cancel handler: remove overlay and restore previously-hidden pause nodes
+        btnCancel2.setOnAction(ev2 -> {
+            ev2.consume();
+            if (controlsOverlay.getParent() instanceof javafx.scene.layout.Pane) {
+                javafx.scene.layout.Pane root = (javafx.scene.layout.Pane) controlsOverlay.getParent();
+                root.getChildren().remove(controlsOverlay);
+            }
+            Object o = controlsOverlay.getProperties().get("hiddenPauseNodes");
+            if (o instanceof java.util.List<?>) {
+                for (Object n : (java.util.List<?>) o) {
+                    if (n instanceof javafx.scene.Node) ((javafx.scene.Node) n).setVisible(true);
+                }
+            }
+            isPauseOverlayVisible = true; isPause.setValue(Boolean.TRUE);
+        });
+
+        // Save handler: update keys, persist preferences, remove overlay and restore hidden nodes
+        btnSave2.setOnAction(ev2 -> {
+            ev2.consume();
+            try {
+                ctrlMoveLeft = cc.getLeft();
+                ctrlMoveRight = cc.getRight();
+                ctrlRotate = cc.getRotate();
+                ctrlSoftDrop = cc.getDown();
+                ctrlHardDrop = cc.getHard();
+                ctrlSwap = cc.getSwitch();
+            } catch (Exception ignored) {}
+            try {
+                Preferences prefs = Preferences.userNodeForPackage(com.comp2042.controller.MainMenuController.class);
+                if (isMultiplayer && multiplayerPlayerId != null) {
+                    if ("left".equalsIgnoreCase(multiplayerPlayerId)) {
+                        prefs.put("mpLeft_left", ctrlMoveLeft != null ? ctrlMoveLeft.name() : "");
+                        prefs.put("mpLeft_right", ctrlMoveRight != null ? ctrlMoveRight.name() : "");
+                        prefs.put("mpLeft_rotate", ctrlRotate != null ? ctrlRotate.name() : "");
+                        prefs.put("mpLeft_down", ctrlSoftDrop != null ? ctrlSoftDrop.name() : "");
+                        prefs.put("mpLeft_hard", ctrlHardDrop != null ? ctrlHardDrop.name() : "");
+                        prefs.put("mpLeft_switch", ctrlSwap != null ? ctrlSwap.name() : "");
+                    } else if ("right".equalsIgnoreCase(multiplayerPlayerId)) {
+                        prefs.put("mpRight_left", ctrlMoveLeft != null ? ctrlMoveLeft.name() : "");
+                        prefs.put("mpRight_right", ctrlMoveRight != null ? ctrlMoveRight.name() : "");
+                        prefs.put("mpRight_rotate", ctrlRotate != null ? ctrlRotate.name() : "");
+                        prefs.put("mpRight_down", ctrlSoftDrop != null ? ctrlSoftDrop.name() : "");
+                        prefs.put("mpRight_hard", ctrlHardDrop != null ? ctrlHardDrop.name() : "");
+                        prefs.put("mpRight_switch", ctrlSwap != null ? ctrlSwap.name() : "");
+                    } else {
+                        prefs.put("spLeft", ctrlMoveLeft != null ? ctrlMoveLeft.name() : "");
+                        prefs.put("spRight", ctrlMoveRight != null ? ctrlMoveRight.name() : "");
+                        prefs.put("spRotate", ctrlRotate != null ? ctrlRotate.name() : "");
+                        prefs.put("spDown", ctrlSoftDrop != null ? ctrlSoftDrop.name() : "");
+                        prefs.put("spHard", ctrlHardDrop != null ? ctrlHardDrop.name() : "");
+                        prefs.put("spSwitch", ctrlSwap != null ? ctrlSwap.name() : "");
+                    }
+                } else {
+                    prefs.put("spLeft", ctrlMoveLeft != null ? ctrlMoveLeft.name() : "");
+                    prefs.put("spRight", ctrlMoveRight != null ? ctrlMoveRight.name() : "");
+                    prefs.put("spRotate", ctrlRotate != null ? ctrlRotate.name() : "");
+                    prefs.put("spDown", ctrlSoftDrop != null ? ctrlSoftDrop.name() : "");
+                    prefs.put("spHard", ctrlHardDrop != null ? ctrlHardDrop.name() : "");
+                    prefs.put("spSwitch", ctrlSwap != null ? ctrlSwap.name() : "");
+                }
+            } catch (Exception ignored) {}
+            if (controlsOverlay.getParent() instanceof javafx.scene.layout.Pane) {
+                javafx.scene.layout.Pane root = (javafx.scene.layout.Pane) controlsOverlay.getParent();
+                root.getChildren().remove(controlsOverlay);
+            }
+            Object o2 = controlsOverlay.getProperties().get("hiddenPauseNodes");
+            if (o2 instanceof java.util.List<?>) {
+                for (Object n : (java.util.List<?>) o2) {
+                    if (n instanceof javafx.scene.Node) ((javafx.scene.Node) n).setVisible(true);
+                }
+            }
+            isPauseOverlayVisible = true; isPause.setValue(Boolean.TRUE);
+        });
+
+        controlsOverlay.getChildren().addAll(dark2, container);
+        return controlsOverlay;
+    }
+
+    // Add the pause overlay to the scene root (or groupNotification fallback) after removing any previous ones
+    private void addPauseOverlayToRoot(Scene scene, StackPane pauseOverlay) {
+        if (scene.getRoot() instanceof javafx.scene.layout.Pane) {
+            javafx.scene.layout.Pane root = (javafx.scene.layout.Pane) scene.getRoot();
+            try {
+                java.util.List<javafx.scene.Node> toRemove = new java.util.ArrayList<>();
+                for (javafx.scene.Node n : root.getChildren()) {
+                    if (n != null && "GLOBAL_PAUSE_OVERLAY".equals(n.getId())) toRemove.add(n);
+                }
+                root.getChildren().removeAll(toRemove);
+            } catch (Exception ignored) {}
+            root.getChildren().add(pauseOverlay);
+        } else if (groupNotification != null) {
+            try {
+                java.util.List<javafx.scene.Node> toRemove = new java.util.ArrayList<>();
+                for (javafx.scene.Node n : groupNotification.getChildren()) {
+                    if (n != null && "GLOBAL_PAUSE_OVERLAY".equals(n.getId())) toRemove.add(n);
+                }
+                groupNotification.getChildren().removeAll(toRemove);
+            } catch (Exception ignored) {}
+            groupNotification.getChildren().add(pauseOverlay);
+        }
+    }
+
+    // Pause timelines, update state and notify multiplayer handler
+    private void pauseTimelinesAndNotify() {
+        if (timeLine != null) timeLine.pause();
+        if (clockTimeline != null && clockTimeline.getStatus() == Timeline.Status.RUNNING) {
+            pausedElapsedMs = System.currentTimeMillis() - startTimeMs;
+            clockTimeline.pause();
+        }
+        isPause.setValue(Boolean.TRUE);
+        isPauseOverlayVisible = true;
+        if (!suppressMultiplayerPauseNotify && multiplayerPauseHandler != null) {
+            try { multiplayerPauseHandler.accept(Boolean.TRUE); } catch (Exception ex) { System.err.println("[GuiController] multiplayerPauseHandler threw: " + ex); }
         }
     }
 
@@ -823,134 +890,67 @@ public class GuiController implements Initializable {
     }
 
     public void startCountdown(int seconds) {
-        if (seconds <= 0) seconds = 3;
+        // delegate to CountdownUI using a small context object
         try { prevHighBeforeGame = highScore; } catch (Exception ignored) {}
-        isPause.setValue(Boolean.TRUE);
-        countdownFinished.setValue(Boolean.FALSE);
-        try { countdownStarted.setValue(Boolean.FALSE); } catch (Exception ignored) {}
-        final Text countdown = new Text();
-        countdown.getStyleClass().add("gameOverStyle");
-        countdown.setStyle("-fx-font-size: 96px; -fx-fill: yellow; -fx-stroke: black; -fx-stroke-width:2;");
+        GUICountdownContext ctx = new GUICountdownContext();
+        ctx.gameBoard = this.gameBoard;
+        ctx.brickPanel = this.brickPanel;
+        ctx.ghostPanel = this.ghostPanel;
+        ctx.groupNotification = this.groupNotification;
+        ctx.timeLine = this.timeLine;
+        ctx.resetClock = this::resetClock;
+        ctx.startClock = this::startClock;
+        ctx.isPause = this.isPause;
+        ctx.countdownFinished = this.countdownFinished;
+        ctx.countdownStarted = this.countdownStarted;
+        ctx.currentViewData = this.currentViewData;
+        ctx.currentBoardMatrix = this.currentBoardMatrix;
+        ctx.gamePanelNode = this.gamePanel;
+        ctx.playCountdownMusic = this::playCountdownMusic;
+        ctx.stopCountdownMusic = this::stopCountdownMusic;
+        // wire panel/refresh callbacks so the countdown can hide visuals and restore them after finishing
+        ctx.refreshAndSnap = this::refreshAndSnapBrickAsync;
+        ctx.hidePanels = this::hideBrickAndGhostPanelsAsync;
+        ctx.showPanels = () -> javafx.application.Platform.runLater(() -> {
+            try { if (brickPanel != null) brickPanel.setVisible(true); } catch (Exception ignored) {}
+            try { if (ghostPanel != null) ghostPanel.setVisible(true); } catch (Exception ignored) {}
+        });
+        ctx.refreshVisible = () -> {
+            try { if (currentViewData != null) doRefreshBrick(currentViewData); } catch (Exception ignored) {}
+        };
 
+        Timeline cd = GUICountdown.startCountdown(seconds, ctx);
+        if (cd != null) cd.playFromStart();
+    }
+
+    // Immediately hide brick/ghost panels on the FX thread
+    private void hideBrickAndGhostPanelsAsync() {
         try {
             javafx.application.Platform.runLater(() -> {
-                try {
-                    if (brickPanel != null) brickPanel.setVisible(false);
-                    if (ghostPanel != null) ghostPanel.setVisible(false);
-                } catch (Exception ignored) {}
+                try { if (brickPanel != null) brickPanel.setVisible(false); } catch (Exception ignored) {}
+                try { if (ghostPanel != null) ghostPanel.setVisible(false); } catch (Exception ignored) {}
             });
         } catch (Exception ignored) {}
+    }
 
+    // Refresh visuals and snap brick to ghost position so underlying visuals align with overlay
+    private void refreshAndSnapBrickAsync() {
         try {
             if (this.currentViewData != null && this.currentBoardMatrix != null) {
-                // refresh positions using cached view data so the visible block matches the ghost
                 javafx.application.Platform.runLater(() -> {
                     try {
                         doRefreshBrick(currentViewData);
                         updateGhost(currentViewData, currentBoardMatrix);
-                        // snap visible brick to ghost position while countdown overlays UI
-                        brickPanel.setTranslateX(ghostPanel.getTranslateX());
-                        brickPanel.setTranslateY(ghostPanel.getTranslateY());
-                        // hide both panels during countdown for a clean overlay
-                        if (brickPanel != null) brickPanel.setVisible(false);
-                        if (ghostPanel != null) ghostPanel.setVisible(false);
-                        // debug: print both translate positions so we can compare
-                        
+                        try { if (brickPanel != null && ghostPanel != null) {
+                            brickPanel.setTranslateX(ghostPanel.getTranslateX());
+                            brickPanel.setTranslateY(ghostPanel.getTranslateY());
+                        } } catch (Exception ignored) {}
+                        try { if (brickPanel != null) brickPanel.setVisible(false); } catch (Exception ignored) {}
+                        try { if (ghostPanel != null) ghostPanel.setVisible(false); } catch (Exception ignored) {}
                     } catch (Exception ignored) {}
                 });
             }
         } catch (Exception ignored) {}
-
-        // Add a full-screen transparent overlay and center the countdown in it so it's always in the middle of the window
-        final javafx.scene.layout.StackPane overlay = new javafx.scene.layout.StackPane();
-        overlay.setPickOnBounds(false);
-        overlay.getChildren().add(countdown);
-        countdown.setTranslateY(-20); // slight visual offset if needed
-
-        javafx.application.Platform.runLater(() -> {
-            try {
-                if (gameBoard.getScene() != null) {
-                    javafx.scene.Scene s = gameBoard.getScene();
-                    // bind overlay to scene size and add to root
-                    overlay.prefWidthProperty().bind(s.widthProperty());
-                    overlay.prefHeightProperty().bind(s.heightProperty());
-                    overlay.setMouseTransparent(true);
-                    if (s.getRoot() instanceof javafx.scene.layout.Pane) {
-                        ((javafx.scene.layout.Pane) s.getRoot()).getChildren().add(overlay);
-                    } else {
-                        // fallback: add to groupNotification
-                        groupNotification.getChildren().add(countdown);
-                    }
-                } else {
-                    groupNotification.getChildren().add(countdown);
-                }
-            } catch (Exception ignored) {
-                groupNotification.getChildren().add(countdown);
-            }
-        });
-
-        final int[] cnt = new int[]{seconds};
-        final int initialCount = seconds;
-        final Timeline cd = new Timeline();
-        KeyFrame kf = new KeyFrame(Duration.seconds(1), new javafx.event.EventHandler<javafx.event.ActionEvent>() {
-            @Override
-            public void handle(javafx.event.ActionEvent event) {
-                if (cnt[0] > 0) {
-                    // Start countdown music and mark countdown started when the first number is displayed so audio aligns with visuals
-                    try { if (cnt[0] == initialCount) { playCountdownMusic(); countdownStarted.setValue(Boolean.TRUE); } } catch (Exception ignored) {}
-                    countdown.setText(Integer.toString(cnt[0]));
-                    // animate scale+fade
-                    ScaleTransition st = new ScaleTransition(Duration.millis(600), countdown);
-                    st.setFromX(0.2); st.setFromY(0.2); st.setToX(1.0); st.setToY(1.0);
-                    FadeTransition ft = new FadeTransition(Duration.millis(600), countdown);
-                    ft.setFromValue(0.0); ft.setToValue(1.0);
-                    ParallelTransition pt = new ParallelTransition(st, ft);
-                    pt.play();
-                } else if (cnt[0] == 0) {
-                    countdown.setText("Start");
-                    ScaleTransition st = new ScaleTransition(Duration.millis(800), countdown);
-                    st.setFromX(0.5); st.setFromY(0.5); st.setToX(1.2); st.setToY(1.2);
-                    FadeTransition ft = new FadeTransition(Duration.millis(800), countdown);
-                    ft.setFromValue(0.0); ft.setToValue(1.0);
-                    ParallelTransition pt = new ParallelTransition(st, ft);
-                    pt.play();
-                } else {
-                    // finished: remove overlay and start game
-                    javafx.application.Platform.runLater(() -> {
-                        try {
-                            if (overlay.getParent() instanceof javafx.scene.layout.Pane) {
-                                ((javafx.scene.layout.Pane) overlay.getParent()).getChildren().remove(overlay);
-                            } else {
-                                groupNotification.getChildren().remove(countdown);
-                            }
-                        } catch (Exception ignored) {}
-                    });
-                    if (timeLine != null) timeLine.play();
-                    resetClock();
-                    startClock();
-                    isPause.setValue(Boolean.FALSE);
-                    // signal that countdown completed and gameplay started
-                    try { countdownFinished.setValue(Boolean.TRUE); } catch (Exception ignored) {}
-                    try { if (currentViewData != null) doRefreshBrick(currentViewData); } catch (Exception ignored) {}
-                    javafx.application.Platform.runLater(() -> {
-                        try {
-                            if (brickPanel != null) brickPanel.setVisible(true);
-                            if (ghostPanel != null) ghostPanel.setVisible(true);
-                        } catch (Exception ignored) {}
-                    });
-                    // stop timeline properly
-                    try { stopCountdownMusic(); } catch (Exception ignored) {}
-                    try { countdownStarted.setValue(Boolean.FALSE); } catch (Exception ignored) {}
-                    cd.stop();
-                    // restore keyboard focus so scene-level handlers continue receiving key events
-                    try { gamePanel.requestFocus(); } catch (Exception ignored) {}
-                }
-                cnt[0] = cnt[0] - 1;
-            }
-        });
-        cd.getKeyFrames().add(kf);
-    cd.setCycleCount(seconds + 2);
-    cd.playFromStart();
     }
 
     public BooleanProperty countdownFinishedProperty() {
@@ -1561,30 +1561,101 @@ public class GuiController implements Initializable {
                 if (gameBoard == null || gameBoard.getScene() == null) return;
                 javafx.scene.Scene scene = gameBoard.getScene();
 
-                StackPane overlay = new StackPane();
-                overlay.setPickOnBounds(true);
-                overlay.setStyle("-fx-background-color: transparent;");
+                StackPane overlay = buildGameOverOverlay(scene);
 
-                Rectangle dark = new Rectangle();
-                dark.widthProperty().bind(scene.widthProperty());
-                dark.heightProperty().bind(scene.heightProperty());
-                dark.setFill(Color.rgb(0,0,0,0.95));
+                if (scene.getRoot() instanceof javafx.scene.layout.Pane) {
+                    javafx.scene.layout.Pane root = (javafx.scene.layout.Pane) scene.getRoot();
+                    root.getChildren().add(overlay);
+                } else if (groupNotification != null) {
+                    groupNotification.getChildren().add(overlay);
+                }
 
-                VBox dialog = new VBox(14);
-                dialog.setAlignment(Pos.CENTER);
-                dialog.setMouseTransparent(false);
-                dialog.setStyle("-fx-background-color: rgba(0,0,0,1.0); -fx-padding: 18px; -fx-background-radius: 8px;");
+                // subtle entrance animation for dialog node (stored in overlay properties)
+                Object dlg = overlay.getProperties().get("dialogNode");
+                if (dlg instanceof javafx.scene.Node) {
+                    javafx.scene.Node dialog = (javafx.scene.Node) dlg;
+                    javafx.animation.FadeTransition f = new javafx.animation.FadeTransition(Duration.millis(420), dialog);
+                    dialog.setOpacity(0.0);
+                    f.setFromValue(0.0);
+                    f.setToValue(1.0);
+                    f.play();
+                }
+            } catch (Exception ignored) {}
+        });
+    }
 
-                Text title = new Text("Match Over");
-                title.setStyle("-fx-font-weight: 700;");
-                title.setFill(javafx.scene.paint.LinearGradient.valueOf("from 0% 0% to 100% 0% , #ffd166 0%, #ff7b7b 100%"));
-                title.setOpacity(1.0);
-                title.setFont(Font.font(72));
-                DropShadow ds = new DropShadow(BlurType.GAUSSIAN, Color.rgb(0,0,0,0.8), 18, 0.25, 0, 6);
-                title.setEffect(ds);
+    /**
+     * Build the game-over overlay (dialog + dark background) and wire button handlers.
+     * The returned overlay has the dialog node stored in overlay.getProperties().get("dialogNode").
+     */
+    private StackPane buildGameOverOverlay(Scene scene) {
+        // Main overlay container
+        StackPane overlay = new StackPane();
+        try { overlay.setPickOnBounds(true); } catch (Exception ignored) {}
+        try { overlay.setStyle("-fx-background-color: transparent;"); } catch (Exception ignored) {}
 
+        // dark background
+        Rectangle dark = new Rectangle();
+        try { dark.widthProperty().bind(scene.widthProperty()); dark.heightProperty().bind(scene.heightProperty()); } catch (Exception ignored) {}
+        try { dark.setFill(Color.rgb(0,0,0,0.95)); } catch (Exception ignored) {}
+
+        // dialog and title
+        VBox dialog = new VBox(14);
+        try { dialog.setAlignment(Pos.CENTER); dialog.setMouseTransparent(false); dialog.setStyle("-fx-background-color: rgba(0,0,0,1.0); -fx-padding: 18px; -fx-background-radius: 8px;"); } catch (Exception ignored) {}
+
+        Text title = createGameOverTitle();
+        startGameOverPulse(title);
+
+        // compute score/time values (kept inline for clarity)
+        String scoreStr = "";
+        int currentScore = -1;
         try {
-            javafx.scene.effect.DropShadow glow = new javafx.scene.effect.DropShadow();
+            if (currentScoreProperty != null) currentScore = currentScoreProperty.get();
+            if (currentScore < 0 && scoreValue != null) {
+                String s = scoreValue.getText();
+                if (s != null) {
+                    int idx = s.lastIndexOf(':');
+                    if (idx >= 0 && idx + 1 < s.length()) {
+                        String num = s.substring(idx + 1).trim();
+                        try { currentScore = Integer.parseInt(num); } catch (Exception ignored) {}
+                    }
+                }
+            }
+        } catch (Exception ignored) {}
+        if (currentScore >= 0) scoreStr = Integer.toString(currentScore);
+        String timePlayed = (timeValue != null) ? timeValue.getText() : "00:00";
+
+        VBox subtitleBox = buildGameOverSubtitleBox(scoreStr, currentScore, timePlayed);
+
+        HBox buttons = buildGameOverButtons(overlay, scene, title);
+
+        buttons.getChildren().addAll(); // ensure non-null
+        dialog.getChildren().addAll(title, subtitleBox, buttons);
+        dialog.setTranslateY(0);
+
+        overlay.setOnMouseClicked(event -> event.consume());
+        overlay.getChildren().addAll(dark, dialog);
+
+        // store dialog node for later animations
+        try { overlay.getProperties().put("dialogNode", dialog); } catch (Exception ignored) {}
+
+        return overlay;
+    }
+
+    // Create and style the title text for game-over dialog
+    private Text createGameOverTitle() {
+        Text title = new Text("Match Over");
+        try { title.setStyle("-fx-font-weight: 700;"); } catch (Exception ignored) {}
+        try { title.setFill(javafx.scene.paint.LinearGradient.valueOf("from 0% 0% to 100% 0% , #ffd166 0%, #ff7b7b 100%")); } catch (Exception ignored) {}
+        try { title.setOpacity(1.0); } catch (Exception ignored) {}
+        try { title.setFont(Font.font(72)); } catch (Exception ignored) {}
+        return title;
+    }
+
+    // Build the glowing/animating pulse used by the game-over title
+    private void startGameOverPulse(Text title) {
+        try {
+            DropShadow glow = new DropShadow();
             glow.setColor(javafx.scene.paint.Color.web("#ffd166"));
             glow.setRadius(10);
             glow.setSpread(0.45);
@@ -1615,151 +1686,113 @@ public class GuiController implements Initializable {
             gameOverPulse = combined;
             combined.play();
         } catch (Exception ignored) {}
+    }
 
-                String scoreStr = "";
-                int currentScore = -1;
-                try {
-                    if (currentScoreProperty != null) currentScore = currentScoreProperty.get();
-                    if (currentScore < 0 && scoreValue != null) {
-                        // fallback: parse score from scoreValue text which is like "Current: X"
-                        String s = scoreValue.getText();
-                        if (s != null) {
-                            int idx = s.lastIndexOf(':');
-                            if (idx >= 0 && idx + 1 < s.length()) {
-                                String num = s.substring(idx + 1).trim();
-                                try { currentScore = Integer.parseInt(num); } catch (Exception ignored) {}
-                            }
-                        }
-                    }
-                } catch (Exception ignored) {}
-                if (currentScore >= 0) scoreStr = Integer.toString(currentScore);
-                String timePlayed = (timeValue != null) ? timeValue.getText() : "00:00";
+    // Build subtitle (score/time/compare) box
+    private VBox buildGameOverSubtitleBox(String scoreStr, int currentScore, String timePlayed) {
+        Text scoreText = new Text("Score: " + (scoreStr.isEmpty() ? (scoreValue != null ? scoreValue.getText() : "0") : scoreStr));
+        try { scoreText.setStyle("-fx-font-size: 28px; -fx-fill: white; -fx-opacity: 0.95;"); } catch (Exception ignored) {}
+        Text timeText = new Text("Time: " + timePlayed);
+        try { timeText.setStyle("-fx-font-size: 22px; -fx-fill: #dddddd; -fx-opacity: 0.95;"); } catch (Exception ignored) {}
 
-                Text scoreText = new Text("Score: " + (scoreStr.isEmpty() ? (scoreValue != null ? scoreValue.getText() : "0") : scoreStr));
-                scoreText.setStyle("-fx-font-size: 28px; -fx-fill: white; -fx-opacity: 0.95;");
-                Text timeText = new Text("Time: " + timePlayed);
-                timeText.setStyle("-fx-font-size: 22px; -fx-fill: #dddddd; -fx-opacity: 0.95;");
+        Text compareText = new Text();
+        try {
+            if (prevHighBeforeGame <= 0) {
+                compareText.setText("No previous record");
+                compareText.setStyle("-fx-font-size: 18px; -fx-fill: #cccccc;");
+            } else if (currentScore >= 0 && currentScore > prevHighBeforeGame) {
+                compareText.setText("New High Score! Previous: " + prevHighBeforeGame);
+                compareText.setStyle("-fx-font-size: 20px; -fx-fill: #ffd166; -fx-font-weight: bold;");
+            } else {
+                compareText.setText("Previous Best: " + prevHighBeforeGame);
+                compareText.setStyle("-fx-font-size: 18px; -fx-fill: #cccccc;");
+            }
+        } catch (Exception ignored) { compareText.setText(""); }
 
-                Text compareText = new Text();
-                try {
-                    if (prevHighBeforeGame <= 0) {
-                        // no previous record
-                        compareText.setText("No previous record");
-                        compareText.setStyle("-fx-font-size: 18px; -fx-fill: #cccccc;");
-                    } else if (currentScore >= 0 && currentScore > prevHighBeforeGame) {
-                        compareText.setText("New High Score! Previous: " + prevHighBeforeGame);
-                        compareText.setStyle("-fx-font-size: 20px; -fx-fill: #ffd166; -fx-font-weight: bold;");
-                    } else {
-                        compareText.setText("Previous Best: " + prevHighBeforeGame);
-                        compareText.setStyle("-fx-font-size: 18px; -fx-fill: #cccccc;");
-                    }
-                } catch (Exception ignored) {
-                    compareText.setText("");
-                }
+        VBox subtitleBox = new VBox(6);
+        try { subtitleBox.setAlignment(Pos.CENTER); subtitleBox.getChildren().addAll(scoreText, timeText, compareText); } catch (Exception ignored) {}
+        return subtitleBox;
+    }
 
-                VBox subtitleBox = new VBox(6);
-                subtitleBox.setAlignment(Pos.CENTER);
-                subtitleBox.getChildren().addAll(scoreText, timeText, compareText);
+    // Build restart/menu buttons and wire handlers (needs overlay and scene context)
+    private HBox buildGameOverButtons(StackPane overlay, Scene scene, Text title) {
+        HBox buttons = new HBox(12);
+        try { buttons.setAlignment(Pos.CENTER); } catch (Exception ignored) {}
 
-                HBox buttons = new HBox(12);
-                buttons.setAlignment(Pos.CENTER);
+        Button btnRestart = new Button("Restart");
+        Button btnMenu = new Button("Main Menu");
+        try { btnRestart.getStyleClass().add("menu-button"); btnMenu.getStyleClass().add("menu-button"); } catch (Exception ignored) {}
+        try { attachButtonSoundHandlers(btnRestart); } catch (Exception ignored) {}
+        try { attachButtonSoundHandlers(btnMenu); } catch (Exception ignored) {}
 
-                Button btnRestart = new Button("Restart");
-                Button btnMenu = new Button("Main Menu");
-                btnRestart.getStyleClass().add("menu-button");
-                btnMenu.getStyleClass().add("menu-button");
-                try { attachButtonSoundHandlers(btnRestart); } catch (Exception ignored) {}
-                try { attachButtonSoundHandlers(btnMenu); } catch (Exception ignored) {}
-
-                btnRestart.setOnAction(ev -> {
-                    ev.consume();
+        // Restart handler
+        btnRestart.setOnAction(ev -> {
+            ev.consume();
             try {
                 try { stopGameOverMusic(); } catch (Exception ignored) {}
                 try { stopCountdownMusic(); } catch (Exception ignored) {}
-                        // stop any running title animation
-                        try { if (gameOverPulse != null) { gameOverPulse.stop(); gameOverPulse = null; } } catch (Exception ignored) {}
-                        if (overlay.getParent() instanceof javafx.scene.layout.Pane) {
-                            ((javafx.scene.layout.Pane) overlay.getParent()).getChildren().remove(overlay);
-                        } else if (groupNotification != null) {
-                            groupNotification.getChildren().remove(overlay);
-                        }
-                    } catch (Exception ignored) {}
-
-                    if (isMultiplayer && multiplayerRestartHandler != null) {
-                        try { multiplayerRestartHandler.run(); } catch (Exception ignored) {}
-                        return;
-                    }
-
-                    try { if (eventListener != null) eventListener.createNewGame(); } catch (Exception ignored) {}
-                    try {
-                        if (timeLine != null) timeLine.stop();
-                        if (gameOverPanel != null) gameOverPanel.setVisible(false);
-                        resetClock(); stopClock();
-                        isPause.setValue(Boolean.TRUE);
-                        isGameOver.setValue(Boolean.FALSE);
-                        startCountdown(3);
-                    } catch (Exception ignored) {}
-                });
-
-                btnMenu.setOnAction(ev -> {
-                    ev.consume();
-                    try {
-                        try { stopGameOverMusic(); } catch (Exception ignored) {}
-                            try { stopCountdownMusic(); } catch (Exception ignored) {}
-                            // stop any running title animation
-                            try { if (gameOverPulse != null) { gameOverPulse.stop(); gameOverPulse = null; } } catch (Exception ignored) {}
-                        if (isMultiplayer && multiplayerExitToMenuHandler != null) {
-                                    try { detachSceneKeyHandlers(); } catch (Exception ignored) {}
-                                    try { multiplayerExitToMenuHandler.run(); } catch (Exception ignored) {}
-                            return;
-                        }
-                                try { detachSceneKeyHandlers(); } catch (Exception ignored) {}
-                                try { stopSingleplayerMusic(); } catch (Exception ignored) {}
-                        URL loc = getClass().getClassLoader().getResource("mainMenu.fxml");
-                        if (loc == null) return;
-                        FXMLLoader loader = new FXMLLoader(loc);
-                        Parent menuRoot = loader.load();
-                        javafx.stage.Stage stage = (javafx.stage.Stage) scene.getWindow();
-                        if (stage.getScene() != null) {
-                            stage.getScene().setRoot(menuRoot);
-                            try {
-                                String css = getClass().getClassLoader().getResource("css/menu.css").toExternalForm();
-                                if (!stage.getScene().getStylesheets().contains(css)) stage.getScene().getStylesheets().add(css);
-                            } catch (Exception ignored) {}
-                        } else {
-                            Scene s2 = new Scene(menuRoot, Math.max(420, stage.getWidth()), Math.max(700, stage.getHeight()));
-                            try {
-                                String css = getClass().getClassLoader().getResource("css/menu.css").toExternalForm();
-                                s2.getStylesheets().add(css);
-                            } catch (Exception ignored) {}
-                            stage.setScene(s2);
-                        }
-                    } catch (Exception ex) { ex.printStackTrace(); }
-                });
-
-                buttons.getChildren().addAll(btnRestart, btnMenu);
-                dialog.getChildren().addAll(title, subtitleBox, buttons);
-                dialog.setTranslateY(0);
-
-                overlay.setOnMouseClicked(event -> event.consume());
-                overlay.getChildren().addAll(dark, dialog);
-
-                if (scene.getRoot() instanceof javafx.scene.layout.Pane) {
-                    javafx.scene.layout.Pane root = (javafx.scene.layout.Pane) scene.getRoot();
-                    root.getChildren().add(overlay);
+                try { if (gameOverPulse != null) { gameOverPulse.stop(); gameOverPulse = null; } } catch (Exception ignored) {}
+                if (overlay.getParent() instanceof javafx.scene.layout.Pane) {
+                    ((javafx.scene.layout.Pane) overlay.getParent()).getChildren().remove(overlay);
                 } else if (groupNotification != null) {
-                    groupNotification.getChildren().add(overlay);
+                    groupNotification.getChildren().remove(overlay);
                 }
+            } catch (Exception ignored) {}
 
-                // subtle entrance animation
-                javafx.animation.FadeTransition f = new javafx.animation.FadeTransition(Duration.millis(420), dialog);
-                dialog.setOpacity(0.0);
-                f.setFromValue(0.0);
-                f.setToValue(1.0);
-                f.play();
+            if (isMultiplayer && multiplayerRestartHandler != null) {
+                try { multiplayerRestartHandler.run(); } catch (Exception ignored) {}
+                return;
+            }
 
+            try { if (eventListener != null) eventListener.createNewGame(); } catch (Exception ignored) {}
+            try {
+                if (timeLine != null) timeLine.stop();
+                if (gameOverPanel != null) gameOverPanel.setVisible(false);
+                resetClock(); stopClock();
+                isPause.setValue(Boolean.TRUE);
+                isGameOver.setValue(Boolean.FALSE);
+                startCountdown(3);
             } catch (Exception ignored) {}
         });
+
+        // Menu handler
+        btnMenu.setOnAction(ev -> {
+            ev.consume();
+            try {
+                try { stopGameOverMusic(); } catch (Exception ignored) {}
+                try { stopCountdownMusic(); } catch (Exception ignored) {}
+                try { if (gameOverPulse != null) { gameOverPulse.stop(); gameOverPulse = null; } } catch (Exception ignored) {}
+                if (isMultiplayer && multiplayerExitToMenuHandler != null) {
+                    try { detachSceneKeyHandlers(); } catch (Exception ignored) {}
+                    try { multiplayerExitToMenuHandler.run(); } catch (Exception ignored) {}
+                    return;
+                }
+                try { detachSceneKeyHandlers(); } catch (Exception ignored) {}
+                try { stopSingleplayerMusic(); } catch (Exception ignored) {}
+                URL loc = getClass().getClassLoader().getResource("mainMenu.fxml");
+                if (loc == null) return;
+                FXMLLoader loader = new FXMLLoader(loc);
+                Parent menuRoot = loader.load();
+                javafx.stage.Stage stage = (javafx.stage.Stage) scene.getWindow();
+                if (stage.getScene() != null) {
+                    stage.getScene().setRoot(menuRoot);
+                    try {
+                        String css = getClass().getClassLoader().getResource("css/menu.css").toExternalForm();
+                        if (!stage.getScene().getStylesheets().contains(css)) stage.getScene().getStylesheets().add(css);
+                    } catch (Exception ignored) {}
+                } else {
+                    Scene s2 = new Scene(menuRoot, Math.max(420, stage.getWidth()), Math.max(700, stage.getHeight()));
+                    try {
+                        String css = getClass().getClassLoader().getResource("css/menu.css").toExternalForm();
+                        s2.getStylesheets().add(css);
+                    } catch (Exception ignored) {}
+                    stage.setScene(s2);
+                }
+            } catch (Exception ex) { ex.printStackTrace(); }
+        });
+
+        buttons.getChildren().addAll(btnRestart, btnMenu);
+        return buttons;
     }
 
     public void newGame(ActionEvent actionEvent) {
