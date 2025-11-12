@@ -1,4 +1,4 @@
-package com.comp2042.controller;
+package com.comp2042.controller.guiControl;
 
 import com.comp2042.audio.soundManager.SoundManager;
 import com.comp2042.controller.controls.ControlsController;

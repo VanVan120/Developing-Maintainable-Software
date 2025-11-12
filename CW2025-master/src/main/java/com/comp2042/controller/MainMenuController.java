@@ -6,6 +6,7 @@ import com.comp2042.controller.controls.ControlsController;
 import com.comp2042.controller.cooperateBattle.coopController.CoopGameController;
 import com.comp2042.controller.cooperateBattle.coopGUI.CoopGuiController;
 import com.comp2042.controller.gameControl.GameController;
+import com.comp2042.controller.guiControl.GuiController;
 import com.comp2042.controller.handlingControl.HandlingController;
 
 import javafx.fxml.FXML;

@@ -2,7 +2,8 @@ package com.tetris.controller.classicBattle;
 
 import com.comp2042.controller.classicBattle.ClassicBattleMatchManager;
 import com.comp2042.controller.classicBattle.ClassicBattlePreviewService;
-import com.comp2042.controller.GuiController;
+import com.comp2042.controller.guiControl.GuiController;
+
 import org.junit.jupiter.api.Test;
 
 import java.util.concurrent.atomic.AtomicBoolean;

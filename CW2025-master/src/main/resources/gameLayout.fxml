@@ -8,7 +8,7 @@
 <?import javafx.scene.shape.Rectangle?>
 <?import javafx.scene.text.Text?>
 <?import java.net.URL?>
-<Pane fx:controller="com.comp2042.controller.GuiController"
+<Pane fx:controller="com.comp2042.controller.guiControl.GuiController"
       xmlns:fx="http://javafx.com/fxml">
     <!-- Rounded frame rectangle behind the gameBoard to avoid hairline artifacts from CSS composition -->
     <Rectangle fx:id="gameBoardFrame" arcWidth="24.0" arcHeight="24.0" strokeWidth="8.0" stroke="#2A5058" fill="#111" />

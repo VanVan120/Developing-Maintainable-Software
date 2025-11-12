@@ -12,20 +12,20 @@ import javafx.scene.layout.VBox;
 public class ClassicBattlePreviewService {
 
     private final com.comp2042.controller.gameControl.GameController leftController;
-    private final com.comp2042.controller.GuiController leftGui;
+    private final com.comp2042.controller.guiControl.GuiController leftGui;
     private final VBox leftNextContent;
 
     private final com.comp2042.controller.gameControl.GameController rightController;
-    private final com.comp2042.controller.GuiController rightGui;
+    private final com.comp2042.controller.guiControl.GuiController rightGui;
     private final VBox rightNextContent;
 
     private Timeline poller;
 
     public ClassicBattlePreviewService(com.comp2042.controller.gameControl.GameController leftController,
-                                      com.comp2042.controller.GuiController leftGui,
+                                      com.comp2042.controller.guiControl.GuiController leftGui,
                                       VBox leftNextContent,
                                       com.comp2042.controller.gameControl.GameController rightController,
-                                      com.comp2042.controller.GuiController rightGui,
+                                      com.comp2042.controller.guiControl.GuiController rightGui,
                                       VBox rightNextContent) {
         this.leftController = leftController;
         this.leftGui = leftGui;

@@ -1,9 +1,9 @@
 package com.comp2042.controller.classicBattle;
 
-import com.comp2042.controller.GuiController;
-
 import java.util.Objects;
 import java.util.function.BiConsumer;
+
+import com.comp2042.controller.guiControl.GuiController;
 
 /**
  * Responsible for match lifecycle: watching for game-over, coordinating preview/audio

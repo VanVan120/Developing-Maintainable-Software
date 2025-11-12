@@ -1,7 +1,6 @@
 package com.comp2042.controller.gameControl;
 
-import com.comp2042.controller.GuiController;
-
+import com.comp2042.controller.guiControl.GuiController;
 import com.comp2042.input.InputEventListener;
 import com.comp2042.input.MoveEvent;
 import com.comp2042.model.DownData;

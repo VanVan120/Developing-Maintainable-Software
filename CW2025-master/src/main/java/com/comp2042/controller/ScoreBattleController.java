@@ -3,6 +3,7 @@ package com.comp2042.controller;
 import com.comp2042.audio.soundManager.SoundManager;
 import com.comp2042.controller.controls.ControlsController;
 import com.comp2042.controller.gameControl.GameController;
+import com.comp2042.controller.guiControl.GuiController;
 
 import javafx.fxml.FXML;
 import javafx.fxml.FXMLLoader;
