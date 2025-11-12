@@ -65,94 +65,106 @@ public class ParticleHelper {
                 double rowTopY = Math.round(baseOffsetY + (r - 2) * cellH);
                 for (int c = 0; c < cols; c++) {
                     try {
-                        javafx.scene.paint.Paint fill = null;
-                        if (bv != null) {
-                            fill = bv.getCellFill(r, c);
-                        } else {
-                            Rectangle boardCell = null;
-                            if (displayMatrix != null && displayMatrix.length > r && r >= 0) boardCell = displayMatrix[r][c];
-                            fill = (boardCell != null) ? boardCell.getFill() : null;
-                        }
+                        javafx.scene.paint.Paint fill = resolveCellFill(bv, displayMatrix, r, c);
                         if (fill == null) continue;
                         if (fill == javafx.scene.paint.Color.TRANSPARENT) continue;
-                        // if the board cell fill is a concrete Color, use it; otherwise
-                        // fall back to CSS-defined default color (handled by style class)
                         javafx.scene.paint.Color color = (fill instanceof javafx.scene.paint.Color) ? (javafx.scene.paint.Color) fill : null;
 
-                        // spawn a handful of small square particles for this brick
                         int particles = 4 + (int)(Math.random() * 6); // 4..9
                         for (int p = 0; p < particles; p++) {
                             double pw = Math.max(3.0, Math.round(cellW / 3.0));
                             double ph = Math.max(3.0, Math.round(cellH / 3.0));
-                            Rectangle sq = new Rectangle(pw, ph);
-                            sq.setArcWidth(2);
-                            sq.setArcHeight(2);
-                            // if we have a concrete Color from the board cell, use it; otherwise
-                            // fall back to a CSS-defined default color.
-                            if (color != null) {
-                                sq.setFill(color);
-                            } else {
-                                sq.getStyleClass().add("particle-square-default");
-                            }
-                            sq.setMouseTransparent(true);
+                            Rectangle sq = createParticleSquare(color, pw, ph);
 
-                            // initial position: somewhere within the original brick cell
-                            Point2D local = null;
-                            if (bv != null) {
-                                Point2D sceneCell = bv.boardCellScenePoint(c, r);
-                                if (sceneCell != null) {
-                                    double jitterX = (Math.random() - 0.5) * (bv.getCellWidth() * 0.4);
-                                    double jitterY = (Math.random() - 0.5) * (bv.getCellHeight() * 0.4);
-                                    Point2D jitteredScene = new Point2D(sceneCell.getX() + bv.getCellWidth() * 0.5 + jitterX, sceneCell.getY() + bv.getCellHeight() * 0.5 + jitterY);
-                                    local = (particlePane != null) ? particlePane.sceneToLocal(jitteredScene) : jitteredScene;
-                                }
-                            }
-                            if (local == null) {
-                                double cellX = Math.round(baseOffsetX + c * cellW);
-                                double cellY = rowTopY;
-                                double jitterX = (Math.random() - 0.5) * (cellW * 0.4);
-                                double jitterY = (Math.random() - 0.5) * (cellH * 0.4);
-                                double startX = Math.round(cellX + cellW * 0.5 + jitterX - pw * 0.5);
-                                double startY = Math.round(cellY + cellH * 0.5 + jitterY - ph * 0.5);
-                                // convert starting position to particlePane local coordinates
-                                javafx.geometry.Point2D parentPt = new javafx.geometry.Point2D(startX, startY);
-                                javafx.geometry.Point2D scenePt = parentPt; // caller must have parent coords relative to board parent
-                                local = (particlePane != null) ? particlePane.sceneToLocal(scenePt) : scenePt;
-                            }
+                            Point2D local = computeParticleStartLocal(particlePane, bv, c, r, baseOffsetX, rowTopY, cellW, cellH, pw, ph);
                             sq.setTranslateX(local.getX());
                             sq.setTranslateY(local.getY());
                             particlePane.getChildren().add(sq);
 
-                            // falling distance (to bottom of scene or a generous amount)
                             double sceneHeight = 800.0;
                             try { if (gameScene != null) sceneHeight = gameScene.getHeight(); } catch (Exception ex) { LOGGER.log(Level.FINER, "Failed to get gameScene height", ex); }
                             double fallBy = sceneHeight - local.getY() + 80 + Math.random() * 120;
-
-                            // duration variation (increased so particles fall longer and remain visible)
                             double durationMs = 2000 + Math.random() * 1500; // 2000..3500ms
 
-                            TranslateTransition tt = new TranslateTransition(Duration.millis(durationMs), sq);
-                            tt.setByY(fallBy);
-                            tt.setInterpolator(javafx.animation.Interpolator.EASE_IN);
-
-                            FadeTransition ft = new FadeTransition(Duration.millis(durationMs), sq);
-                            ft.setFromValue(1.0);
-                            ft.setToValue(0.0);
-
-                            double sideBy = (Math.random() - 0.5) * 40.0;
-                            TranslateTransition ttx = new TranslateTransition(Duration.millis(durationMs * 0.75), sq);
-                            ttx.setByX(sideBy);
-                            ttx.setInterpolator(javafx.animation.Interpolator.EASE_OUT);
-
-                            ParallelTransition pt = new ParallelTransition(ttx, tt, ft);
-                            final Rectangle node = sq;
-                            pt.setOnFinished(e -> { try { if (e != null) e.consume(); particlePane.getChildren().remove(node); } catch (Exception ex) { LOGGER.log(Level.FINER, "Failed to cleanup particle node", ex); } });
-                            pt.play();
+                            playParticleTransitions(particlePane, sq, fallBy, durationMs);
                         }
-                        } catch (Exception ex) { LOGGER.log(Level.FINER, "spawnRowClearParticles particle creation failed", ex); }
+                    } catch (Exception ex) { LOGGER.log(Level.FINER, "spawnRowClearParticles particle creation failed", ex); }
                 }
             }
         } catch (Exception ex) { LOGGER.log(Level.FINER, "spawnRowClearParticles failed", ex); }
+    }
+
+    // Resolve the paint for a board cell, preferring BoardView.getCellFill when available
+    private static javafx.scene.paint.Paint resolveCellFill(BoardView bv, Rectangle[][] displayMatrix, int r, int c) {
+        javafx.scene.paint.Paint fill = null;
+        if (bv != null) {
+            try { fill = bv.getCellFill(r, c); } catch (Exception ignored) {}
+        } else {
+            Rectangle boardCell = null;
+            if (displayMatrix != null && displayMatrix.length > r && r >= 0) boardCell = displayMatrix[r][c];
+            fill = (boardCell != null) ? boardCell.getFill() : null;
+        }
+        return fill;
+    }
+
+    private static Rectangle createParticleSquare(javafx.scene.paint.Color color, double pw, double ph) {
+        Rectangle sq = new Rectangle(pw, ph);
+        sq.setArcWidth(2);
+        sq.setArcHeight(2);
+        if (color != null) {
+            sq.setFill(color);
+        } else {
+            sq.getStyleClass().add("particle-square-default");
+        }
+        sq.setMouseTransparent(true);
+        return sq;
+    }
+
+    private static Point2D computeParticleStartLocal(Pane particlePane, BoardView bv, int c, int r, double baseOffsetX, double rowTopY, double cellW, double cellH, double pw, double ph) {
+        Point2D local = null;
+        if (bv != null) {
+            try {
+                Point2D sceneCell = bv.boardCellScenePoint(c, r);
+                if (sceneCell != null) {
+                    double jitterX = (Math.random() - 0.5) * (bv.getCellWidth() * 0.4);
+                    double jitterY = (Math.random() - 0.5) * (bv.getCellHeight() * 0.4);
+                    Point2D jitteredScene = new Point2D(sceneCell.getX() + bv.getCellWidth() * 0.5 + jitterX, sceneCell.getY() + bv.getCellHeight() * 0.5 + jitterY);
+                    local = (particlePane != null) ? particlePane.sceneToLocal(jitteredScene) : jitteredScene;
+                }
+            } catch (Exception ignored) {}
+        }
+        if (local == null) {
+            double cellX = Math.round(baseOffsetX + c * cellW);
+            double cellY = rowTopY;
+            double jitterX = (Math.random() - 0.5) * (cellW * 0.4);
+            double jitterY = (Math.random() - 0.5) * (cellH * 0.4);
+            double startX = Math.round(cellX + cellW * 0.5 + jitterX - pw * 0.5);
+            double startY = Math.round(cellY + cellH * 0.5 + jitterY - ph * 0.5);
+            javafx.geometry.Point2D parentPt = new javafx.geometry.Point2D(startX, startY);
+            javafx.geometry.Point2D scenePt = parentPt;
+            local = (particlePane != null) ? particlePane.sceneToLocal(scenePt) : scenePt;
+        }
+        return local;
+    }
+
+    private static void playParticleTransitions(Pane particlePane, Rectangle sq, double fallBy, double durationMs) {
+        TranslateTransition tt = new TranslateTransition(Duration.millis(durationMs), sq);
+        tt.setByY(fallBy);
+        tt.setInterpolator(javafx.animation.Interpolator.EASE_IN);
+
+        FadeTransition ft = new FadeTransition(Duration.millis(durationMs), sq);
+        ft.setFromValue(1.0);
+        ft.setToValue(0.0);
+
+        double sideBy = (Math.random() - 0.5) * 40.0;
+        TranslateTransition ttx = new TranslateTransition(Duration.millis(durationMs * 0.75), sq);
+        ttx.setByX(sideBy);
+        ttx.setInterpolator(javafx.animation.Interpolator.EASE_OUT);
+
+        ParallelTransition pt = new ParallelTransition(ttx, tt, ft);
+        final Rectangle node = sq;
+        pt.setOnFinished(e -> { try { if (e != null) e.consume(); particlePane.getChildren().remove(node); } catch (Exception ex) { LOGGER.log(Level.FINER, "Failed to cleanup particle node", ex); } });
+        pt.play();
     }
 
     public static void flashRow(Pane particlePane, double baseOffsetX, double topY, double width, double height) {
@@ -258,40 +270,10 @@ public class ParticleHelper {
 
             java.util.List<ParallelTransition> running = new java.util.ArrayList<>();
 
-            int minR = Integer.MAX_VALUE;
-            for (int rr = 0; rr < shape.length; rr++) {
-                for (int cc = 0; cc < shape[rr].length; cc++) if (shape[rr][cc] != 0) { if (rr < minR) minR = rr; }
-            }
-            if (minR == Integer.MAX_VALUE) minR = 0;
+            int minR = computeMinRow(shape);
 
-            // compute top anchor (scene -> particlePane local)
-            Point2D topParentPt = null;
-            try {
-                if (bv != null) {
-                    Point2D scenePt = bv.boardCellScenePoint(start.getxPosition(), startBoardY + minR);
-                    if (scenePt != null) {
-                        topParentPt = (brickPanel != null && brickPanel.getParent() != null)
-                                ? brickPanel.getParent().sceneToLocal(scenePt)
-                                : scenePt;
-                    }
-                }
-            } catch (Exception ex) { LOGGER.log(Level.FINER, "Failed to compute topParentPt", ex); }
-            Point2D topLocal = null;
-            try {
-                if (topParentPt != null) {
-                    javafx.geometry.Point2D scenePt = (brickPanel != null && brickPanel.getParent() != null)
-                            ? brickPanel.getParent().localToScene(new javafx.geometry.Point2D(topParentPt.getX(), topParentPt.getY()))
-                            : new javafx.geometry.Point2D(topParentPt.getX(), topParentPt.getY());
-                    topLocal = (particlePane != null) ? particlePane.sceneToLocal(scenePt) : scenePt;
-                } else {
-                    // fallback: compute using board coords from start
-                    javafx.geometry.Point2D fallback = new javafx.geometry.Point2D(start.getxPosition() * cellWpx, (startBoardY + minR) * cellHpx);
-                    topLocal = (particlePane != null) ? particlePane.sceneToLocal(fallback) : fallback;
-                }
-            } catch (Exception ex) {
-                LOGGER.log(Level.FINER, "Failed to compute topLocal for lock effect", ex);
-                topLocal = new Point2D(0,0);
-            }
+            Point2D topParentPt = computeTopParentPt(bv, brickPanel, start.getxPosition(), startBoardY + minR);
+            Point2D topLocal = computeTopLocal(particlePane, brickPanel, topParentPt, start, minR, cellWpx, cellHpx);
 
             for (int r = 0; r < shape.length; r++) {
                 for (int c = 0; c < shape[r].length; c++) {
@@ -299,71 +281,23 @@ public class ParticleHelper {
                     int boardX = start.getxPosition() + c;
                     int boardYEnd = endBoardY + r;
 
-                    // compute start cell local
-                    Point2D cellStartLocal = null;
-                    try {
-                        if (bv != null) {
-                            javafx.geometry.Point2D scene = bv.boardCellScenePoint(boardX, startBoardY + r);
-                            if (scene != null) cellStartLocal = (particlePane != null) ? particlePane.sceneToLocal(scene) : scene;
-                        }
-                    } catch (Exception ex) { LOGGER.log(Level.FINER, "Failed to compute cellStartLocal", ex); }
-                    if (cellStartLocal == null) {
-                        javafx.geometry.Point2D cellStartParent = new javafx.geometry.Point2D(Math.round(boardX * cellWpx), Math.round((startBoardY + r) * cellHpx));
-                        javafx.geometry.Point2D cellStartScene = (brickPanel != null && brickPanel.getParent() != null)
-                                ? brickPanel.getParent().localToScene(cellStartParent)
-                                : cellStartParent;
-                        cellStartLocal = (particlePane != null) ? particlePane.sceneToLocal(cellStartScene) : cellStartScene;
-                    }
-
-                    // compute end cell local
-                    Point2D cellEndLocal = null;
-                    try {
-                        if (bv != null) {
-                            javafx.geometry.Point2D scene = bv.boardCellScenePoint(boardX, boardYEnd);
-                            if (scene != null) cellEndLocal = (particlePane != null) ? particlePane.sceneToLocal(scene) : scene;
-                        }
-                    } catch (Exception ex) { LOGGER.log(Level.FINER, "Failed to compute cellEndLocal", ex); }
-                    if (cellEndLocal == null) {
-                        javafx.geometry.Point2D cellEndParent = new javafx.geometry.Point2D(Math.round(boardX * cellWpx), Math.round(boardYEnd * cellHpx));
-                        javafx.geometry.Point2D cellEndScene = (brickPanel != null && brickPanel.getParent() != null)
-                                ? brickPanel.getParent().localToScene(cellEndParent)
-                                : cellEndParent;
-                        cellEndLocal = (particlePane != null) ? particlePane.sceneToLocal(cellEndScene) : cellEndScene;
-                    }
+                    Point2D cellStartLocal = computeCellLocal(particlePane, bv, brickPanel, boardX, startBoardY + r, cellWpx, cellHpx);
+                    Point2D cellEndLocal = computeCellLocal(particlePane, bv, brickPanel, boardX, boardYEnd, cellWpx, cellHpx);
 
                     double x = Math.round(cellStartLocal.getX());
                     double y = Math.round(topLocal.getY());
 
-                    Rectangle cellRect = new Rectangle(Math.round(cellWpx), Math.round(cellHpx));
-                    cellRect.setArcWidth(6);
-                    cellRect.setArcHeight(6);
-                    // visual properties driven by CSS class for easier theming
-                    cellRect.getStyleClass().add("particle-lock-rect");
-                    cellRect.setOpacity(intense ? 0.95 : 0.85);
-                    cellRect.setMouseTransparent(true);
+                    Rectangle cellRect = createLockCellRect(cellWpx, cellHpx, intense);
                     cellRect.setLayoutX(x);
                     cellRect.setLayoutY(y);
-                    cellRect.setTranslateX(0);
-                    cellRect.setTranslateY(0);
 
-                    DropShadow ds = new DropShadow(BlurType.GAUSSIAN, Color.WHITE, intense ? 14.0 : 9.0, 0.35, 0.0, 0.0);
-                    ds.setSpread(intense ? 0.7 : 0.45);
+                    DropShadow ds = createDropShadow(intense);
                     cellRect.setEffect(ds);
 
                     if (particlePane != null) particlePane.getChildren().add(cellRect);
 
-                    TranslateTransition tt = new TranslateTransition(Duration.millis(travelMs), cellRect);
                     double deltaY = Math.round(cellEndLocal.getY() - topLocal.getY());
-                    tt.setByY(deltaY);
-                    tt.setInterpolator(javafx.animation.Interpolator.EASE_OUT);
-                    tt.setDelay(Duration.millis(r * 18));
-
-                    FadeTransition ft = new FadeTransition(Duration.millis(fadeMs), cellRect);
-                    ft.setFromValue(cellRect.getOpacity());
-                    ft.setToValue(0.0);
-
-                    ParallelTransition pt = new ParallelTransition(tt, ft);
-                    pt.setOnFinished(e -> { try { e.consume(); if (particlePane != null) particlePane.getChildren().remove(cellRect); } catch (Exception ex) { LOGGER.log(Level.FINER, "Failed to remove cellRect after lock effect", ex); } });
+                    ParallelTransition pt = createLockTransition(cellRect, travelMs, fadeMs, deltaY, r);
                     running.add(pt);
                 }
             }
@@ -371,8 +305,107 @@ public class ParticleHelper {
             javafx.application.Platform.runLater(() -> {
                 for (ParallelTransition pt : running) pt.play();
             });
+        } catch (Exception ex) { LOGGER.log(Level.FINER, "playLockEffect failed", ex); }
+    }
 
-    } catch (Exception ex) { LOGGER.log(Level.FINER, "playLockEffect failed", ex); }
+    private static int computeMinRow(int[][] shape) {
+        int minR = Integer.MAX_VALUE;
+        for (int rr = 0; rr < shape.length; rr++) {
+            for (int cc = 0; cc < shape[rr].length; cc++) if (shape[rr][cc] != 0) { if (rr < minR) minR = rr; }
+        }
+        if (minR == Integer.MAX_VALUE) minR = 0;
+        return minR;
+    }
+
+    private static Point2D computeTopParentPt(BoardView bv, Pane brickPanel, int boardX, int boardY) {
+        Point2D topParentPt = null;
+        try {
+            if (bv != null) {
+                Point2D scenePt = bv.boardCellScenePoint(boardX, boardY);
+                if (scenePt != null) {
+                    topParentPt = (brickPanel != null && brickPanel.getParent() != null) ? brickPanel.getParent().sceneToLocal(scenePt) : scenePt;
+                }
+            }
+        } catch (Exception ex) { LOGGER.log(Level.FINER, "Failed to compute topParentPt", ex); }
+        return topParentPt;
+    }
+
+    private static Point2D computeTopLocal(Pane particlePane, Pane brickPanel, Point2D topParentPt, ViewData start, int minR, double cellWpx, double cellHpx) {
+        Point2D topLocal = null;
+        try {
+            if (topParentPt != null) {
+                javafx.geometry.Point2D scenePt = (brickPanel != null && brickPanel.getParent() != null)
+                        ? brickPanel.getParent().localToScene(new javafx.geometry.Point2D(topParentPt.getX(), topParentPt.getY()))
+                        : new javafx.geometry.Point2D(topParentPt.getX(), topParentPt.getY());
+                topLocal = (particlePane != null) ? particlePane.sceneToLocal(scenePt) : scenePt;
+            } else {
+                javafx.geometry.Point2D fallback = new javafx.geometry.Point2D(start.getxPosition() * cellWpx, (start.getyPosition() - 2 + minR) * cellHpx);
+                topLocal = (particlePane != null) ? particlePane.sceneToLocal(fallback) : fallback;
+            }
+        } catch (Exception ex) {
+            LOGGER.log(Level.FINER, "Failed to compute topLocal for lock effect", ex);
+            topLocal = new Point2D(0,0);
+        }
+        return topLocal;
+    }
+
+    private static Point2D computeCellLocal(Pane particlePane, BoardView bv, Pane brickPanel, int boardX, int boardY, double cellWpx, double cellHpx) {
+        Point2D local = null;
+        try {
+            if (bv != null) {
+                javafx.geometry.Point2D scene = bv.boardCellScenePoint(boardX, boardY);
+                if (scene != null) local = (particlePane != null) ? particlePane.sceneToLocal(scene) : scene;
+            }
+        } catch (Exception ex) { LOGGER.log(Level.FINER, "Failed to compute cell local", ex); }
+        if (local == null) {
+            javafx.geometry.Point2D cellParent = new javafx.geometry.Point2D(Math.round(boardX * cellWpx), Math.round(boardY * cellHpx));
+            javafx.geometry.Point2D cellScene = (brickPanel != null && brickPanel.getParent() != null) ? brickPanel.getParent().localToScene(cellParent) : cellParent;
+            local = (particlePane != null) ? particlePane.sceneToLocal(cellScene) : cellScene;
+        }
+        return local;
+    }
+
+    private static Rectangle createLockCellRect(double cellWpx, double cellHpx, boolean intense) {
+        Rectangle cellRect = new Rectangle(Math.round(cellWpx), Math.round(cellHpx));
+        cellRect.setArcWidth(6);
+        cellRect.setArcHeight(6);
+        cellRect.getStyleClass().add("particle-lock-rect");
+        cellRect.setOpacity(intense ? 0.95 : 0.85);
+        cellRect.setMouseTransparent(true);
+        cellRect.setTranslateX(0);
+        cellRect.setTranslateY(0);
+        return cellRect;
+    }
+
+    private static DropShadow createDropShadow(boolean intense) {
+        DropShadow ds = new DropShadow(BlurType.GAUSSIAN, Color.WHITE, intense ? 14.0 : 9.0, 0.35, 0.0, 0.0);
+        ds.setSpread(intense ? 0.7 : 0.45);
+        return ds;
+    }
+
+    private static ParallelTransition createLockTransition(Rectangle cellRect, double travelMs, double fadeMs, double deltaY, int rowIndex) {
+        TranslateTransition tt = new TranslateTransition(Duration.millis(travelMs), cellRect);
+        tt.setByY(deltaY);
+        tt.setInterpolator(javafx.animation.Interpolator.EASE_OUT);
+        tt.setDelay(Duration.millis(rowIndex * 18));
+
+        FadeTransition ft = new FadeTransition(Duration.millis(fadeMs), cellRect);
+        ft.setFromValue(cellRect.getOpacity());
+        ft.setToValue(0.0);
+
+        ParallelTransition pt = new ParallelTransition(tt, ft);
+        pt.setOnFinished(e -> {
+            try {
+                e.consume();
+                javafx.scene.Parent parent = cellRect.getParent();
+                if (parent instanceof Pane) {
+                    ((Pane) parent).getChildren().remove(cellRect);
+                }
+            } catch (Exception ex) {
+                LOGGER.log(Level.FINER, "Failed to remove cellRect after lock effect", ex);
+            }
+        });
+        return pt;
     }
 
     /**
