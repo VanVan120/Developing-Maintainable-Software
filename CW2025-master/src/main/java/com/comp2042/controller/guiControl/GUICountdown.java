@@ -14,11 +14,11 @@ import javafx.util.Duration;
 /**
  * Small UI helper that encapsulates countdown overlay creation and timeline.
  */
-public class GUICountdown {
+public class GuiCountdown {
 
     private static void ignore(Runnable r) { try { r.run(); } catch (Exception ignored) {} }
 
-    public static Timeline startCountdown(int seconds, GUICountdownContext ctx) {
+    public static Timeline startCountdown(int seconds, GuiCountdownContext ctx) {
         if (seconds <= 0) seconds = 3;
         if (ctx == null) return null;
 

@@ -12,7 +12,7 @@ import com.comp2042.model.ViewData;
 /**
  * Simple context holder used by CountdownUI to avoid passing a very long parameter list.
  */
-public class GUICountdownContext {
+public class GuiCountdownContext {
     public BorderPane gameBoard;
     public Pane brickPanel;
     public Pane ghostPanel;

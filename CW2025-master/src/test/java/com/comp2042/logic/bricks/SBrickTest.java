@@ -1,0 +1,48 @@
+package com.comp2042.logic.bricks;
+
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+
+import java.util.List;
+import static org.junit.jupiter.api.Assertions.*;
+
+class SBrickTest {
+
+    private SBrick brick;
+
+    @BeforeEach
+    void setUp() {
+        brick = new SBrick();
+    }
+
+    @Test
+    void testGetShapeMatrix_returnsCorrectNumberOfRotations() {
+        assertEquals(2, brick.getShapeMatrix().size());
+    }
+
+    @Test
+    void testGetShapeMatrix_returnsCorrectShape() {
+        List<int[][]> shapeMatrix = brick.getShapeMatrix();
+        int[][] rotation1 = {
+                {0, 0, 0, 0},
+                {0, 5, 5, 0},
+                {5, 5, 0, 0},
+                {0, 0, 0, 0}
+        };
+        int[][] rotation2 = {
+                {5, 0, 0, 0},
+                {5, 5, 0, 0},
+                {0, 5, 0, 0},
+                {0, 0, 0, 0}
+        };
+        assertArrayEquals(rotation1, shapeMatrix.get(0));
+        assertArrayEquals(rotation2, shapeMatrix.get(1));
+    }
+
+    @Test
+    void testGetShapeMatrix_returnsDeepCopy() {
+        List<int[][]> shapeMatrix1 = brick.getShapeMatrix();
+        shapeMatrix1.get(0)[1][1] = 99;
+        assertNotEquals(99, brick.getShapeMatrix().get(0)[1][1]);
+    }
+}

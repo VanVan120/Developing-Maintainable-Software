@@ -16,10 +16,16 @@ public class ClasspathResourceProvider implements ResourceProvider {
     @Override
     public URL getResource(String resourcePath) {
         if (resourcePath == null) return null;
-        // Try direct resource first, then without leading slash
+        // Try direct resource first using the class loader
         URL u = loader.getResource(resourcePath);
-        if (u == null && resourcePath.startsWith("/")) {
-            u = loader.getResource(resourcePath.substring(1));
+        // If not found, try the name without a leading slash
+        if (u == null) {
+            String withoutLeading = resourcePath.startsWith("/") ? resourcePath.substring(1) : resourcePath;
+            u = loader.getResource(withoutLeading);
+        }
+        // As a last resort, try Class.getResource which understands leading '/'
+        if (u == null) {
+            try { u = getClass().getResource(resourcePath); } catch (Exception ignored) {}
         }
         return u;
     }
