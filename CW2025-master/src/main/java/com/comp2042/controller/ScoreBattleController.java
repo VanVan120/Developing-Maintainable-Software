@@ -223,7 +223,7 @@ public class ScoreBattleController implements Initializable {
 
                 // Initialize each controls pane with the current keys from their GuiControllers
                 // Pre-read Preferences so both left/right initialization blocks can reuse them
-                Preferences overlayPrefs = Preferences.userNodeForPackage(com.comp2042.controller.MainMenuController.class);
+                Preferences overlayPrefs = Preferences.userNodeForPackage(com.comp2042.controller.mainMenu.MainMenuController.class);
                 try {
                     leftCC.init(leftGui.getCtrlMoveLeft() != null ? leftGui.getCtrlMoveLeft() : javafx.scene.input.KeyCode.A,
                                 leftGui.getCtrlMoveRight() != null ? leftGui.getCtrlMoveRight() : javafx.scene.input.KeyCode.D,
@@ -378,7 +378,7 @@ public class ScoreBattleController implements Initializable {
                             leftGui.setControlKeys(lLeft, lRight, lRotate, lDown, lHard);
                             leftGui.setSwapKey(lSwap);
                             // persist
-                            Preferences prefs = Preferences.userNodeForPackage(com.comp2042.controller.MainMenuController.class);
+                            Preferences prefs = Preferences.userNodeForPackage(com.comp2042.controller.mainMenu.MainMenuController.class);
                             prefs.put("mpLeft_left", lLeft != null ? lLeft.name() : "");
                             prefs.put("mpLeft_right", lRight != null ? lRight.name() : "");
                             prefs.put("mpLeft_rotate", lRotate != null ? lRotate.name() : "");
@@ -396,7 +396,7 @@ public class ScoreBattleController implements Initializable {
                             javafx.scene.input.KeyCode rSwap = rightCC.getSwitch();
                             rightGui.setControlKeys(rLeft, rRight, rRotate, rDown, rHard);
                             rightGui.setSwapKey(rSwap);
-                            Preferences prefs = Preferences.userNodeForPackage(com.comp2042.controller.MainMenuController.class);
+                            Preferences prefs = Preferences.userNodeForPackage(com.comp2042.controller.mainMenu.MainMenuController.class);
                             prefs.put("mpRight_left", rLeft != null ? rLeft.name() : "");
                             prefs.put("mpRight_right", rRight != null ? rRight.name() : "");
                             prefs.put("mpRight_rotate", rRotate != null ? rRotate.name() : "");
@@ -736,7 +736,7 @@ public class ScoreBattleController implements Initializable {
             // Attempt to load any persisted multiplayer overrides from Preferences so saved settings
             // apply automatically when the match starts. Fall back to sensible defaults when
             // values are missing or invalid.
-            Preferences prefs = Preferences.userNodeForPackage(com.comp2042.controller.MainMenuController.class);
+            Preferences prefs = Preferences.userNodeForPackage(com.comp2042.controller.mainMenu.MainMenuController.class);
 
             // left player keys
             javafx.scene.input.KeyCode lLeft = null;

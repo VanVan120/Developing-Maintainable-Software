@@ -1,6 +1,7 @@
-package com.comp2042.controller;
+package com.comp2042.controller.mainMenu;
 
 import com.comp2042.audio.audioSettings.AudioSettings;
+import com.comp2042.controller.ScoreBattleController;
 import com.comp2042.controller.classicBattle.ClassicBattle;
 import com.comp2042.controller.controls.ControlsController;
 import com.comp2042.controller.cooperateBattle.coopController.CoopGameController;

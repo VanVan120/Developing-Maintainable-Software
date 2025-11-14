@@ -219,7 +219,7 @@ public final class GuiOverlays {
                 controller.setSwapKey(cc.getSwitch());
             } catch (Exception ignored) {}
             try {
-                java.util.prefs.Preferences prefs = java.util.prefs.Preferences.userNodeForPackage(com.comp2042.controller.MainMenuController.class);
+                java.util.prefs.Preferences prefs = java.util.prefs.Preferences.userNodeForPackage(com.comp2042.controller.mainMenu.MainMenuController.class);
                 if (controller.isMultiplayerMode() && controller.getMultiplayerPlayerId() != null) {
                     if ("left".equalsIgnoreCase(controller.getMultiplayerPlayerId())) {
                         prefs.put("mpLeft_left", controller.getCtrlMoveLeft() != null ? controller.getCtrlMoveLeft().name() : "");

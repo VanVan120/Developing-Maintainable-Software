@@ -219,7 +219,7 @@ public final class ClassicBattleOverlayFactory {
             javafx.scene.input.KeyCode sw = cc.getSwitch();
             gui.setControlKeys(left, right, rotate, down, hard);
             gui.setSwapKey(sw);
-            java.util.prefs.Preferences prefs = java.util.prefs.Preferences.userNodeForPackage(com.comp2042.controller.MainMenuController.class);
+            java.util.prefs.Preferences prefs = java.util.prefs.Preferences.userNodeForPackage(com.comp2042.controller.mainMenu.MainMenuController.class);
             prefs.put(prefsPrefix + "left", left != null ? left.name() : "");
             prefs.put(prefsPrefix + "right", right != null ? right.name() : "");
             prefs.put(prefsPrefix + "rotate", rotate != null ? rotate.name() : "");

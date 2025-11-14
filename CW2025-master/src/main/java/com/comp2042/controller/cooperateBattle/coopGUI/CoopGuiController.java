@@ -101,7 +101,7 @@ public class CoopGuiController extends GuiController {
 
     private void loadPreferences() {
         java.util.prefs.Preferences prefs = null;
-        try { prefs = java.util.prefs.Preferences.userNodeForPackage(com.comp2042.controller.MainMenuController.class); } catch (Exception e) { LOGGER.log(Level.FINER, "Failed to obtain preferences node", e); }
+        try { prefs = java.util.prefs.Preferences.userNodeForPackage(com.comp2042.controller.mainMenu.MainMenuController.class); } catch (Exception e) { LOGGER.log(Level.FINER, "Failed to obtain preferences node", e); }
         if (prefs != null) {
             keyBindings.loadFromPreferences(prefs);
         }
@@ -567,7 +567,7 @@ public class CoopGuiController extends GuiController {
                 try {
                     keyBindings.setLeftKeys(lks.left, lks.right, lks.rotate, lks.down, lks.hard, lks.swap);
                     keyBindings.setRightKeys(rks.left, rks.right, rks.rotate, rks.down, rks.hard, rks.swap);
-                    java.util.prefs.Preferences prefs = java.util.prefs.Preferences.userNodeForPackage(com.comp2042.controller.MainMenuController.class);
+                    java.util.prefs.Preferences prefs = java.util.prefs.Preferences.userNodeForPackage(com.comp2042.controller.mainMenu.MainMenuController.class);
                     keyBindings.saveToPreferences(prefs);
                 } catch (Exception ignored) {}
             }, null, null);
