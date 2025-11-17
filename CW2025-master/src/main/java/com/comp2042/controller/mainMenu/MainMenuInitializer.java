@@ -305,7 +305,7 @@ public class MainMenuInitializer {
                     if (location == null) return;
                     FXMLLoader fxmlLoader = new FXMLLoader(location);
                     Parent root = fxmlLoader.load();
-                    com.comp2042.controller.ScoreBattleController controller = fxmlLoader.getController();
+                    com.comp2042.controller.scoreBattle.ScoreBattleController controller = fxmlLoader.getController();
                     Stage stage = (Stage) scoreBattleBtn.getScene().getWindow();
                     try {
                         URL mpBg = MainMenuInitializer.class.getClassLoader().getResource("Multiplayer.gif");
