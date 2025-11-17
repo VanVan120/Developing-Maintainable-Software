@@ -38,9 +38,9 @@ class GuiInputHandler {
                 }
             };
 
-            s.addEventHandler(KeyEvent.KEY_PRESSED, this.pressHandler);
-            s.addEventHandler(KeyEvent.KEY_RELEASED, this.releaseHandler);
-            s.addEventHandler(KeyEvent.KEY_PRESSED, this.escHandler);
+            s.addEventFilter(KeyEvent.KEY_PRESSED, this.pressHandler);
+            s.addEventFilter(KeyEvent.KEY_RELEASED, this.releaseHandler);
+            s.addEventFilter(KeyEvent.KEY_PRESSED, this.escHandler);
             owner.attachedScene = s;
         } catch (Exception ignored) {}
     }
@@ -51,9 +51,9 @@ class GuiInputHandler {
     void detachFromScene(Scene s) {
         if (s == null) return;
         try {
-            if (this.pressHandler != null) s.removeEventHandler(KeyEvent.KEY_PRESSED, this.pressHandler);
-            if (this.releaseHandler != null) s.removeEventHandler(KeyEvent.KEY_RELEASED, this.releaseHandler);
-            if (this.escHandler != null) s.removeEventHandler(KeyEvent.KEY_PRESSED, this.escHandler);
+            if (this.pressHandler != null) s.removeEventFilter(KeyEvent.KEY_PRESSED, this.pressHandler);
+            if (this.releaseHandler != null) s.removeEventFilter(KeyEvent.KEY_RELEASED, this.releaseHandler);
+            if (this.escHandler != null) s.removeEventFilter(KeyEvent.KEY_PRESSED, this.escHandler);
             if (owner.attachedScene == s) owner.attachedScene = null;
         } catch (Exception ignored) {}
     }

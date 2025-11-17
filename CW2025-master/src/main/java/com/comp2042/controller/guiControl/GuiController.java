@@ -630,6 +630,17 @@ public class GuiController implements Initializable {
     void stopAndClearGameOverPulseInternal() { try { if (gameOverPulse != null) { gameOverPulse.stop(); gameOverPulse = null; } } catch (Exception ignored) {} }
     void detachSceneKeyHandlersInternal() { detachSceneKeyHandlers(); }
 
+    /**
+     * Public convenience: stop any overlay-related audio/pulse used by this GUI.
+     * Intended for external coordinators (e.g. multiplayer controllers) to
+     * request immediate audio cleanup without exposing internal implementation.
+     */
+    public void stopOverlayAudio() {
+        try { stopGameOverMusic(); } catch (Exception ignored) {}
+        try { stopCountdownMusic(); } catch (Exception ignored) {}
+        try { if (gameOverPulse != null) { gameOverPulse.stop(); gameOverPulse = null; } } catch (Exception ignored) {}
+    }
+
     boolean isMultiplayerEnabled() { return this.isMultiplayer; }
     void runMultiplayerRestartHandler() { try { if (this.multiplayerRestartHandler != null) this.multiplayerRestartHandler.run(); } catch (Exception ignored) {} }
     void runMultiplayerExitToMenuHandler() { try { if (this.multiplayerExitToMenuHandler != null) this.multiplayerExitToMenuHandler.run(); } catch (Exception ignored) {} }

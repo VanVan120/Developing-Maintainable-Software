@@ -26,6 +26,25 @@ public final class GuiGameOverController {
 
         if (controller.isMultiplayerEnabled()) {
             try { controller.runMultiplayerRestartHandler(); } catch (Exception ignored) {}
+            // Best-effort: stop any lingering music/pulse now and schedule follow-up
+            try { controller.stopGameOverMusicInternal(); } catch (Exception ignored) {}
+            try { controller.stopCountdownMusicInternal(); } catch (Exception ignored) {}
+            try { controller.stopAndClearGameOverPulseInternal(); } catch (Exception ignored) {}
+            try {
+                // Also schedule a follow-up stop on the JavaFX thread to catch async restarts
+                javafx.application.Platform.runLater(() -> {
+                    try { controller.stopGameOverMusicInternal(); } catch (Exception ignored) {}
+                    try { controller.stopCountdownMusicInternal(); } catch (Exception ignored) {}
+                    try { controller.stopAndClearGameOverPulseInternal(); } catch (Exception ignored) {}
+                });
+                javafx.animation.Timeline t = new javafx.animation.Timeline(new javafx.animation.KeyFrame(javafx.util.Duration.millis(300), ae -> {
+                    try { controller.stopGameOverMusicInternal(); } catch (Exception ignored) {}
+                    try { controller.stopCountdownMusicInternal(); } catch (Exception ignored) {}
+                    try { controller.stopAndClearGameOverPulseInternal(); } catch (Exception ignored) {}
+                }));
+                t.setCycleCount(1);
+                t.play();
+            } catch (Exception ignored) {}
             return;
         }
 

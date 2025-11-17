@@ -447,6 +447,9 @@ public class ScoreBattleController implements Initializable {
                 try { if (scoreBattleMusicPlayer != null) { try { if (soundManager != null) soundManager.disposeMediaPlayer(scoreBattleMusicPlayer); else { scoreBattleMusicPlayer.stop(); scoreBattleMusicPlayer.dispose(); } } catch (Exception ignored) {} scoreBattleMusicPlayer = null; } } catch (Exception ignored) {}
                 try { stopMatchCountdownSound(); } catch (Exception ignored) {}
                 try { stopMatchGameOverSound(); } catch (Exception ignored) {}
+                // Also ensure embedded GUIs stop any local game-over / countdown audio they may have started
+                try { if (leftGui != null) leftGui.stopOverlayAudio(); } catch (Exception ignored) {}
+                try { if (rightGui != null) rightGui.stopOverlayAudio(); } catch (Exception ignored) {}
                 // stop match timer and preview poller while restarting
                 try { if (matchTimer != null) matchTimer.stop(); } catch (Exception ignored) {}
                 try { if (previewPoller != null) previewPoller.stop(); } catch (Exception ignored) {}

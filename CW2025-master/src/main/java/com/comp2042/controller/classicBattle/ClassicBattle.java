@@ -121,6 +121,8 @@ public class ClassicBattle implements Initializable {
                 classicBattleMusicPlayer = stopAndDispose(classicBattleMusicPlayer);
                 try { audioHelper.stopMatchCountdownSound(); } catch (Exception ignored) {}
                 try { audioHelper.stopMatchGameOverSound(); } catch (Exception ignored) {}
+                try { if (leftGui != null) leftGui.stopOverlayAudio(); } catch (Exception ignored) {}
+                try { if (rightGui != null) rightGui.stopOverlayAudio(); } catch (Exception ignored) {}
                 try { if (previewService != null) previewService.stop(); } catch (Exception ignored) {}
                 try { if (leftController != null) leftController.createNewGame(); } catch (Exception ignored) {}
                 try { if (rightController != null) rightController.createNewGame(); } catch (Exception ignored) {}
