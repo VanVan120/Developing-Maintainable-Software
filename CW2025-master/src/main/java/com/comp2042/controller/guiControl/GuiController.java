@@ -154,6 +154,9 @@ public class GuiController implements Initializable {
     ControlsController loadControlsController(String resource, javafx.scene.layout.StackPane[] outPane) throws java.io.IOException {
         if (multiplayerRequestControlsHandler != null) {
             try { multiplayerRequestControlsHandler.accept(this); } catch (Exception ex) { System.err.println("[GuiController] Exception in multiplayerRequestControlsHandler: " + ex); }
+            try {
+                if (outPane != null && outPane.length > 0) outPane[0] = new javafx.scene.layout.StackPane();
+            } catch (Exception ignored) {}
             return null;
         }
         URL loc = getClass().getClassLoader().getResource(resource);

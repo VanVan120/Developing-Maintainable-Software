@@ -276,7 +276,18 @@ public final class GuiOverlays {
         try {
             javafx.scene.layout.StackPane[] paneOut = new javafx.scene.layout.StackPane[1];
             ControlsController cc = controller.loadControlsController("controls.fxml", paneOut);
-            if (cc == null || paneOut[0] == null) { hidePauseOverlay(controller, null); return; }
+            // If a multiplayerRequestControlsHandler was present, loadControlsController
+            // will invoke it and return null. In that case we MUST NOT hide the pause
+            // overlay here because the multiplayer handler is responsible for showing
+            // its own overlay while the game remains paused. Only treat a null pane
+            // as an error condition that should remove the pause overlay.
+            if (cc == null) {
+                // If paneOut[0] was provided by the handler, the handler will manage UI; just return
+                if (paneOut[0] != null) return;
+                // otherwise treat as an error and restore normal pause behavior
+                try { hidePauseOverlay(controller, null); } catch (Exception ignored) {}
+                return;
+            }
 
             controller.configureControlsController(cc);
             StackPane controlsOverlay = buildControlsOverlayUI(controller, paneOut[0], cc);

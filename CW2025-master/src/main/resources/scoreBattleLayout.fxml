@@ -43,8 +43,5 @@
                 </children>
             </VBox>
         </HBox>
-
-        <!-- Back button to return to main menu -->
-        <Button fx:id="backBtn" text="Back" layoutX="12" layoutY="12" styleClass="menu-button" />
     </children>
 </AnchorPane>

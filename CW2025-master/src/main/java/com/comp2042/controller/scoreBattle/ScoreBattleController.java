@@ -1,7 +1,6 @@
 package com.comp2042.controller.scoreBattle;
 
 import com.comp2042.audio.soundManager.SoundManager;
-import com.comp2042.controller.controls.ControlsController;
 import com.comp2042.controller.gameControl.GameController;
 import com.comp2042.controller.guiControl.GuiController;
 
@@ -10,15 +9,10 @@ import javafx.fxml.FXMLLoader;
 import javafx.fxml.Initializable;
 import javafx.scene.Parent;
 import javafx.scene.Scene;
-import javafx.scene.SubScene;
-import javafx.scene.paint.Color;
+
 import javafx.geometry.Pos;
-import javafx.scene.layout.Pane;
 import javafx.scene.layout.VBox;
 import javafx.scene.layout.StackPane;
-import javafx.scene.shape.Rectangle;
-import javafx.scene.layout.BorderPane;
-import java.util.prefs.Preferences;
 import javafx.stage.Stage;
 import javafx.event.ActionEvent;
 import javafx.scene.control.Button;
@@ -31,9 +25,9 @@ import java.util.ResourceBundle;
 
 public class ScoreBattleController implements Initializable {
 
-    @FXML private StackPane leftHolder;
-    @FXML private StackPane rightHolder;
-    @FXML private javafx.scene.layout.VBox leftNextBox;
+    @FXML StackPane leftHolder;
+    @FXML StackPane rightHolder;
+    @FXML javafx.scene.layout.VBox leftNextBox;
     @FXML private javafx.scene.layout.VBox leftNextContent;
     @FXML private javafx.scene.text.Text leftNextLabel;
     @FXML private javafx.scene.layout.VBox rightNextBox;
@@ -41,33 +35,34 @@ public class ScoreBattleController implements Initializable {
     @FXML private javafx.scene.text.Text rightNextLabel;
     @FXML private Button backBtn;
 
-    private GuiController leftGui;
-    private GuiController rightGui;
-    private GameController leftController;
-    private GameController rightController;
-    private javafx.scene.layout.StackPane centerOverlay;
-    private javafx.scene.text.Text matchTimerText;
-    private javafx.scene.text.Text matchScoreText;
-    private javafx.animation.Timeline matchTimer;
-    private int remainingSeconds = 300; 
-    private javafx.animation.Timeline previewPoller;
-    private MediaPlayer scoreBattleMusicPlayer = null;
-    private MediaPlayer matchCountdownPlayer = null;
-    private MediaPlayer matchGameOverPlayer = null;
-    private SoundManager soundManager = null;
-    private volatile boolean matchEnded = false;
-    private javafx.scene.layout.StackPane activeOverlay = null;
-    private javafx.animation.Animation activePulse = null;
-    private javafx.beans.value.ChangeListener<Boolean> leftIsGameOverListener;
-    private javafx.beans.value.ChangeListener<Boolean> rightIsGameOverListener;
-    private javafx.beans.value.ChangeListener<Boolean> sharedCountdownStartedListener;
-    private javafx.beans.value.ChangeListener<Boolean> bothFinishedListener;
+    GuiController leftGui;
+    GuiController rightGui;
+    GameController leftController;
+    GameController rightController;
+
+    javafx.scene.layout.StackPane centerOverlay;
+
+    javafx.scene.text.Text matchTimerText;
+    javafx.scene.text.Text matchScoreText;
+    javafx.animation.Timeline matchTimer;
+    int remainingSeconds = 300; 
+    javafx.animation.Timeline previewPoller;
+    MediaPlayer scoreBattleMusicPlayer = null;
+    MediaPlayer matchCountdownPlayer = null;
+    MediaPlayer matchGameOverPlayer = null;
+    SoundManager soundManager = null;
+
+    volatile boolean matchEnded = false;
+
+    javafx.scene.layout.StackPane activeOverlay = null;
+    javafx.animation.Animation activePulse = null;
+    javafx.beans.value.ChangeListener<Boolean> leftIsGameOverListener;
+    javafx.beans.value.ChangeListener<Boolean> rightIsGameOverListener;
+    javafx.beans.value.ChangeListener<Boolean> sharedCountdownStartedListener;
+    javafx.beans.value.ChangeListener<Boolean> bothFinishedListener;
 
     @Override
     public void initialize(URL location, ResourceBundle resources) {
-        if (backBtn != null) {
-            backBtn.setOnAction(this::onBack);
-        }
         try {
             java.net.URL fontUrl = getClass().getClassLoader().getResource("digital.ttf");
             if (fontUrl != null) {
@@ -136,7 +131,7 @@ public class ScoreBattleController implements Initializable {
         } catch (Exception ignored) {}
     }
 
-    private void playMatchCountdownSound() {
+    void playMatchCountdownSound() {
         try {
             if (soundManager != null) {
                 soundManager.playCountdownMusic();
@@ -174,268 +169,15 @@ public class ScoreBattleController implements Initializable {
         } catch (Exception ignored) {}
     }
 
-    private void showMultiplayerControlsOverlay(GuiController requester) {
+    void showMultiplayerControlsOverlay(GuiController requester) {
         javafx.application.Platform.runLater(() -> {
-                try {
-                    // Do NOT stop match music when opening the Controls overlay; allow music to continue playing
-                    Scene scene = leftHolder.getScene();
+            try {
+                Scene scene = leftHolder.getScene();
                 if (scene == null) return;
-
-                StackPane overlay = new StackPane();
-                overlay.setPickOnBounds(true);
-                Rectangle dark = new Rectangle();
-                dark.widthProperty().bind(scene.widthProperty());
-                dark.heightProperty().bind(scene.heightProperty());
-                dark.setFill(javafx.scene.paint.Color.rgb(8,8,10,0.82));
-
-                BorderPane container = new BorderPane();
-                container.setStyle("-fx-padding:18;");
-
-                // Top bar with title and Save/Cancel
-                javafx.scene.text.Text header = new javafx.scene.text.Text("Controls");
-                header.setStyle("-fx-font-size:34px; -fx-fill: #9fb0ff; -fx-font-weight:700;");
-                javafx.scene.layout.HBox actionBox = new javafx.scene.layout.HBox(10);
-                actionBox.setAlignment(Pos.CENTER_RIGHT);
-                javafx.scene.control.Button btnResetTop = new javafx.scene.control.Button("Reset");
-                javafx.scene.control.Button btnCancel = new javafx.scene.control.Button("Cancel");
-                javafx.scene.control.Button btnSave = new javafx.scene.control.Button("Save");
-                btnResetTop.getStyleClass().add("menu-button"); btnCancel.getStyleClass().add("menu-button"); btnSave.getStyleClass().add("menu-button");
-                actionBox.getChildren().addAll(btnResetTop, btnCancel, btnSave);
-                BorderPane topBar = new BorderPane();
-                topBar.setLeft(header);
-                topBar.setRight(actionBox);
-                topBar.setStyle("-fx-padding:8 18 18 18;");
-                container.setTop(topBar);
-
-                // Load two Controls panes side-by-side (left/right)
-                // Increase spacing so the left and right player panels are visually separated
-                javafx.scene.layout.HBox center = new javafx.scene.layout.HBox(120);
-                center.setStyle("-fx-padding:12; -fx-background-color: transparent;");
-                center.setAlignment(Pos.CENTER);
-
-                FXMLLoader leftFx = new FXMLLoader(getClass().getClassLoader().getResource("controls.fxml"));
-                javafx.scene.layout.StackPane leftPane = leftFx.load();
-                ControlsController leftCC = leftFx.getController();
-
-                FXMLLoader rightFx = new FXMLLoader(getClass().getClassLoader().getResource("controls.fxml"));
-                javafx.scene.layout.StackPane rightPane = rightFx.load();
-                ControlsController rightCC = rightFx.getController();
-
-                // Initialize each controls pane with the current keys from their GuiControllers
-                // Pre-read Preferences so both left/right initialization blocks can reuse them
-                Preferences overlayPrefs = Preferences.userNodeForPackage(com.comp2042.controller.mainMenu.MainMenuController.class);
-                try {
-                    leftCC.init(leftGui.getCtrlMoveLeft() != null ? leftGui.getCtrlMoveLeft() : javafx.scene.input.KeyCode.A,
-                                leftGui.getCtrlMoveRight() != null ? leftGui.getCtrlMoveRight() : javafx.scene.input.KeyCode.D,
-                                leftGui.getCtrlRotate() != null ? leftGui.getCtrlRotate() : javafx.scene.input.KeyCode.W,
-                                leftGui.getCtrlSoftDrop() != null ? leftGui.getCtrlSoftDrop() : javafx.scene.input.KeyCode.S,
-                                leftGui.getCtrlHardDrop() != null ? leftGui.getCtrlHardDrop() : javafx.scene.input.KeyCode.SHIFT,
-                                leftGui.getCtrlSwap() != null ? leftGui.getCtrlSwap() : javafx.scene.input.KeyCode.Q);
-
-                    // Determine panel default keys from persisted preferences where available so the
-                    // Default column reflects what the user saved previously (fall back to WASD)
-                    javafx.scene.input.KeyCode defLLeft = null;
-                    javafx.scene.input.KeyCode defLRight = null;
-                    javafx.scene.input.KeyCode defLRotate = null;
-                    javafx.scene.input.KeyCode defLDown = null;
-                    javafx.scene.input.KeyCode defLHard = null;
-                    javafx.scene.input.KeyCode defLSwap = null;
-                    try { String s = overlayPrefs.get("mpLeft_left", ""); if (!s.isEmpty()) defLLeft = javafx.scene.input.KeyCode.valueOf(s); } catch (Exception ignored) {}
-                    try { String s = overlayPrefs.get("mpLeft_right", ""); if (!s.isEmpty()) defLRight = javafx.scene.input.KeyCode.valueOf(s); } catch (Exception ignored) {}
-                    try { String s = overlayPrefs.get("mpLeft_rotate", ""); if (!s.isEmpty()) defLRotate = javafx.scene.input.KeyCode.valueOf(s); } catch (Exception ignored) {}
-                    try { String s = overlayPrefs.get("mpLeft_down", ""); if (!s.isEmpty()) defLDown = javafx.scene.input.KeyCode.valueOf(s); } catch (Exception ignored) {}
-                    try { String s = overlayPrefs.get("mpLeft_hard", ""); if (!s.isEmpty()) defLHard = javafx.scene.input.KeyCode.valueOf(s); } catch (Exception ignored) {}
-                    try { String s = overlayPrefs.get("mpLeft_switch", ""); if (!s.isEmpty()) defLSwap = javafx.scene.input.KeyCode.valueOf(s); } catch (Exception ignored) {}
-
-                    leftCC.setDefaultKeys(
-                        defLLeft != null ? defLLeft : javafx.scene.input.KeyCode.A,
-                        defLRight != null ? defLRight : javafx.scene.input.KeyCode.D,
-                        defLRotate != null ? defLRotate : javafx.scene.input.KeyCode.W,
-                        defLDown != null ? defLDown : javafx.scene.input.KeyCode.S,
-                        defLHard != null ? defLHard : javafx.scene.input.KeyCode.SHIFT,
-                        defLSwap != null ? defLSwap : javafx.scene.input.KeyCode.Q
-                    );
-                    leftCC.setHeaderText("Left Player Controls");
-                } catch (Exception ignored) {}
-
-                try {
-                    rightCC.init(rightGui.getCtrlMoveLeft() != null ? rightGui.getCtrlMoveLeft() : javafx.scene.input.KeyCode.NUMPAD4,
-                                 rightGui.getCtrlMoveRight() != null ? rightGui.getCtrlMoveRight() : javafx.scene.input.KeyCode.NUMPAD6,
-                                 rightGui.getCtrlRotate() != null ? rightGui.getCtrlRotate() : javafx.scene.input.KeyCode.NUMPAD8,
-                                 rightGui.getCtrlSoftDrop() != null ? rightGui.getCtrlSoftDrop() : javafx.scene.input.KeyCode.NUMPAD5,
-                                 rightGui.getCtrlHardDrop() != null ? rightGui.getCtrlHardDrop() : javafx.scene.input.KeyCode.SPACE,
-                                 rightGui.getCtrlSwap() != null ? rightGui.getCtrlSwap() : javafx.scene.input.KeyCode.C);
-
-                    // Use persisted preferences for right-player panel defaults if present, otherwise
-                    // fall back to the traditional arrow-key defaults (so menu and in-game overlays match).
-                    javafx.scene.input.KeyCode defRLeft = null;
-                    javafx.scene.input.KeyCode defRRight = null;
-                    javafx.scene.input.KeyCode defRRotate = null;
-                    javafx.scene.input.KeyCode defRDown = null;
-                    javafx.scene.input.KeyCode defRHard = null;
-                    javafx.scene.input.KeyCode defRSwap = null;
-                    try { String s = overlayPrefs.get("mpRight_left", ""); if (!s.isEmpty()) defRLeft = javafx.scene.input.KeyCode.valueOf(s); } catch (Exception ignored) {}
-                    try { String s = overlayPrefs.get("mpRight_right", ""); if (!s.isEmpty()) defRRight = javafx.scene.input.KeyCode.valueOf(s); } catch (Exception ignored) {}
-                    try { String s = overlayPrefs.get("mpRight_rotate", ""); if (!s.isEmpty()) defRRotate = javafx.scene.input.KeyCode.valueOf(s); } catch (Exception ignored) {}
-                    try { String s = overlayPrefs.get("mpRight_down", ""); if (!s.isEmpty()) defRDown = javafx.scene.input.KeyCode.valueOf(s); } catch (Exception ignored) {}
-                    try { String s = overlayPrefs.get("mpRight_hard", ""); if (!s.isEmpty()) defRHard = javafx.scene.input.KeyCode.valueOf(s); } catch (Exception ignored) {}
-                    try { String s = overlayPrefs.get("mpRight_switch", ""); if (!s.isEmpty()) defRSwap = javafx.scene.input.KeyCode.valueOf(s); } catch (Exception ignored) {}
-
-                    rightCC.setDefaultKeys(
-                        defRLeft != null ? defRLeft : javafx.scene.input.KeyCode.LEFT,
-                        defRRight != null ? defRRight : javafx.scene.input.KeyCode.RIGHT,
-                        defRRotate != null ? defRRotate : javafx.scene.input.KeyCode.UP,
-                        defRDown != null ? defRDown : javafx.scene.input.KeyCode.DOWN,
-                        defRHard != null ? defRHard : javafx.scene.input.KeyCode.SPACE,
-                        defRSwap != null ? defRSwap : javafx.scene.input.KeyCode.C
-                    );
-                    rightCC.setHeaderText("Right Player Controls");
-                // Prevent duplicate key assignments between the two panels: consult the other pane's current keys
-                try {
-                    leftCC.setKeyAvailabilityChecker((code, btn) -> {
-                        try {
-                            // reference btn to satisfy static analyzers
-                            java.util.Objects.requireNonNull(btn);
-                            if (code == null) return true;
-                            return !(code.equals(rightCC.getLeft())
-                                    || code.equals(rightCC.getRight())
-                                    || code.equals(rightCC.getRotate())
-                                    || code.equals(rightCC.getDown())
-                                    || code.equals(rightCC.getHard())
-                                    || code.equals(rightCC.getSwitch()));
-                        } catch (Exception ignored) {
-                            return true;
-                        }
-                    });
-                } catch (Exception ignored) {}
-                try {
-                    rightCC.setKeyAvailabilityChecker((code, btn) -> {
-                        try {
-                            java.util.Objects.requireNonNull(btn);
-                            if (code == null) return true;
-                            return !(code.equals(leftCC.getLeft())
-                                    || code.equals(leftCC.getRight())
-                                    || code.equals(leftCC.getRotate())
-                                    || code.equals(leftCC.getDown())
-                                    || code.equals(leftCC.getHard())
-                                    || code.equals(leftCC.getSwitch()));
-                        } catch (Exception ignored) {
-                            return true;
-                        }
-                    });
-                } catch (Exception ignored) {}
-                } catch (Exception ignored) {}
-
-                // Hide embedded action buttons since we provide top Save/Cancel
-                try { leftCC.hideActionButtons(); } catch (Exception ignored) {}
-                try { rightCC.hideActionButtons(); } catch (Exception ignored) {}
-
-                // Ensure each pane has a reasonable width so spacing appears consistent
-                try { leftPane.setPrefWidth(520); } catch (Exception ignored) {}
-                try { rightPane.setPrefWidth(520); } catch (Exception ignored) {}
-                // Place panes into center HBox with the larger gap between them
-                center.getChildren().addAll(leftPane, rightPane);
-                container.setCenter(center);
-
-                overlay.getChildren().addAll(dark, container);
-
-                // Add overlay to scene root and hide any existing GLOBAL_PAUSE_OVERLAY nodes
-                if (scene.getRoot() instanceof javafx.scene.layout.Pane) {
-                    javafx.scene.layout.Pane root = (javafx.scene.layout.Pane) scene.getRoot();
-                    // hide existing global pause overlays so pause stays visible beneath
-                    java.util.List<javafx.scene.Node> hidden = new java.util.ArrayList<>();
-                    for (javafx.scene.Node n : new java.util.ArrayList<>(root.getChildren())) {
-                        if (n != null && "GLOBAL_PAUSE_OVERLAY".equals(n.getId())) {
-                            n.setVisible(false);
-                            hidden.add(n);
-                        }
-                    }
-                    // store hidden nodes so we can restore them later
-                    overlay.getProperties().put("hiddenPauseNodes", hidden);
-                    root.getChildren().add(overlay);
-                }
-
-                // Reset top action: reset both panes to their panel defaults
-                btnResetTop.setOnAction(ev -> {
-                    ev.consume();
-                    try { leftCC.resetToPanelDefaults(); } catch (Exception ignored) {}
-                    try { rightCC.resetToPanelDefaults(); } catch (Exception ignored) {}
-                });
-
-                // Save action: apply changes to GUIs and persist per-player preferences
-                btnSave.setOnAction(ev -> {
-                    ev.consume();
-                    try {
-                        // left player
-                        try {
-                            javafx.scene.input.KeyCode lLeft = leftCC.getLeft();
-                            javafx.scene.input.KeyCode lRight = leftCC.getRight();
-                            javafx.scene.input.KeyCode lRotate = leftCC.getRotate();
-                            javafx.scene.input.KeyCode lDown = leftCC.getDown();
-                            javafx.scene.input.KeyCode lHard = leftCC.getHard();
-                            javafx.scene.input.KeyCode lSwap = leftCC.getSwitch();
-                            // update running GUI
-                            leftGui.setControlKeys(lLeft, lRight, lRotate, lDown, lHard);
-                            leftGui.setSwapKey(lSwap);
-                            // persist
-                            Preferences prefs = Preferences.userNodeForPackage(com.comp2042.controller.mainMenu.MainMenuController.class);
-                            prefs.put("mpLeft_left", lLeft != null ? lLeft.name() : "");
-                            prefs.put("mpLeft_right", lRight != null ? lRight.name() : "");
-                            prefs.put("mpLeft_rotate", lRotate != null ? lRotate.name() : "");
-                            prefs.put("mpLeft_down", lDown != null ? lDown.name() : "");
-                            prefs.put("mpLeft_hard", lHard != null ? lHard.name() : "");
-                            prefs.put("mpLeft_switch", lSwap != null ? lSwap.name() : "");
-                        } catch (Exception ignored) {}
-                        // right player
-                        try {
-                            javafx.scene.input.KeyCode rLeft = rightCC.getLeft();
-                            javafx.scene.input.KeyCode rRight = rightCC.getRight();
-                            javafx.scene.input.KeyCode rRotate = rightCC.getRotate();
-                            javafx.scene.input.KeyCode rDown = rightCC.getDown();
-                            javafx.scene.input.KeyCode rHard = rightCC.getHard();
-                            javafx.scene.input.KeyCode rSwap = rightCC.getSwitch();
-                            rightGui.setControlKeys(rLeft, rRight, rRotate, rDown, rHard);
-                            rightGui.setSwapKey(rSwap);
-                            Preferences prefs = Preferences.userNodeForPackage(com.comp2042.controller.mainMenu.MainMenuController.class);
-                            prefs.put("mpRight_left", rLeft != null ? rLeft.name() : "");
-                            prefs.put("mpRight_right", rRight != null ? rRight.name() : "");
-                            prefs.put("mpRight_rotate", rRotate != null ? rRotate.name() : "");
-                            prefs.put("mpRight_down", rDown != null ? rDown.name() : "");
-                            prefs.put("mpRight_hard", rHard != null ? rHard.name() : "");
-                            prefs.put("mpRight_switch", rSwap != null ? rSwap.name() : "");
-                        } catch (Exception ignored) {}
-                    } catch (Exception ignored) {}
-                    // Close overlay and restore pause nodes
-                    try {
-                        if (overlay.getParent() instanceof javafx.scene.layout.Pane) {
-                            javafx.scene.layout.Pane root = (javafx.scene.layout.Pane) overlay.getParent();
-                            root.getChildren().remove(overlay);
-                        }
-                        Object o = overlay.getProperties().get("hiddenPauseNodes");
-                        if (o instanceof java.util.List<?>) {
-                            for (Object n : (java.util.List<?>) o) {
-                                if (n instanceof javafx.scene.Node) ((javafx.scene.Node) n).setVisible(true);
-                            }
-                        }
-                    } catch (Exception ignored) {}
-                });
-
-                btnCancel.setOnAction(ev -> {
-                    ev.consume();
-                    try {
-                        if (overlay.getParent() instanceof javafx.scene.layout.Pane) {
-                            javafx.scene.layout.Pane root = (javafx.scene.layout.Pane) overlay.getParent();
-                            root.getChildren().remove(overlay);
-                        }
-                        Object o = overlay.getProperties().get("hiddenPauseNodes");
-                        if (o instanceof java.util.List<?>) {
-                            for (Object n : (java.util.List<?>) o) {
-                                if (n instanceof javafx.scene.Node) ((javafx.scene.Node) n).setVisible(true);
-                            }
-                        }
-                    } catch (Exception ignored) {}
-                });
-
+                // Ensure both embedded GUIs and match-level timers are paused while the overlay is open
+                try { if (leftGui != null) leftGui.applyExternalPause(true); } catch (Exception ignored) {}
+                try { if (rightGui != null) rightGui.applyExternalPause(true); } catch (Exception ignored) {}
+                new ScoreBattleControlsOverlay(scene, leftGui, rightGui).show(requester);
             } catch (Exception ignored) {}
         });
     }
@@ -498,402 +240,23 @@ public class ScoreBattleController implements Initializable {
     }
 
     public void initBothGames(javafx.scene.input.KeyCode leftSwap, javafx.scene.input.KeyCode rightSwap) throws IOException {
-        // load left game layout
-        URL gameLayout = getClass().getClassLoader().getResource("gameLayout.fxml");
-        FXMLLoader leftLoader = new FXMLLoader(gameLayout);
-        Parent leftRoot = leftLoader.load();
-        leftGui = leftLoader.getController();
-
-        // load right game layout
-        FXMLLoader rightLoader = new FXMLLoader(gameLayout);
-        Parent rightRoot = rightLoader.load();
-        rightGui = rightLoader.getController();
-
-        // Ensure embedded roots do NOT apply the global '.root' background or load their own stylesheets
-        try {
-            // remove any stylesheet that would apply the scenic background per-root
-            leftRoot.getStylesheets().clear();
-            rightRoot.getStylesheets().clear();
-            leftRoot.getStyleClass().remove("root");
-            rightRoot.getStyleClass().remove("root");
-            // force transparent background so the scene root's scenic image is visible once behind both boards
-            String transparent = "-fx-background-color: transparent;";
-            leftRoot.setStyle(transparent);
-            rightRoot.setStyle(transparent);
-        } catch (Exception ignored) {}
-
-        try {
-            if (backBtn != null) {
-                backBtn.setVisible(false);
-                backBtn.setManaged(false);
-            }
-
-            // helper to hide several nodes by id inside an embedded root
-            java.util.function.Consumer<Parent> hideEmbeddedUi = (root) -> {
-                // hide pause button, decorative frame and embedded next box if present
-                try {
-                    javafx.scene.Node n = root.lookup("#pauseBtn");
-                    if (n != null) { n.setVisible(false); n.setManaged(false); }
-                    n = root.lookup("#nextBoxFrame");
-                    if (n != null) { n.setVisible(false); n.setManaged(false); }
-                    javafx.scene.Node nb = root.lookup("#nextBox");
-                    if (nb != null) { nb.setVisible(false); nb.setManaged(false); }
-                } catch (Exception e) {
-                    // log at least to stderr during maintenance to surface unexpected UI lookup issues
-                    e.printStackTrace();
-                }
-            };
-
-            hideEmbeddedUi.accept(leftRoot);
-            hideEmbeddedUi.accept(rightRoot);
-        } catch (Exception ignored) {}
-
-        // attempt to measure the internal gameBoard node so we can size the SubScene to match single-player
-        double measuredW = -1, measuredH = -1;
-        try {
-            leftRoot.applyCss();
-            leftRoot.layout();
-            // try lookup by fx:id first, then by style class
-            javafx.scene.Node gb = leftRoot.lookup("#gameBoard");
-            if (gb == null) gb = leftRoot.lookup(".gameBoard");
-            if (gb != null) {
-                measuredW = gb.prefWidth(-1);
-                measuredH = gb.prefHeight(-1);
-                if (measuredW <= 0) measuredW = gb.getLayoutBounds().getWidth();
-                if (measuredH <= 0) measuredH = gb.getLayoutBounds().getHeight();
-            }
-        } catch (Exception ignored) {}
-
-        double initialW = (measuredW > 0) ? measuredW : 400;
-        double initialH = (measuredH > 0) ? measuredH : 640;
-
-        SubScene leftSub = new SubScene(leftRoot, initialW, initialH);
-        leftSub.setFill(Color.TRANSPARENT);
-        SubScene rightSub = new SubScene(rightRoot, initialW, initialH);
-        rightSub.setFill(Color.TRANSPARENT);
-
-        // center subscenes in their holders
-        leftHolder.setAlignment(Pos.CENTER);
-        rightHolder.setAlignment(Pos.CENTER);
-
-        // add to holders
-        leftHolder.getChildren().add(leftSub);
-        rightHolder.getChildren().add(rightSub);
-
-        // ensure the loaded root Pane matches the subscene size so GuiController's layout measurements work
-        if (leftRoot instanceof Pane) {
-            Pane lp = (Pane) leftRoot;
-            lp.prefWidthProperty().bind(leftSub.widthProperty());
-            lp.prefHeightProperty().bind(leftSub.heightProperty());
-        }
-        if (rightRoot instanceof Pane) {
-            Pane rp = (Pane) rightRoot;
-            rp.prefWidthProperty().bind(rightSub.widthProperty());
-            rp.prefHeightProperty().bind(rightSub.heightProperty());
-        }
-
-    // start controllers and keep references
-    leftController = new GameController(leftGui);
-    rightController = new GameController(rightGui);
-
-        // Listen for individual player gameOver events so we can end match early and announce winner
-        try {
-            leftIsGameOverListener = (obs, oldV, newV) -> {
-                // reference unused params to satisfy static analyzers
-                java.util.Objects.requireNonNull(obs);
-                java.util.Objects.requireNonNull(oldV);
-                if (newV == Boolean.TRUE && !matchEnded) {
-                    matchEnded = true;
-                    // left lost -> right wins
-                    try { if (matchTimer != null) matchTimer.stop(); } catch (Exception ignored) {}
-                    try { if (previewPoller != null) previewPoller.stop(); } catch (Exception ignored) {}
-                    // Ensure both GUIs are transitioned to game-over so their timelines and input handlers stop
-                    try { if (leftGui != null) leftGui.gameOver(); } catch (Exception ignored) {}
-                    try { if (rightGui != null) rightGui.gameOver(); } catch (Exception ignored) {}
-                        // stop match music immediately so we can play a game-over track later
-                        try { if (scoreBattleMusicPlayer != null) { try { if (soundManager != null) soundManager.disposeMediaPlayer(scoreBattleMusicPlayer); else { scoreBattleMusicPlayer.stop(); scoreBattleMusicPlayer.dispose(); } } catch (Exception ignored) {} scoreBattleMusicPlayer = null; } } catch (Exception ignored) {}
-                        // play centralized match GameOver sound
-                        try { playMatchGameOverSound(); } catch (Exception ignored) {}
-                    int lscore = (leftController != null ? leftController.getScoreProperty().get() : 0);
-                    int rscore = (rightController != null ? rightController.getScoreProperty().get() : 0);
-                    String reason = "Winner by survival (opponent lost)";
-                    // if the loser had a higher score, make that explicit
-                    if (lscore > rscore) reason += String.format(" — opponent had higher score (%d vs %d)", lscore, rscore);
-                    showWinnerOverlay("Right Player Wins!", lscore, rscore, reason);
-                }
-            };
-            leftGui.isGameOverProperty().addListener(leftIsGameOverListener);
-        } catch (Exception ignored) {}
-        try {
-            rightIsGameOverListener = (obs, oldV, newV) -> {
-                // reference unused params to satisfy static analyzers
-                java.util.Objects.requireNonNull(obs);
-                java.util.Objects.requireNonNull(oldV);
-                if (newV == Boolean.TRUE && !matchEnded) {
-                    matchEnded = true;
-                    // right lost -> left wins
-                    try { if (matchTimer != null) matchTimer.stop(); } catch (Exception ignored) {}
-                    try { if (previewPoller != null) previewPoller.stop(); } catch (Exception ignored) {}
-                    // Ensure both GUIs are transitioned to game-over so their timelines and input handlers stop
-                    try { if (leftGui != null) leftGui.gameOver(); } catch (Exception ignored) {}
-                    try { if (rightGui != null) rightGui.gameOver(); } catch (Exception ignored) {}
-                        // stop match music immediately so we can play a game-over track later
-                        try { if (scoreBattleMusicPlayer != null) { try { if (soundManager != null) soundManager.disposeMediaPlayer(scoreBattleMusicPlayer); else { scoreBattleMusicPlayer.stop(); scoreBattleMusicPlayer.dispose(); } } catch (Exception ignored) {} scoreBattleMusicPlayer = null; } } catch (Exception ignored) {}
-                        // play centralized match GameOver sound
-                        try { playMatchGameOverSound(); } catch (Exception ignored) {}
-                    int lscore = (leftController != null ? leftController.getScoreProperty().get() : 0);
-                    int rscore = (rightController != null ? rightController.getScoreProperty().get() : 0);
-                    String reason = "Winner by survival (opponent lost)";
-                    if (rscore > lscore) reason += String.format(" — opponent had higher score (%d vs %d)", rscore, lscore);
-                    showWinnerOverlay("Left Player Wins!", lscore, rscore, reason);
-                }
-            };
-            rightGui.isGameOverProperty().addListener(rightIsGameOverListener);
-        } catch (Exception ignored) {}
-
-            // mark embedded GUIs as multiplayer so they can adjust visuals/logic
-            try { leftGui.setMultiplayerMode(true); } catch (Exception ignored) {}
-            try { rightGui.setMultiplayerMode(true); } catch (Exception ignored) {}
-
-            // identify each GUI so in-game control saves persist the correct mpLeft_/mpRight_ keys
-            try { leftGui.setMultiplayerPlayerId("left"); } catch (Exception ignored) {}
-            try { rightGui.setMultiplayerPlayerId("right"); } catch (Exception ignored) {}
-            // Allow the coordinator to present a combined multiplayer controls UI
-            try { leftGui.setMultiplayerRequestControlsHandler(this::showMultiplayerControlsOverlay); } catch (Exception ignored) {}
-            try { rightGui.setMultiplayerRequestControlsHandler(this::showMultiplayerControlsOverlay); } catch (Exception ignored) {}
-
-            // register a restart handler so an embedded GuiController's Retry can request a full match restart
-            try { leftGui.setMultiplayerRestartHandler(this::restartMatch); } catch (Exception ignored) {}
-            try { rightGui.setMultiplayerRestartHandler(this::restartMatch); } catch (Exception ignored) {}
-            
-            try { leftGui.setMultiplayerExitToMenuHandler(() -> onBack(null)); } catch (Exception ignored) {}
-            try { rightGui.setMultiplayerExitToMenuHandler(() -> onBack(null)); } catch (Exception ignored) {}
-
-            try {
-                leftGui.setMultiplayerPauseHandler(paused -> {
-                    try {
-                        // Forward pause to the other GUI so both show the overlay
-                        if (rightGui != null) rightGui.applyExternalPause(paused);
-                        // Pause/resume match-level timers so the match time and preview updates stop
-                        if (paused) {
-                            try { if (matchTimer != null) matchTimer.pause(); } catch (Exception ignored) {}
-                            try { if (previewPoller != null) previewPoller.pause(); } catch (Exception ignored) {}
-                        } else {
-                            try { if (matchTimer != null) matchTimer.play(); } catch (Exception ignored) {}
-                            try { if (previewPoller != null) previewPoller.play(); } catch (Exception ignored) {}
-                        }
-                    } catch (Exception ignored) {}
-                });
-            } catch (Exception ignored) {}
-            try {
-                rightGui.setMultiplayerPauseHandler(paused -> {
-                    try {
-                        if (leftGui != null) leftGui.applyExternalPause(paused);
-                        if (paused) {
-                            try { if (matchTimer != null) matchTimer.pause(); } catch (Exception ignored) {}
-                            try { if (previewPoller != null) previewPoller.pause(); } catch (Exception ignored) {}
-                        } else {
-                            try { if (matchTimer != null) matchTimer.play(); } catch (Exception ignored) {}
-                            try { if (previewPoller != null) previewPoller.play(); } catch (Exception ignored) {}
-                        }
-                    } catch (Exception ignored) {}
-                });
-            } catch (Exception ignored) {}
-
-        // set level text or drop intervals if desired
-        leftGui.setLevelText("Score Battle");
-        rightGui.setLevelText("Score Battle");
-
-        leftGui.setDropIntervalMs(1000);
-        rightGui.setDropIntervalMs(1000);
-
-        // start countdowns for both
-        // Attach listeners to start a single shared countdown sound for both embedded GUIs
-        try {
-            sharedCountdownStartedListener = (obs, oldV, newV) -> {
-                try {
-                    java.util.Objects.requireNonNull(obs);
-                    java.util.Objects.requireNonNull(oldV);
-                    java.util.Objects.requireNonNull(newV);
-                    boolean l = false, r = false;
-                    try { l = leftGui.countdownStartedProperty().get(); } catch (Exception ignored) {}
-                    try { r = rightGui.countdownStartedProperty().get(); } catch (Exception ignored) {}
-                    // if either GUI started the countdown, ensure the coordinator starts the shared countdown sound
-                    if (l || r) {
-                        try { playMatchCountdownSound(); } catch (Exception ignored) {}
-                    } else {
-                        // both not started -> stop any shared countdown audio
-                        try { stopMatchCountdownSound(); } catch (Exception ignored) {}
-                    }
-                } catch (Exception ignored) {}
-            };
-            try { leftGui.countdownStartedProperty().addListener(sharedCountdownStartedListener); } catch (Exception ignored) {}
-            try { rightGui.countdownStartedProperty().addListener(sharedCountdownStartedListener); } catch (Exception ignored) {}
-        } catch (Exception ignored) {}
-
-        leftGui.startCountdown(3);
-        rightGui.startCountdown(3);
-
-        // configure per-player controls so each board only responds to its assigned keys
-        try {
-            // Attempt to load any persisted multiplayer overrides from Preferences so saved settings
-            // apply automatically when the match starts. Fall back to sensible defaults when
-            // values are missing or invalid.
-            Preferences prefs = Preferences.userNodeForPackage(com.comp2042.controller.mainMenu.MainMenuController.class);
-
-            // left player keys
-            javafx.scene.input.KeyCode lLeft = null;
-            javafx.scene.input.KeyCode lRight = null;
-            javafx.scene.input.KeyCode lRotate = null;
-            javafx.scene.input.KeyCode lDown = null;
-            javafx.scene.input.KeyCode lHard = null;
-            try {
-                String s = prefs.get("mpLeft_left", ""); if (!s.isEmpty()) lLeft = javafx.scene.input.KeyCode.valueOf(s);
-            } catch (Exception ignored) {}
-            try {
-                String s = prefs.get("mpLeft_right", ""); if (!s.isEmpty()) lRight = javafx.scene.input.KeyCode.valueOf(s);
-            } catch (Exception ignored) {}
-            try {
-                String s = prefs.get("mpLeft_rotate", ""); if (!s.isEmpty()) lRotate = javafx.scene.input.KeyCode.valueOf(s);
-            } catch (Exception ignored) {}
-            try {
-                String s = prefs.get("mpLeft_down", ""); if (!s.isEmpty()) lDown = javafx.scene.input.KeyCode.valueOf(s);
-            } catch (Exception ignored) {}
-            try {
-                String s = prefs.get("mpLeft_hard", ""); if (!s.isEmpty()) lHard = javafx.scene.input.KeyCode.valueOf(s);
-            } catch (Exception ignored) {}
-
-            // right player keys
-            javafx.scene.input.KeyCode rLeft = null;
-            javafx.scene.input.KeyCode rRight = null;
-            javafx.scene.input.KeyCode rRotate = null;
-            javafx.scene.input.KeyCode rDown = null;
-            javafx.scene.input.KeyCode rHard = null;
-            try {
-                String s = prefs.get("mpRight_left", ""); if (!s.isEmpty()) rLeft = javafx.scene.input.KeyCode.valueOf(s);
-            } catch (Exception ignored) {}
-            try {
-                String s = prefs.get("mpRight_right", ""); if (!s.isEmpty()) rRight = javafx.scene.input.KeyCode.valueOf(s);
-            } catch (Exception ignored) {}
-            try {
-                String s = prefs.get("mpRight_rotate", ""); if (!s.isEmpty()) rRotate = javafx.scene.input.KeyCode.valueOf(s);
-            } catch (Exception ignored) {}
-            try {
-                String s = prefs.get("mpRight_down", ""); if (!s.isEmpty()) rDown = javafx.scene.input.KeyCode.valueOf(s);
-            } catch (Exception ignored) {}
-            try {
-                String s = prefs.get("mpRight_hard", ""); if (!s.isEmpty()) rHard = javafx.scene.input.KeyCode.valueOf(s);
-            } catch (Exception ignored) {}
-
-            // Apply left player keys (fall back to WASD + SHIFT)
-            leftGui.setControlKeys(
-                    lLeft != null ? lLeft : javafx.scene.input.KeyCode.A,
-                    lRight != null ? lRight : javafx.scene.input.KeyCode.D,
-                    lRotate != null ? lRotate : javafx.scene.input.KeyCode.W,
-                    lDown != null ? lDown : javafx.scene.input.KeyCode.S,
-                    lHard != null ? lHard : javafx.scene.input.KeyCode.SHIFT
-            );
-            leftGui.setSwapKey(leftSwap != null ? leftSwap : javafx.scene.input.KeyCode.Q);
-
-            // Apply right player keys (fall back to NumPad defaults)
-            rightGui.setControlKeys(
-                    rLeft != null ? rLeft : javafx.scene.input.KeyCode.NUMPAD4,
-                    rRight != null ? rRight : javafx.scene.input.KeyCode.NUMPAD6,
-                    rRotate != null ? rRotate : javafx.scene.input.KeyCode.NUMPAD8,
-                    rDown != null ? rDown : javafx.scene.input.KeyCode.NUMPAD5,
-                    rHard != null ? rHard : javafx.scene.input.KeyCode.SPACE
-            );
-            rightGui.setSwapKey(rightSwap != null ? rightSwap : javafx.scene.input.KeyCode.C);
-        } catch (Exception ignored) {}
-
-        try {
-            javafx.application.Platform.runLater(() -> {
-                Scene scene = leftHolder.getScene();
-                if (scene == null) return;
-                ensureScoreBattleStylesheet(scene);
-                centerOverlay = new javafx.scene.layout.StackPane();
-                centerOverlay.setPickOnBounds(false);
-                centerOverlay.setMouseTransparent(true);
-
-                javafx.scene.layout.VBox v = new javafx.scene.layout.VBox(6); // tighter vertical spacing for top layout
-                v.setAlignment(javafx.geometry.Pos.TOP_CENTER);
-
-                matchTimerText = new javafx.scene.text.Text(formatTime(remainingSeconds));
-                matchTimerText.getStyleClass().add("score-battle-match-timer");
-
-                matchScoreText = new javafx.scene.text.Text("0  —  0");
-                matchScoreText.getStyleClass().add("score-battle-match-score");
-
-                v.getChildren().addAll(matchTimerText, matchScoreText);
-                centerOverlay.getChildren().add(v);
-
-                if (scene.getRoot() instanceof javafx.scene.layout.Pane) {
-                    javafx.scene.layout.Pane root = (javafx.scene.layout.Pane) scene.getRoot();
-                    root.getChildren().add(centerOverlay);
-                    centerOverlay.prefWidthProperty().bind(scene.widthProperty());
-                    centerOverlay.prefHeightProperty().bind(scene.heightProperty());
-                    StackPane.setAlignment(v, javafx.geometry.Pos.TOP_CENTER);
-                    v.translateYProperty().bind(scene.heightProperty().multiply(0.06));
-                }
-            });
-        } catch (Exception ignored) {}
-
-        matchTimer = new javafx.animation.Timeline(new javafx.animation.KeyFrame(javafx.util.Duration.seconds(1), _e -> {
-            java.util.Objects.requireNonNull(_e);
-            remainingSeconds--;
-            if (matchTimerText != null) matchTimerText.setText(formatTime(remainingSeconds));
-            updateMatchScoreText();
-            if (remainingSeconds <= 0) {
-                matchTimer.stop();
-                endMatchAndAnnounceWinner();
-            }
-        }));
-        matchTimer.setCycleCount(javafx.animation.Animation.INDEFINITE);
-
-        scheduleStartMusicWhenCountdownsDone();
-
-        try {
-            previewPoller = new javafx.animation.Timeline(new javafx.animation.KeyFrame(javafx.util.Duration.millis(300), _ev -> {
-                try {
-                    java.util.Objects.requireNonNull(_ev);
-                    if (leftController != null && leftGui != null) {
-                        java.util.List<com.comp2042.logic.Brick> up = leftController.getUpcomingBricks(3);
-                        if (leftNextContent != null) {
-                            javafx.scene.layout.VBox built = leftGui.buildNextPreview(up);
-                            leftNextContent.getChildren().clear();
-                            if (built != null) leftNextContent.getChildren().addAll(built.getChildren());
-                        } else {
-                            if (up != null) leftGui.showNextBricks(up);
-                        }
-                    }
-                    if (rightController != null && rightGui != null) {
-                        java.util.List<com.comp2042.logic.Brick> up2 = rightController.getUpcomingBricks(3);
-                        if (rightNextContent != null) {
-                            javafx.scene.layout.VBox built2 = rightGui.buildNextPreview(up2);
-                            rightNextContent.getChildren().clear();
-                            if (built2 != null) rightNextContent.getChildren().addAll(built2.getChildren());
-                        } else {
-                            if (up2 != null) rightGui.showNextBricks(up2);
-                        }
-                    }
-                } catch (Exception e) {
-                    e.printStackTrace();
-                }
-            }));
-            previewPoller.setCycleCount(javafx.animation.Animation.INDEFINITE);
-            previewPoller.play();
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
+        // delegate into the initializer which contains the refactored logic
+        ScoreBattleInitializer.initBothGames(this, leftSwap, rightSwap);
     }
 
-    private void onBack(ActionEvent ev) {
+    void onBack(ActionEvent ev) {
         try {
             URL loc = getClass().getClassLoader().getResource("mainMenu.fxml");
             if (loc == null) return;
             FXMLLoader loader = new FXMLLoader(loc);
             Parent menuRoot = loader.load();
-            Stage stage = (Stage) backBtn.getScene().getWindow();
+
+            // prefer leftHolder's scene as the host; fallback to rightHolder
+            Stage stage = null;
+            try { if (leftHolder != null && leftHolder.getScene() != null) stage = (Stage) leftHolder.getScene().getWindow(); } catch (Exception ignored) {}
+            try { if (stage == null && rightHolder != null && rightHolder.getScene() != null) stage = (Stage) rightHolder.getScene().getWindow(); } catch (Exception ignored) {}
+            if (stage == null) return;
+
             if (stage.getScene() != null) {
                 try { cleanup(); } catch (Exception ignored) {}
                 stage.getScene().setRoot(menuRoot);
@@ -980,66 +343,80 @@ public class ScoreBattleController implements Initializable {
         } catch (Exception ignored) {}
     }
 
-    private void scheduleStartMusicWhenCountdownsDone() {
+    void scheduleStartMusicWhenCountdownsDone() {
         try {
             if (leftGui == null || rightGui == null) return;
 
-            bothFinishedListener = (obs, oldV, newV) -> {
-                try {
-                    java.util.Objects.requireNonNull(obs);
-                    java.util.Objects.requireNonNull(oldV);
-                    java.util.Objects.requireNonNull(newV);
-                    boolean l = false, r = false;
-                    try { l = leftGui.countdownFinishedProperty().get(); } catch (Exception ignored) {}
-                    try { r = rightGui.countdownFinishedProperty().get(); } catch (Exception ignored) {}
-                    if (l && r) {
-                        try {
-                            if (matchTimer != null && matchTimer.getStatus() != javafx.animation.Animation.Status.RUNNING) {
-                                matchTimer.play();
-                            }
-                        } catch (Exception ignored) {}
-
-                        try {
-                            if (scoreBattleMusicPlayer == null) {
-                                try {
-                                    if (soundManager != null) {
-                                        scoreBattleMusicPlayer = soundManager.createMediaPlayer("/sounds/ScoreBattle.wav", true, null);
-                                        if (scoreBattleMusicPlayer != null) scoreBattleMusicPlayer.play();
-                                    } else {
-                                        URL musicUrl = getClass().getClassLoader().getResource("sounds/ScoreBattle.wav");
-                                        if (musicUrl == null) musicUrl = getClass().getClassLoader().getResource("sounds/ScoreBattle.mp3");
-                                        if (musicUrl != null) {
-                                            Media m = new Media(musicUrl.toExternalForm());
-                                            scoreBattleMusicPlayer = new MediaPlayer(m);
-                                            scoreBattleMusicPlayer.setCycleCount(MediaPlayer.INDEFINITE);
-                                            scoreBattleMusicPlayer.setAutoPlay(true);
-                                        }
-                                    }
-                                } catch (Exception ex) { ex.printStackTrace(); }
-                            } else {
-                                try { scoreBattleMusicPlayer.play(); } catch (Exception ignored) {}
-                            }
-                        } catch (Exception e) {
-                            e.printStackTrace();
-                        }
-                    }
-                } catch (Exception ignored) {}
-            };
-
-            // attach listener to both countdownFinished properties
-            try { leftGui.countdownFinishedProperty().addListener(bothFinishedListener); } catch (Exception ignored) {}
-            try { rightGui.countdownFinishedProperty().addListener(bothFinishedListener); } catch (Exception ignored) {}
-
-            // If both already finished (edge case), trigger immediately
-            try {
-                if (leftGui.countdownFinishedProperty().get() && rightGui.countdownFinishedProperty().get() && bothFinishedListener != null) {
-                    bothFinishedListener.changed(null, Boolean.FALSE, Boolean.TRUE);
-                }
-            } catch (Exception ignored) {}
+            bothFinishedListener = buildBothFinishedListener();
+            attachCountdownFinishedListeners();
+            triggerBothFinishedIfAlreadyDone();
         } catch (Exception ignored) {}
     }
 
-    private void endMatchAndAnnounceWinner() {
+    private javafx.beans.value.ChangeListener<Boolean> buildBothFinishedListener() {
+        return (obs, oldV, newV) -> {
+            try {
+                java.util.Objects.requireNonNull(obs);
+                java.util.Objects.requireNonNull(oldV);
+                java.util.Objects.requireNonNull(newV);
+                boolean l = false, r = false;
+                try { l = leftGui.countdownFinishedProperty().get(); } catch (Exception ignored) {}
+                try { r = rightGui.countdownFinishedProperty().get(); } catch (Exception ignored) {}
+                if (l && r) {
+                    onBothCountdownsFinished();
+                }
+            } catch (Exception ignored) {}
+        };
+    }
+
+    private void attachCountdownFinishedListeners() {
+        try { leftGui.countdownFinishedProperty().addListener(bothFinishedListener); } catch (Exception ignored) {}
+        try { rightGui.countdownFinishedProperty().addListener(bothFinishedListener); } catch (Exception ignored) {}
+    }
+
+    private void triggerBothFinishedIfAlreadyDone() {
+        try {
+            if (leftGui.countdownFinishedProperty().get() && rightGui.countdownFinishedProperty().get() && bothFinishedListener != null) {
+                bothFinishedListener.changed(null, Boolean.FALSE, Boolean.TRUE);
+            }
+        } catch (Exception ignored) {}
+    }
+
+    private void onBothCountdownsFinished() {
+        try {
+            try {
+                if (matchTimer != null && matchTimer.getStatus() != javafx.animation.Animation.Status.RUNNING) {
+                    matchTimer.play();
+                }
+            } catch (Exception ignored) {}
+
+            try {
+                if (scoreBattleMusicPlayer == null) {
+                    try {
+                        if (soundManager != null) {
+                            scoreBattleMusicPlayer = soundManager.createMediaPlayer("/sounds/ScoreBattle.wav", true, null);
+                            if (scoreBattleMusicPlayer != null) scoreBattleMusicPlayer.play();
+                        } else {
+                            URL musicUrl = getClass().getClassLoader().getResource("sounds/ScoreBattle.wav");
+                            if (musicUrl == null) musicUrl = getClass().getClassLoader().getResource("sounds/ScoreBattle.mp3");
+                            if (musicUrl != null) {
+                                Media m = new Media(musicUrl.toExternalForm());
+                                scoreBattleMusicPlayer = new MediaPlayer(m);
+                                scoreBattleMusicPlayer.setCycleCount(MediaPlayer.INDEFINITE);
+                                scoreBattleMusicPlayer.setAutoPlay(true);
+                            }
+                        }
+                    } catch (Exception ex) { ex.printStackTrace(); }
+                } else {
+                    try { scoreBattleMusicPlayer.play(); } catch (Exception ignored) {}
+                }
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        } catch (Exception ignored) {}
+    }
+
+    void endMatchAndAnnounceWinner() {
         // stop any match music immediately
     try { if (scoreBattleMusicPlayer != null) { try { if (soundManager != null) soundManager.disposeMediaPlayer(scoreBattleMusicPlayer); else { scoreBattleMusicPlayer.stop(); scoreBattleMusicPlayer.dispose(); } } catch (Exception ignored) {} scoreBattleMusicPlayer = null; } } catch (Exception ignored) {}
         try { stopMatchCountdownSound(); } catch (Exception ignored) {}
