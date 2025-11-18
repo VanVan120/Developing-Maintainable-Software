@@ -27,7 +27,7 @@ import java.util.function.Consumer;
  * {@code settingsOptions} pane; it returns the chosen values through the
  * {@code onSave} callback.
  *
- * <p>Threading & side-effects:
+ * <p>Threading &amp; side-effects:
  * - The method performs JavaFX UI operations and uses {@code
  *   Platform.runLater} for scene-dependent bindings; callers should invoke
  *   it from the FX thread or accept that the helper will schedule UI work.

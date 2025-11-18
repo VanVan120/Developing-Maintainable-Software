@@ -25,7 +25,7 @@ public final class GuiCountdownController {
      * controller by wrapping calls in try/catch blocks.</p>
      *
      * @param controller the GUI controller providing UI nodes and callbacks
-     * @param seconds number of seconds to count down (3 if <= 0)
+    * @param seconds number of seconds to count down (3 if {@code <= 0})
      * @return a {@link Timeline} configured to run the visual countdown, or
      *         {@code null} if the context could not be prepared
      */

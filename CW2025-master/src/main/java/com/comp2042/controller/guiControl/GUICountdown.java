@@ -30,7 +30,7 @@ public class GuiCountdown {
     /**
      * Create and return a {@link Timeline} that performs a visual countdown.
      *
-     * @param seconds number of seconds to count down (defaults to 3 when <= 0)
+    * @param seconds number of seconds to count down (defaults to 3 when {@code <= 0})
      * @param ctx context object providing callbacks and UI nodes used by the countdown
      * @return a configured {@link Timeline} ready to be started, or {@code null}
      *         if {@code ctx} is {@code null}
