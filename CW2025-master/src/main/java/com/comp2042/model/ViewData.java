@@ -18,6 +18,17 @@ public final class ViewData {
     private final int yPosition;
     private final int[][] nextBrickData;
 
+    /**
+     * Create a new immutable snapshot describing the view state.
+     *
+     * @param brickData   matrix for the active piece (rows x cols). A defensive
+     *                    copy is taken; callers may continue to mutate their
+     *                    reference without affecting this instance.
+     * @param xPosition   horizontal position (x offset) of the active piece.
+     * @param yPosition   vertical position (y offset) of the active piece.
+     * @param nextBrickData preview matrix for the next piece; also copied
+     *                      defensively.
+     */
     public ViewData(int[][] brickData, int xPosition, int yPosition, int[][] nextBrickData) {
         // defensive copies to avoid retaining references to mutable caller-owned arrays
         this.brickData = MatrixOperations.copy(brickData);
@@ -26,28 +37,44 @@ public final class ViewData {
         this.nextBrickData = MatrixOperations.copy(nextBrickData);
     }
 
-    /** Returns a defensive copy of the current brick matrix. */
+    /**
+     * @return a defensive copy of the current brick matrix (active piece).
+     */
     public int[][] getBrickData() {
         return MatrixOperations.copy(brickData);
     }
 
-    /** Legacy-style getter retained for compatibility. */
+    /**
+     * Legacy-style getter retained for compatibility.
+     *
+     * @return the legacy x position value.
+     */
     public int getxPosition() {
         return xPosition;
     }
 
-    /** Legacy-style getter retained for compatibility. */
+    /**
+     * Legacy-style getter retained for compatibility.
+     *
+     * @return the legacy y position value.
+     */
     public int getyPosition() {
         return yPosition;
     }
 
-    /** Alternative getter using conventional Java naming. */
+    /**
+     * @return the horizontal position (x offset) of the active piece.
+     */
     public int getXPosition() { return getxPosition(); }
 
-    /** Alternative getter using conventional Java naming. */
+    /**
+     * @return the vertical position (y offset) of the active piece.
+     */
     public int getYPosition() { return getyPosition(); }
 
-    /** Returns a defensive copy of the next-brick preview matrix. */
+    /**
+     * @return a defensive copy of the next-piece preview matrix.
+     */
     public int[][] getNextBrickData() {
         return MatrixOperations.copy(nextBrickData);
     }

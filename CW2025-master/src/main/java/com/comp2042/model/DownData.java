@@ -1,10 +1,12 @@
 package com.comp2042.model;
 
 /**
- * Result of a "down" operation for a player: may contain cleared-row
- * information and the ViewData describing how the view should be updated.
+ * Immutable result of a "down" operation for a player.
  *
- * Instances are immutable holders.
+ * This object groups any {@link ClearRow} information produced when rows are
+ * cleared with the {@link ViewData} snapshot that renderers use to update the
+ * display. Instances are immutable and safe to share between game logic and
+ * rendering code.
  */
 public final class DownData {
     private final ClearRow clearRow;
@@ -15,10 +17,19 @@ public final class DownData {
         this.viewData = viewData;
     }
 
+    /**
+     * @return information about rows cleared by the down operation, or
+     *         {@code null} if no rows were cleared.
+     */
     public ClearRow getClearRow() {
         return clearRow;
     }
 
+    /**
+     * @return a snapshot describing the board and active piece position after
+     *         the down operation. The returned value should be treated as an
+     *         immutable snapshot.
+     */
     public ViewData getViewData() {
         return viewData;
     }

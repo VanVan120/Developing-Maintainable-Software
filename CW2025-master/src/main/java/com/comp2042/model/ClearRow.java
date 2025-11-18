@@ -24,24 +24,38 @@ public final class ClearRow {
         this.clearedRows = (clearedRows == null) ? new int[0] : clearedRows.clone();
     }
 
-    /** Number of lines removed by this clear operation. */
+    /**
+     * Number of lines removed by this clear operation.
+     *
+     * @return the count of lines removed.
+     */
     public int getLinesRemoved() {
         return linesRemoved;
     }
 
     /**
      * Return a defensive copy of the new board matrix after rows were cleared.
+     *
+     * @return a fresh copy of the board matrix reflecting removed rows.
      */
     public int[][] getNewMatrix() {
         return MatrixOperations.copy(newMatrix);
     }
 
-    /** Score bonus awarded for this clear operation. */
+    /**
+     * Score bonus awarded for this clear operation.
+     *
+     * @return the score bonus value.
+     */
     public int getScoreBonus() {
         return scoreBonus;
     }
     
-    /** Return a defensive copy of the cleared row indices (may be empty). */
+    /**
+     * Return a defensive copy of the cleared row indices (may be empty).
+     *
+     * @return an array with the indices of cleared rows.
+     */
     public int[] getClearedRows() {
         return clearedRows == null ? new int[0] : clearedRows.clone();
     }
