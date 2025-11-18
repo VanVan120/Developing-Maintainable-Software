@@ -3,41 +3,57 @@ package com.comp2042.input;
 import com.comp2042.model.DownData;
 import com.comp2042.model.ViewData;
 
+/**
+ * Listener interface for input events produced by the input subsystem.
+ *
+ * <p>Implementations (typically controllers or game model adapters) receive
+ * higher-level move events encapsulated in {@link MoveEvent} and return
+ * model/view updates as required. Implementations should be resilient to
+ * {@code null} fields inside {@link MoveEvent}.
+ */
 public interface InputEventListener {
 
     /**
-     * Called when a "down" input occurs (soft/hard drop or repeated down).
+     * Handle a down-type input (soft/hard drop or repeated down).
      *
-     * @param event details about the move
-     * @return DownData produced by handling the event; may be null if not used
+     * @param event details about the input; event may be non-null
+     * @return a {@link DownData} instance describing the down action results
+     *         (may be {@code null} if not applicable)
      */
     DownData onDownEvent(MoveEvent event);
 
     /**
-     * Called when a left movement input is requested.
+     * Handle a left move request.
      *
-     * @param event details about the move
-     * @return a ViewData describing how the view should change (may be null)
+     * @param event details about the input request
+     * @return a {@link ViewData} describing view updates (may be {@code null})
      */
     ViewData onLeftEvent(MoveEvent event);
 
     /**
-     * Called when a right movement input is requested.
+     * Handle a right move request.
      *
-     * @param event details about the move
-     * @return a ViewData describing how the view should change (may be null)
+     * @param event details about the input request
+     * @return a {@link ViewData} describing view updates (may be {@code null})
      */
     ViewData onRightEvent(MoveEvent event);
 
     /**
-     * Called when a rotation input is requested.
+     * Handle a rotation request.
      *
-     * @param event details about the move
-     * @return a ViewData describing how the view should change (may be null)
+     * @param event details about the input request
+     * @return a {@link ViewData} describing view updates (may be {@code null})
      */
     ViewData onRotateEvent(MoveEvent event);
 
+    /**
+     * Signal to the listener that a new game should be created/initialized.
+     */
     void createNewGame();
 
+    /**
+     * Optional callback triggered when a swap piece action is requested.
+     * Default implementation does nothing.
+     */
     default void onSwapEvent() {}
 }
