@@ -23,6 +23,23 @@ import java.io.IOException;
 import java.net.URL;
 import java.util.ResourceBundle;
 
+/**
+ * Controller coordinating a two-player "Score Battle" match.
+ *
+ * Responsibilities:
+ * - Create and attach two embedded single-player `GuiController` instances.
+ * - Coordinate match-level UI such as the central timer, match score, overlays
+ *   and winner announcement.
+ * - Manage shared audio (match music, countdown, game-over sound) with a
+ *   `SoundManager` fallback to a local `MediaPlayer` when required.
+ *
+ * Threading: most public methods that manipulate the scene graph ensure execution
+ * on the JavaFX Application Thread (via `Platform.runLater`) when needed.
+ *
+ * Note: this class uses several package-visible helper methods and fields which
+ * are accessed by `ScoreBattleInitializer` via reflection. Do not rename hard-
+ * coded field names without updating the initializer.
+ */
 public class ScoreBattleController implements Initializable {
 
     @FXML StackPane leftHolder;
@@ -94,6 +111,14 @@ public class ScoreBattleController implements Initializable {
         } catch (Exception ignored) {}
     }
 
+    /**
+     * Play the shared game-over sound for the match.
+     *
+     * Tries the injected `SoundManager` first; if unavailable falls back to a
+     * local `MediaPlayer`. This method catches exceptions and is safe to call
+     * from the JavaFX thread or background threads (internal calls marshals to
+     * FX thread where necessary).
+     */
     private void playMatchGameOverSound() {
         try {
             if (soundManager != null) {
@@ -117,6 +142,12 @@ public class ScoreBattleController implements Initializable {
         } catch (Exception ignored) {}
     }
 
+    /**
+     * Stop and dispose any match-level game-over audio previously started.
+     *
+     * Safe to call repeatedly; swallows exceptions to avoid interrupting
+     * teardown paths.
+     */
     private void stopMatchGameOverSound() {
         try {
             if (soundManager != null) {
@@ -131,6 +162,13 @@ public class ScoreBattleController implements Initializable {
         } catch (Exception ignored) {}
     }
 
+    /**
+     * Start the looping countdown audio used during synchronized countdowns.
+     *
+     * Prefers `SoundManager` but falls back to a local `MediaPlayer`.
+     * The method is resilient to missing resources and will silently no-op
+     * when no audio is available.
+     */
     void playMatchCountdownSound() {
         try {
             if (soundManager != null) {
@@ -169,6 +207,15 @@ public class ScoreBattleController implements Initializable {
         } catch (Exception ignored) {}
     }
 
+    /**
+     * Show the multiplayer controls overlay for both embedded GUIs.
+     *
+     * This method ensures the overlay is created on the FX thread and
+     * pauses both embedded GUIs while the overlay is visible. The provided
+     * `requester` is used to focus or return control once the overlay closes.
+     *
+     * @param requester GUI that requested the overlay; may be {@code null}.
+     */
     void showMultiplayerControlsOverlay(GuiController requester) {
         javafx.application.Platform.runLater(() -> {
             try {
@@ -182,6 +229,14 @@ public class ScoreBattleController implements Initializable {
         });
     }
 
+    /**
+     * Restart the current match.
+     *
+     * Stops all match-level audio and timers, reinitializes both game
+     * controllers via `createNewGame()` and starts a synchronized countdown.
+     * This method always schedules UI updates on the JavaFX Application
+     * Thread.
+     */
     public void restartMatch() {
         javafx.application.Platform.runLater(() -> {
             try {
@@ -244,6 +299,13 @@ public class ScoreBattleController implements Initializable {
         ScoreBattleInitializer.initBothGames(this, leftSwap, rightSwap);
     }
 
+    /**
+     * Handler invoked when the user navigates back to the main menu.
+     *
+     * Attempts to cleanup match resources and replace the current scene root
+     * with the main menu. This method performs I/O (FXML load) and should be
+     * called on the JavaFX thread (it invokes UI code directly).
+     */
     void onBack(ActionEvent ev) {
         try {
             URL loc = getClass().getClassLoader().getResource("mainMenu.fxml");
@@ -277,6 +339,11 @@ public class ScoreBattleController implements Initializable {
         }
     }
 
+    /**
+     * Ensure the match-specific stylesheet (`css/score-battle.css`) is present
+     * on the provided `Scene`. No-op if the scene is {@code null} or the CSS
+     * resource is missing.
+     */
     private void ensureScoreBattleStylesheet(Scene scene) {
         try {
             if (scene == null) return;
@@ -294,6 +361,13 @@ public class ScoreBattleController implements Initializable {
         return String.format("%02d:%02d", mins, secs);
     }
 
+    /**
+     * Clean up all match-level resources.
+     *
+     * Stops and disposes timers, audio players, removes listeners from the
+     * embedded GUIs and nulls references so the controller can be garbage
+     * collected. This method is idempotent and safe to call multiple times.
+     */
     public void cleanup() {
         try { if (matchTimer != null) { matchTimer.stop(); matchTimer = null; } } catch (Exception ignored) {}
         try { if (previewPoller != null) { previewPoller.stop(); previewPoller = null; } } catch (Exception ignored) {}
@@ -335,6 +409,10 @@ public class ScoreBattleController implements Initializable {
         try { leftIsGameOverListener = null; rightIsGameOverListener = null; sharedCountdownStartedListener = null; bothFinishedListener = null; } catch (Exception ignored) {}
     }
 
+    /**
+     * Update the central match score text using the embedded controllers'
+     * score properties. Safe if either controller is not available.
+     */
     private void updateMatchScoreText() {
         try {
             int ls = (leftController != null) ? leftController.getScoreProperty().get() : 0;
@@ -343,6 +421,11 @@ public class ScoreBattleController implements Initializable {
         } catch (Exception ignored) {}
     }
 
+    /**
+     * Arrange for match music to be started once both embedded GUIs' countdown
+     * sequences have finished. This wires listeners on the embedded GUI
+     * properties and is safe to call multiple times.
+     */
     void scheduleStartMusicWhenCountdownsDone() {
         try {
             if (leftGui == null || rightGui == null) return;
@@ -353,6 +436,11 @@ public class ScoreBattleController implements Initializable {
         } catch (Exception ignored) {}
     }
 
+    /**
+     * Build a listener which triggers when both embedded GUIs report their
+     * countdowns finished. The returned listener calls back into
+     * `onBothCountdownsFinished` when the condition holds.
+     */
     private javafx.beans.value.ChangeListener<Boolean> buildBothFinishedListener() {
         return (obs, oldV, newV) -> {
             try {
@@ -369,11 +457,17 @@ public class ScoreBattleController implements Initializable {
         };
     }
 
+    /** Attach listeners built by {@link #buildBothFinishedListener()} to both GUIs. */
     private void attachCountdownFinishedListeners() {
         try { leftGui.countdownFinishedProperty().addListener(bothFinishedListener); } catch (Exception ignored) {}
         try { rightGui.countdownFinishedProperty().addListener(bothFinishedListener); } catch (Exception ignored) {}
     }
 
+    /**
+     * If both embedded GUIs have already finished their countdown prior to
+     * listener attachment, trigger the listener immediately to avoid missing
+     * the event.
+     */
     private void triggerBothFinishedIfAlreadyDone() {
         try {
             if (leftGui.countdownFinishedProperty().get() && rightGui.countdownFinishedProperty().get() && bothFinishedListener != null) {
@@ -382,6 +476,10 @@ public class ScoreBattleController implements Initializable {
         } catch (Exception ignored) {}
     }
 
+    /**
+     * Called once both embedded GUIs have finished their countdown. Starts
+     * the match timer and (if configured) begins match background music.
+     */
     private void onBothCountdownsFinished() {
         try {
             try {
@@ -416,6 +514,12 @@ public class ScoreBattleController implements Initializable {
         } catch (Exception ignored) {}
     }
 
+    /**
+     * End the match and present a winner overlay.
+     *
+     * Stops music and timers, marks internal state and schedules an overlay
+     * on the FX thread which displays the results and restart/menu actions.
+     */
     void endMatchAndAnnounceWinner() {
         // stop any match music immediately
     try { if (scoreBattleMusicPlayer != null) { try { if (soundManager != null) soundManager.disposeMediaPlayer(scoreBattleMusicPlayer); else { scoreBattleMusicPlayer.stop(); scoreBattleMusicPlayer.dispose(); } } catch (Exception ignored) {} scoreBattleMusicPlayer = null; } } catch (Exception ignored) {}
@@ -461,6 +565,13 @@ public class ScoreBattleController implements Initializable {
         });
     }
 
+    /**
+     * Construct and display the match winner overlay on the FX thread.
+     *
+     * This creates a centered panel with restart/menu actions and a small
+     * entrance animation. All UI mutations are executed on the JavaFX
+     * Application Thread.
+     */
     private void showWinnerOverlay(String title, int ls, int rs, String reason) {
         // Use the same centered Match Over layout used elsewhere but with a fully black background
         javafx.application.Platform.runLater(() -> {

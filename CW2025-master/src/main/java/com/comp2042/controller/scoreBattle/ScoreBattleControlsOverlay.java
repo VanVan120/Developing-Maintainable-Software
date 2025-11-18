@@ -23,12 +23,30 @@ public class ScoreBattleControlsOverlay {
     private final GuiController leftGui;
     private final GuiController rightGui;
 
+    /**
+     * Create an overlay helper that builds and shows the multiplayer controls
+     * panel inside the supplied `Scene` and for the two embedded GUI
+     * controllers.
+     *
+     * @param scene the host scene where the overlay will be attached; may be null
+     * @param leftGui left player's `GuiController`; may be null
+     * @param rightGui right player's `GuiController`; may be null
+     */
     public ScoreBattleControlsOverlay(Scene scene, GuiController leftGui, GuiController rightGui) {
         this.scene = scene;
         this.leftGui = leftGui;
         this.rightGui = rightGui;
     }
 
+    /**
+     * Public entry point to display the controls overlay.
+     *
+     * Ensures construction and scene-graph changes occur on the JavaFX
+     * Application Thread. The provided `requester` will be passed to the
+     * internal implementation to allow returning focus when the overlay closes.
+     *
+     * @param requester the GUI controller that requested the overlay; may be null
+     */
     public void show(com.comp2042.controller.guiControl.GuiController requester) {
         // run on FX thread if not already
         javafx.application.Platform.runLater(() -> {
@@ -38,6 +56,15 @@ public class ScoreBattleControlsOverlay {
         });
     }
 
+    /**
+     * Internal implementation that constructs the overlay UI and attaches it
+     * to the scene. This method mutates the scene graph and therefore must be
+     * called on the JavaFX Application Thread. It may throw exceptions when
+     * loading FXML resources.
+     *
+     * @param requester the GUI that requested the overlay; may be null
+     * @throws Exception when FXML loading or initialization fails
+     */
     private void showInternal(com.comp2042.controller.guiControl.GuiController requester) throws Exception {
         if (scene == null) return;
 
@@ -127,6 +154,11 @@ public class ScoreBattleControlsOverlay {
         });
     }
 
+    /**
+     * Initialize the two controls panels from the running GUIs and stored
+     * preferences. Applies sensible defaults when preferences are missing and
+     * sets up key-availability checks to prevent duplicate bindings.
+     */
     private void initPanels(StackPane leftPane, ControlsController leftCC, StackPane rightPane, ControlsController rightCC) {
         Preferences overlayPrefs = Preferences.userNodeForPackage(com.comp2042.controller.mainMenu.MainMenuController.class);
         try {
@@ -225,6 +257,13 @@ public class ScoreBattleControlsOverlay {
         } catch (Exception ignored) {}
     }
 
+    /**
+     * Apply the selected key bindings from the controls panels to the running
+     * `GuiController` instances and persist them into `Preferences`.
+     *
+     * This operation is best-effort and catches exceptions internally to
+     * avoid leaving the overlay in an inconsistent state.
+     */
     private void applyAndPersist(ControlsController leftCC, ControlsController rightCC) {
         try {
             // left
@@ -267,6 +306,11 @@ public class ScoreBattleControlsOverlay {
         } catch (Exception ignored) {}
     }
 
+    /**
+     * Close the overlay and restore any nodes which were temporarily hidden
+     * (for example, the global pause overlay). Safe to call when the overlay
+     * is already removed.
+     */
     private void closeAndRestore(StackPane overlay) {
         try {
             if (overlay.getParent() instanceof javafx.scene.layout.Pane) {

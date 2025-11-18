@@ -26,6 +26,7 @@ import java.util.prefs.Preferences;
  * Uses reflection to set private fields on the controller so callers
  * can remain unchanged while logic lives in this helper class.
  */
+ 
 public final class ScoreBattleInitializer {
 
     private ScoreBattleInitializer() {}
@@ -424,7 +425,7 @@ public final class ScoreBattleInitializer {
     private static void showMultiplayerControls(ScoreBattleController ctrl, GuiController requester) {
         try {
             // delegate to controller's existing private method via reflection
-            runMethod(ctrl, "showMultiplayerControlsOverlay", requester);
+            runMethod(ctrl, "showMultiplayerControlsOverlay", requester); // Delegate to the controller's private overlay method via reflection.
         } catch (Exception ignored) {}
     }
 
@@ -434,6 +435,11 @@ public final class ScoreBattleInitializer {
         return f.get(target);
     }
 
+    /**
+     * Reflectively set the named field on the target object.
+     *
+     * @throws Exception on reflection errors
+     */
     private static void setField(Object target, String name, Object value) throws Exception {
         Field f = target.getClass().getDeclaredField(name);
         f.setAccessible(true);
@@ -454,6 +460,11 @@ public final class ScoreBattleInitializer {
         }
     }
 
+    /**
+     * Find a declared method by name with the matching parameter count. The
+     * simple matching avoids strict type checks to allow invocation with null
+     * or boxed primitives.
+     */
     private static java.lang.reflect.Method findMethod(Class<?> cls, String name, Class<?>[] types) throws NoSuchMethodException {
         for (java.lang.reflect.Method m : cls.getDeclaredMethods()) {
             if (!m.getName().equals(name)) continue;
@@ -474,6 +485,7 @@ public final class ScoreBattleInitializer {
         } catch (Exception ignored) {}
     }
 
+    /** Render seconds as a MM:SS formatted string. */
     private static String formatTime(int seconds) {
         int mins = seconds / 60;
         int secs = seconds % 60;
