@@ -14,10 +14,27 @@ import javafx.util.Duration;
 /**
  * Small UI helper that encapsulates countdown overlay creation and timeline.
  */
+/**
+ * Small UI helper that encapsulates creation and lifecycle of a visual
+ * countdown used before game-start.
+ *
+ * <p>The countdown displays numeric ticks and a final "Start" label, runs
+ * simple scale/fade animations and coordinates with the supplied
+ * {@link GuiCountdownContext} for hiding/refreshing the underlying game UI
+ * while the countdown is visible.</p>
+ */
 public class GuiCountdown {
 
     private static void ignore(Runnable r) { try { r.run(); } catch (Exception ignored) {} }
 
+    /**
+     * Create and return a {@link Timeline} that performs a visual countdown.
+     *
+     * @param seconds number of seconds to count down (defaults to 3 when <= 0)
+     * @param ctx context object providing callbacks and UI nodes used by the countdown
+     * @return a configured {@link Timeline} ready to be started, or {@code null}
+     *         if {@code ctx} is {@code null}
+     */
     public static Timeline startCountdown(int seconds, GuiCountdownContext ctx) {
         if (seconds <= 0) seconds = 3;
         if (ctx == null) return null;

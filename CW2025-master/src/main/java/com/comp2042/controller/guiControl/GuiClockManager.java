@@ -5,6 +5,14 @@ package com.comp2042.controller.guiControl;
  * full clock methods; this class exists to centralize future refactoring and
  * to satisfy type references created during refactor.
  */
+/**
+ * Lightweight clock manager used by {@link GuiController} to track and display
+ * elapsed play time.
+ *
+ * <p>This helper drives a one-second JavaFX {@link javafx.animation.Timeline}
+ * that updates the {@code GuiController.timeValue} text. It records pause
+ * durations so the displayed time excludes paused intervals.</p>
+ */
 class GuiClockManager {
     private final GuiController owner;
     private long startTimeMs = 0;
@@ -15,7 +23,7 @@ class GuiClockManager {
         this.owner = owner;
     }
 
-    // Start the clock (runs on JavaFX thread)
+    /** Start or resume the clock. Safe to call from the JavaFX thread. */
     void startClock() {
         startTimeMs = System.currentTimeMillis() - pausedElapsedMs;
         if (clockTimeline != null) clockTimeline.stop();
@@ -29,16 +37,22 @@ class GuiClockManager {
         clockTimeline.play();
     }
 
+    /** Stop the running clock timeline without resetting elapsed time. */
     void stopClock() {
         if (clockTimeline != null) clockTimeline.stop();
     }
 
+    /** Reset the recorded time to zero and update the UI to show "00:00". */
     void resetClock() {
         pausedElapsedMs = 0;
         startTimeMs = System.currentTimeMillis();
         try { if (owner.timeValue != null) owner.timeValue.setText("00:00"); } catch (Exception ignored) {}
     }
 
+    /**
+     * Recompute the elapsed time and update the controller's time label.
+     * This method is invoked by the internal timeline once per second.
+     */
     void updateClock() {
         if (startTimeMs == 0) return;
         long elapsed = System.currentTimeMillis() - startTimeMs;
@@ -50,7 +64,7 @@ class GuiClockManager {
         }
     }
 
-    // Pause helper used when pausing from overlays
+    /** Pause the clock and record the elapsed time so it can be resumed. */
     void pauseAndRecord() {
         if (clockTimeline != null && clockTimeline.getStatus() == javafx.animation.Animation.Status.RUNNING) {
             pausedElapsedMs = System.currentTimeMillis() - startTimeMs;

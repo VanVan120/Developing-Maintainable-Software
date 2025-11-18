@@ -3,6 +3,12 @@ package com.comp2042.controller.guiControl;
 /**
  * High score manager stub. Kept minimal for incremental refactor.
  */
+/**
+ * Minimal high-score persistence helper used by {@link GuiController}.
+ *
+ * <p>Persists a single integer high score to a file in the user's home
+ * directory and updates the controller's UI when the stored value changes.</p>
+ */
 class GuiHighScoreManager {
     private final GuiController owner;
     private int highScore = 0;
@@ -12,6 +18,7 @@ class GuiHighScoreManager {
         this.owner = owner;
     }
 
+    /** Load the persisted high score from disk and update the UI label. */
     void loadHighScore() {
         java.nio.file.Path p = java.nio.file.Paths.get(HIGHSCORE_FILE);
         if (java.nio.file.Files.exists(p)) {
@@ -25,13 +32,19 @@ class GuiHighScoreManager {
         try { if (owner.highScoreValue != null) owner.highScoreValue.setText("Highest: " + highScore); } catch (Exception ignored) {}
     }
 
+    /** Persist the current high score to disk (best-effort, errors ignored). */
     void saveHighScore() {
         java.nio.file.Path p = java.nio.file.Paths.get(HIGHSCORE_FILE);
         try { java.nio.file.Files.writeString(p, Integer.toString(highScore), java.nio.charset.StandardCharsets.UTF_8); } catch (java.io.IOException ignored) {}
     }
 
+    /** Return the currently loaded high score. */
     int getHighScore() { return highScore; }
 
+    /**
+     * Notify the manager of a new score; if it exceeds the stored high score
+     * the value is updated, persisted and the UI label briefly animated.
+     */
     void onNewScore(int current) {
         if (current > highScore) {
             highScore = current;

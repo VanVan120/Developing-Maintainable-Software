@@ -60,9 +60,12 @@ public final class GuiOverlays {
         overlay.getChildren().addAll(dark, dialog);
         return overlay;
     }
-
     /**
      * Show the pause overlay (build + add to root) and pause timelines/notify.
+     *
+     * <p>This method runs UI updates on the JavaFX thread and ensures the
+     * controller's timelines are paused and multiplayer coordinators are
+     * notified.</p>
      */
     public static void showPauseOverlay(GuiController controller) {
         if (controller == null) return;

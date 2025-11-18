@@ -11,8 +11,16 @@ import javafx.util.Duration;
 /**
  * Helper class for particle/visual effects previously living in GuiController.
  */
+/**
+ * Helper class for particle/visual effects previously living in GuiController.
+ *
+ * <p>It provides small convenience methods to spawn explosions, row-clear
+ * particles and to flash rows; all methods are best-effort and tolerate a
+ * missing particle pane or board view.</p>
+ */
 public class GuiParticleHelpers {
 
+    /** Spawn an explosion effect centred on rows cleared or the landing position. */
     public static void spawnExplosion(GuiController controller, ClearRow clearRow, ViewData v) {
         if (controller.particlePane == null) return;
         try {
@@ -57,6 +65,7 @@ public class GuiParticleHelpers {
         spawnExplosionAtLanding(controller, v);
     }
 
+    /** Spawn an explosion at the brick's landing coordinates (fallback). */
     public static void spawnExplosionAtLanding(GuiController controller, ViewData v) {
         if (v == null || controller.particlePane == null) return;
         int brickX = v.getxPosition();
@@ -66,6 +75,7 @@ public class GuiParticleHelpers {
         spawnParticlesAt(controller, centerX, centerY, v.getBrickData());
     }
 
+    /** Convert board coordinates into particle-pane local coordinates. */
     public static javafx.geometry.Point2D boardCoordsToParticleLocal(GuiController controller, double x, double y) {
         javafx.geometry.Point2D parentPt = new javafx.geometry.Point2D(x, y);
         javafx.geometry.Point2D scenePt = (controller.brickPanel != null && controller.brickPanel.getParent() != null)
@@ -74,20 +84,24 @@ public class GuiParticleHelpers {
         return (controller.particlePane != null) ? controller.particlePane.sceneToLocal(scenePt) : scenePt;
     }
 
+    /** Flash a row region at the given local coordinates. */
     public static void flashRowAt(GuiController controller, double leftXLocal, double topYLocal, double width, double height) {
         if (controller.particlePane == null) return;
         try { ParticleHelper.flashRowAt(controller.particlePane, leftXLocal, topYLocal, width, height); } catch (Exception ignored) {}
     }
 
+    /** Spawn particles across all cleared rows using the underlying ParticleHelper. */
     public static void spawnRowClearParticles(GuiController controller, ClearRow clearRow) {
         try { ParticleHelper.spawnRowClearParticles(controller.particlePane, clearRow, controller.displayMatrix, controller.getBoardView(), controller.baseOffsetX, controller.baseOffsetY, controller.cellW, controller.cellH, (controller.gameBoard != null) ? controller.gameBoard.getScene() : null); } catch (Exception ignored) {}
     }
 
+    /** Flash a row using board coordinates (wrapper). */
     public static void flashRow(GuiController controller, double topY, double width, double height) {
         if (controller.particlePane == null) return;
         try { ParticleHelper.flashRow(controller.particlePane, controller.baseOffsetX, topY, width, height); } catch (Exception ignored) {}
     }
 
+    /** Spawn particle effects at the given location using the provided brick shape. */
     public static void spawnParticlesAt(GuiController controller, double centerX, double centerY, int[][] brickShape) {
         try { ParticleHelper.spawnParticlesAt(controller.particlePane, centerX, centerY, brickShape); } catch (Exception ignored) {}
     }

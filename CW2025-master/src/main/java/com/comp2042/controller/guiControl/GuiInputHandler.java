@@ -22,9 +22,11 @@ class GuiInputHandler {
     GuiInputHandler(GuiController owner) {
         this.owner = owner;
     }
-
     /**
      * Attach key handlers to the provided scene and record the attached scene on the controller.
+     *
+     * <p>Handlers include press/release processing and an ESC handler which
+     * toggles the pause overlay.</p>
      */
     void attachToScene(Scene s) {
         if (s == null) return;
@@ -86,6 +88,12 @@ class GuiInputHandler {
         });
     }
 
+    /**
+     * Handle key-press events and map them to game input actions via the
+     * controller's {@code eventListener}. This method implements default
+     * key bindings and honours any custom key assignments stored on the
+     * {@link GuiController} instance.
+     */
     void processKeyPressed(KeyEvent keyEvent) {
         try { if (this.owner instanceof com.comp2042.controller.cooperateBattle.coopGUI.CoopGuiController) return; } catch (Exception ignored) {}
 
@@ -129,6 +137,9 @@ class GuiInputHandler {
         }
     }
 
+    /**
+     * Handle key-release events (primarily to restore soft-drop rate).
+     */
     void processKeyReleased(KeyEvent keyEvent) {
         try { if (this.owner instanceof com.comp2042.controller.cooperateBattle.coopGUI.CoopGuiController) return; } catch (Exception ignored) {}
         KeyCode code = keyEvent.getCode();
@@ -146,6 +157,11 @@ class GuiInputHandler {
         }
     }
 
+    /**
+     * Execute a hard-drop: repeatedly invoke the down-event until the piece
+     * locks, play effects and resume the timeline. This method performs a
+     * safety-limited loop to avoid infinite iteration.
+     */
     void hardDrop() {
         try {
             if (Boolean.FALSE.equals(owner.isPause.getValue()) && Boolean.FALSE.equals(owner.isGameOver.getValue()) && owner.eventListener != null) {

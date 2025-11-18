@@ -3,11 +3,32 @@ package com.comp2042.controller.guiControl;
 import javafx.animation.Timeline;
 
 /**
- * Helper to encapsulate the startCountdown wiring that was in GuiController.
+ * Helper to encapsulate the simple wiring required to start the game
+ * countdown overlay.
+ *
+ * <p>This small utility prepares a {@link GuiCountdownContext} populated from
+ * the provided {@link GuiController} and then delegates to
+ * {@link GuiCountdown#startCountdown(int, GuiCountdownContext)}. The helper
+ * centralises the mapping between controller internals and the countdown
+ * context so the controller itself remains focused on lifecycle and event
+ * handling.</p>
  */
 public final class GuiCountdownController {
     private GuiCountdownController() {}
 
+    /**
+     * Prepare the countdown context and return a configured {@link Timeline}.
+     *
+     * <p>The returned timeline is <em>not</em> started by this method; callers
+     * should call {@code play()} or {@code playFromStart()} on the result.
+     * The method is best-effort and tolerates missing helper instances on the
+     * controller by wrapping calls in try/catch blocks.</p>
+     *
+     * @param controller the GUI controller providing UI nodes and callbacks
+     * @param seconds number of seconds to count down (3 if <= 0)
+     * @return a {@link Timeline} configured to run the visual countdown, or
+     *         {@code null} if the context could not be prepared
+     */
     public static Timeline startCountdown(GuiController controller, int seconds) {
         try { controller.setPrevHighBeforeGame((controller.highScoreManager != null) ? controller.highScoreManager.getHighScore() : 0); } catch (Exception ignored) {}
         GuiCountdownContext ctx = new GuiCountdownContext();

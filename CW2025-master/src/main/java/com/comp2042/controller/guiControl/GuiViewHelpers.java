@@ -16,6 +16,12 @@ public class GuiViewHelpers {
      * to keep the controller slimmer. It uses controller-visible fields for sizing.
      */
     public static javafx.scene.layout.VBox buildNextPreview(GuiController controller, List<Brick> upcoming) {
+        /**
+         * Build the 'next pieces' preview VBox. This was extracted from
+         * {@link GuiController#showNextBricks} to keep the controller slimmer.
+         * The returned {@link javafx.scene.layout.VBox} contains up to three
+         * preview slots sized from the controller's configured cell dimensions.
+         */
         javafx.scene.layout.VBox container = new javafx.scene.layout.VBox(8);
         container.setAlignment(Pos.TOP_CENTER);
         if (upcoming == null || upcoming.isEmpty()) return container;

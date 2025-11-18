@@ -46,6 +46,20 @@ import javafx.scene.input.MouseEvent;
 import java.util.ResourceBundle;
  
  
+/**
+ * Primary JavaFX controller for the single-player / local-multiplayer game view.
+ *
+ * <p>This class coordinates the UI components for the game board, preview pane,
+ * score/time display, overlays (pause, controls, game-over) and delegates
+ * rendering and input handling to a set of small helper classes. It deliberately
+ * keeps only minimal game logic and instead calls into the application's
+ * event listener / game engine via {@link #setEventListener}.</p>
+ *
+ * <p>Most heavy-lifting UI helpers were extracted to package-private helper
+ * classes in the same package (e.g. {@code GuiRenderingHelpers},
+ * {@code GuiParticleHelpers}, {@code GuiInputHandler}) to keep this controller
+ * focused on wiring and lifecycle management.</p>
+ */
 public class GuiController implements Initializable {
 
     private static final int BRICK_SIZE = 24;
@@ -128,6 +142,12 @@ public class GuiController implements Initializable {
         // delegate full initialization to GuiInitialize
         GuiInitialize.initialize(this, location, resources);
     }
+
+    /**
+     * Initialize the controller and helper classes. This method is called by
+     * the JavaFX runtime during FXML loading and should not be invoked directly
+     * by consumers.
+     */
 
     // Toggle the pause overlay: show overlay if paused, otherwise resume
     private StackPane pauseOverlay = null;

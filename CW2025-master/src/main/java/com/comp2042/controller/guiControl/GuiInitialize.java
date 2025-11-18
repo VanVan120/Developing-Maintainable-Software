@@ -10,6 +10,13 @@ import java.net.URL;
 import java.util.Objects;
 import java.util.ResourceBundle;
 
+/**
+ * Small initialization helpers used by {@link GuiController} to keep the
+ * controller bootstrap code compact and testable.
+ *
+ * <p>Responsibilities include loading fonts, wiring up the {@link com.comp2042.audio.soundManager.SoundManager},
+ * attaching listeners for game-state changes and creating common layout bindings.</p>
+ */
 public final class GuiInitialize {
 
     private GuiInitialize() {}

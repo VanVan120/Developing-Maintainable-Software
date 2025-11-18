@@ -9,8 +9,15 @@ import javafx.scene.shape.Rectangle;
 /**
  * Rendering helpers extracted from GuiController to shrink the controller.
  */
+/**
+ * Rendering helpers extracted from {@link GuiController} to keep the controller
+ * focused on wiring and lifecycle. These helpers operate on the controller's
+ * visible rectangle matrices or delegate to an attached {@link BoardView} when
+ * present.
+ */
 class GuiRenderingHelpers {
 
+    /** Update the ghost-piece visual position based on the supplied view/board. */
     static void updateGhost(GuiController owner, ViewData brick, int[][] boardMatrix) {
         if (owner.getBoardView() != null) {
             owner.getBoardView().updateGhost(brick, boardMatrix);
@@ -68,6 +75,7 @@ class GuiRenderingHelpers {
         }
     }
 
+    /** Refresh the visual representation of the active brick. */
     static void doRefreshBrick(GuiController owner, ViewData brick) {
         if (owner.getBoardView() != null) { owner.getBoardView().refreshBrick(brick); return; }
         if (brick == null) return;
@@ -104,6 +112,7 @@ class GuiRenderingHelpers {
         updateGhost(owner, brick, owner.currentBoardMatrix);
     }
 
+    /** Refresh the static background/stack visuals using the provided board matrix. */
     static void refreshGameBackground(GuiController owner, int[][] board) {
         if (owner.getBoardView() != null) { owner.getBoardView().refreshGameBackground(board); return; }
         owner.currentBoardMatrix = board;
@@ -114,12 +123,14 @@ class GuiRenderingHelpers {
         }
     }
 
+    /** Set the rectangle paint and corner radius for a board cell. */
     static void setRectangleData(GuiController owner, int color, Rectangle rectangle) {
         rectangle.setFill(BoardView.mapCodeToPaint(color));
         rectangle.setArcHeight(9);
         rectangle.setArcWidth(9);
     }
 
+    /** Convert board grid coordinates to pixel coordinates within the controller. */
     static Point2D boardToPixel(GuiController owner, int boardX, int boardY) {
         if (owner.getBoardView() != null) return owner.getBoardView().boardToPixel(boardX, boardY);
         double x = owner.baseOffsetX + (boardX * owner.cellW);

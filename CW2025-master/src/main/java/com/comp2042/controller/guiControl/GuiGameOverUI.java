@@ -20,10 +20,16 @@ import javafx.scene.control.Button;
 /**
  * Small UI helper that provides game-over title, pulse animation and subtitle builder.
  */
+/**
+ * UI building helpers for the game-over overlay. Provides a title node,
+ * pulsing animation and a convenience method that assembles and shows a
+ * fully interactive game-over dialog wired to the provided controller.
+ */
 public final class GuiGameOverUI {
 
     private GuiGameOverUI() {}
 
+    /** Create a styled title {@link Text} node for the game-over dialog. */
     public static Text createGameOverTitle() {
         Text title = new Text("Match Over");
         try { title.setStyle("-fx-font-weight: 700;"); } catch (Exception ignored) {}
@@ -33,6 +39,10 @@ public final class GuiGameOverUI {
         return title;
     }
 
+    /**
+     * Start a pulsing animation which emphasises the provided title node.
+     * Returns the running {@link javafx.animation.Animation} so callers may stop it.
+     */
     public static javafx.animation.Animation startGameOverPulse(Text title) {
         try {
             DropShadow glow = new DropShadow();
@@ -69,6 +79,10 @@ public final class GuiGameOverUI {
         return null;
     }
 
+    /**
+     * Build a subtitle box showing score/time and previous-high information.
+     * This helper returns a small {@link VBox} suitable for inclusion in the dialog.
+     */
     public static VBox buildGameOverSubtitleBox(String scoreStr, int currentScore, String timePlayed, int prevHighBeforeGame) {
         Text scoreText = new Text("Score: " + (scoreStr.isEmpty() ? ("0") : scoreStr));
         try { scoreText.setStyle("-fx-font-size: 28px; -fx-fill: white; -fx-opacity: 0.95;"); } catch (Exception ignored) {}
@@ -95,8 +109,8 @@ public final class GuiGameOverUI {
     }
 
     /**
-     * Build and show the game-over overlay for the given controller. This method
-     * runs UI work on the JavaFX thread and wires buttons to call back into the
+     * Build and show the game-over overlay for the given controller. Runs UI
+     * work on the JavaFX thread and wires buttons to call back into the
      * controller for restart / exit behaviour.
      */
     public static void showGameOver(GuiController controller) {

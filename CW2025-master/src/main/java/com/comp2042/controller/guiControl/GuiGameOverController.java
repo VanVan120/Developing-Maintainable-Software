@@ -6,6 +6,14 @@ import javafx.fxml.FXMLLoader;
 import javafx.scene.Parent;
 import java.net.URL;
 
+/**
+ * Controller helpers for actions triggered from the game-over UI.
+ *
+ * <p>This utility class centralises the logic required to restart a game or
+ * switch back to the main menu when the game-over overlay is active. Methods
+ * in this class are designed to be safe to call from the JavaFX thread and
+ * perform "best-effort" cleanup of audio and UI state.</p>
+ */
 public final class GuiGameOverController {
     private GuiGameOverController() {}
 
