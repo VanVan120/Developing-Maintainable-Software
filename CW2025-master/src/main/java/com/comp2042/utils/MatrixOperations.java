@@ -24,8 +24,14 @@ public class MatrixOperations {
     }
 
     /**
-     * Returns true if any non-zero cell of {@code brick} would collide with
-     * filled cells in {@code matrix} or would fall outside the visible board.
+        * Returns true if any non-zero cell of {@code brick} would collide with
+        * filled cells in {@code matrix} or would fall outside the visible board.
+        *
+        * @param matrix board matrix where non-zero cells mark occupied cells
+        * @param brick  shape matrix for the piece to test
+        * @param x      horizontal offset (column index) where brick[0][0] will be placed
+        * @param y      vertical offset (row index) where brick[0][0] will be placed
+        * @return {@code true} when a collision or out-of-bounds condition occurs
      */
     public static boolean intersect(final int[][] matrix, final int[][] brick, final int x, final int y) {
         Objects.requireNonNull(matrix, "matrix");
@@ -46,9 +52,15 @@ public class MatrixOperations {
     }
 
     /**
-     * Like {@link #intersect(int[][], int[][], int, int)} but treats cells above
-     * the top of the board (targetY &lt; 0) as non-colliding. Used for ghost/landing
-     * calculations.
+        * Like {@link #intersect(int[][], int[][], int, int)} but treats cells above
+        * the top of the board (targetY &lt; 0) as non-colliding. Used for ghost/landing
+        * calculations.
+        *
+        * @param matrix board matrix
+        * @param brick  shape matrix
+        * @param x      horizontal offset
+        * @param y      vertical offset
+        * @return {@code true} when collision occurs considering ghost rules
      */
     public static boolean intersectForGhost(final int[][] matrix, final int[][] brick, final int x, final int y) {
         Objects.requireNonNull(matrix, "matrix");
@@ -74,8 +86,11 @@ public class MatrixOperations {
     }
 
     /**
-     * Deep-copy a rectangular int matrix. Caller retains ownership of the returned
-     * array and may mutate it safely.
+        * Deep-copy a rectangular int matrix. Caller retains ownership of the returned
+        * array and may mutate it safely.
+        *
+        * @param original the source matrix to copy
+        * @return a newly allocated copy of {@code original}
      */
     public static int[][] copy(final int[][] original) {
         Objects.requireNonNull(original, "original");
@@ -90,8 +105,15 @@ public class MatrixOperations {
     }
 
     /**
-     * Return a new matrix with the brick merged into the filledFields matrix.
-     * The original filledFields is not modified.
+        * Return a new matrix with the {@code brick} merged into the
+        * {@code filledFields} matrix. The original {@code filledFields} is not
+        * modified and a fresh copy is returned.
+        *
+        * @param filledFields source board matrix
+        * @param brick        shape matrix to merge
+        * @param x            horizontal offset for merge
+        * @param y            vertical offset for merge
+        * @return a new matrix containing the merged result
      */
     public static int[][] merge(final int[][] filledFields, final int[][] brick, final int x, final int y) {
         Objects.requireNonNull(filledFields, "filledFields");
@@ -110,9 +132,13 @@ public class MatrixOperations {
     }
 
     /**
-     * Scan the board for full rows, return a ClearRow containing the number of
-     * cleared rows, the new matrix (with rows shifted down), the score bonus
-     * and the absolute indices of cleared rows.
+        * Scan the board for full rows and return a {@link ClearRow} describing
+        * the result. The returned {@code ClearRow} contains the number of cleared
+        * rows, a new matrix with remaining rows shifted down, a computed score
+        * bonus, and the absolute indices of cleared rows.
+        *
+        * @param matrix the board matrix to inspect
+        * @return a {@link ClearRow} with the removal result and new board matrix
      */
     public static ClearRow checkRemoving(final int[][] matrix) {
         Objects.requireNonNull(matrix, "matrix");

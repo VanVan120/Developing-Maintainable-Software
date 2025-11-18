@@ -24,9 +24,12 @@ public class BrickRotator {
     private int currentShape = 0;
 
     /**
-     * Returns the next shape (rotation) info without advancing the current index.
-     *
-     * @throws IllegalStateException if no brick is set or the brick has no shapes
+        * Returns the next shape (rotation) info without advancing the current
+        * index.
+        *
+        * @return a {@link NextShapeInfo} describing the matrix for the next
+        * rotation and the rotation index to apply.
+        * @throws IllegalStateException if no brick is set or the brick has no shapes
      */
     public NextShapeInfo getNextShape() {
         ensureBrickPresent();
@@ -41,9 +44,13 @@ public class BrickRotator {
     }
 
     /**
-     * Returns a defensive copy of the current shape matrix.
-     *
-     * @throws IllegalStateException if no brick is set or the current index is invalid
+        * Return a defensive copy of the current shape matrix for the attached
+        * brick.
+        *
+        * @return a newly allocated 2D int array containing the current rotation
+        *         matrix. Callers may safely mutate the returned array without
+        *         affecting the brick.
+        * @throws IllegalStateException if no brick is set or the current index is invalid
      */
     public int[][] getCurrentShape() {
         ensureBrickPresent();
@@ -57,10 +64,12 @@ public class BrickRotator {
     }
 
     /**
-     * Set the current rotation index. Index will be normalized into the valid range.
-     *
-     * @param currentShape desired rotation index
-     * @throws IllegalStateException if no brick is set
+        * Set the current rotation index for the attached brick. The supplied
+        * index will be normalized into the valid range [0, numberOfShapes-1].
+        *
+        * @param currentShape desired rotation index (may be negative or larger
+        *                     than the number of shapes; it will be normalized).
+        * @throws IllegalStateException if no brick is set
      */
     public void setCurrentShape(int currentShape) {
         ensureBrickPresent();
@@ -75,14 +84,21 @@ public class BrickRotator {
     }
 
     /**
-     * Attach a new brick to this rotator and reset the rotation index to 0.
+     * Attach a new {@link Brick} instance to this rotator and reset the
+     * rotation index to 0.
+     *
+     * @param brick the brick to attach; must be non-null
      */
     public void setBrick(Brick brick) {
         this.brick = Objects.requireNonNull(brick, "brick");
         this.currentShape = 0;
     }
 
-    /** Returns the brick currently attached, may be null. */
+    /**
+     * Return the currently attached brick, or {@code null} when none is set.
+     *
+     * @return the attached {@link Brick} or {@code null}.
+     */
     public Brick getBrick() {
         return this.brick;
     }
