@@ -7,7 +7,11 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Z-shaped brick and its rotation matrices.
+ * Z-shaped tetromino implementation.
+ *
+ * <p>Provides the rotation matrices for the Z piece. Callers should not
+ * rely on the returned arrays being shared — use {@link #getShapeMatrix()}
+ * which returns deep copies suitable for modification.
  */
 public final class ZBrick implements Brick {
 

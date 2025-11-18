@@ -7,7 +7,12 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * S-shaped brick and its rotation matrices.
+ * S-shaped tetromino implementation.
+ *
+ * <p>Provides the rotation variants for the S piece. Non-zero matrix
+ * entries indicate filled cells; consumers should treat returned matrices
+ * as read-only and rely on {@link #getShapeMatrix()} to supply defensive
+ * copies when mutation is needed.
  */
 public final class SBrick implements Brick {
 

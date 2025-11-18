@@ -7,7 +7,12 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * T-shaped brick and its rotation matrices.
+ * T-shaped tetromino implementation.
+ *
+ * <p>Supplies four rotation states as 4x4 integer matrices. The integer
+ * values represent occupied cells (and may be used by rendering code to
+ * choose colours). Matrices returned from {@link #getShapeMatrix()} are
+ * deep-copied to avoid exposing internal state.
  */
 public final class TBrick implements Brick {
 

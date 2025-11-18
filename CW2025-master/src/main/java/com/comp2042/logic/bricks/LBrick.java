@@ -7,7 +7,11 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * L-shaped brick and its rotation matrices.
+ * L-shaped tetromino implementation.
+ *
+ * <p>Defines the rotation matrices for the L piece. Matrices are returned
+ * as deep copies from {@link #getShapeMatrix()} so callers may mutate the
+ * returned arrays without affecting shared state.
  */
 public final class LBrick implements Brick {
 

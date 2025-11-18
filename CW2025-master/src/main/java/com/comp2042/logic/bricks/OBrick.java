@@ -7,7 +7,11 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * O-shaped (square) brick. Rotations are identical; only one matrix is provided.
+ * O-shaped (square) tetromino.
+ *
+ * <p>The O-piece is rotation-symmetric; therefore only a single 4x4 matrix
+ * is provided. The returned matrices from {@link #getShapeMatrix()} are deep
+ * copies and safe for callers to modify.
  */
 public final class OBrick implements Brick {
 

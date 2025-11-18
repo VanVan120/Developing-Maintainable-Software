@@ -18,7 +18,19 @@ import com.comp2042.logic.bricks.ZBrick;
  * A simple random (bag) brick generator.
  *
  * <p>Maintains an internal buffer of upcoming bricks and exposes a peek API so
- * GUI code can render previews. Uses a shuffled bag approach for fairness.
+ * GUI code can render previews. Uses a shuffled bag approach for fairness
+ * (i.e. one permutation of all seven tetrominoes is produced before repeating).
+ *
+ * <p>Behavior notes:
+ * - The generator keeps a small buffer of upcoming bricks (see {@code BUFFER_SIZE}).
+ * - {@link #getBrick()} consumes and returns the head of the queue; callers
+ *   may call {@link #getUpcomingBricks(int)} to obtain a stable preview list.
+ * - {@link #replaceNext(Brick)} replaces the immediate next brick while
+ *   preserving the remainder of the queue order.
+ *
+ * <p>Threading: this implementation is not synchronized and should be used by
+ * a single game thread. If shared between threads, external synchronization
+ * is required.
  */
 public class RandomBrickGenerator implements BrickGenerator {
 
@@ -27,6 +39,7 @@ public class RandomBrickGenerator implements BrickGenerator {
     private final Deque<Brick> nextBricks = new ArrayDeque<>();
     private static final int BUFFER_SIZE = 4;
 
+    /** Build a generator and pre-fill the internal buffer. */
     public RandomBrickGenerator() {
         brickList = new ArrayList<>();
         brickList.add(new IBrick());
@@ -39,6 +52,10 @@ public class RandomBrickGenerator implements BrickGenerator {
         refillBagIfNeeded();
     }
 
+    /**
+     * Ensure the internal buffer contains at least {@code BUFFER_SIZE}
+     * elements by appending shuffled full bags when necessary.
+     */
     private void refillBagIfNeeded() {
         // keep adding full shuffled bags until we reach at least BUFFER_SIZE
         while (nextBricks.size() < BUFFER_SIZE) {

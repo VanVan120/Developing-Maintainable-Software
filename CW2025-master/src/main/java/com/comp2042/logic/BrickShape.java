@@ -4,6 +4,8 @@ import javafx.scene.paint.Color;
 
 /**
  * Enum of brick identity and their display color.
+ *
+ * <p>Used by rendering and UI code to map a brick type to a display colour.
  */
 public enum BrickShape {
     I(Color.CYAN),
@@ -20,6 +22,11 @@ public enum BrickShape {
         this.color = color;
     }
 
+    /**
+     * Return the display colour associated with this shape.
+     *
+     * @return non-null {@link Color} used for rendering
+     */
     public Color getColor() {
         return color;
     }
