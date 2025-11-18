@@ -53,8 +53,13 @@ public class NotificationPanel extends BorderPane {
      * children list when the animation completes. The removal is performed on
      * the JavaFX Application Thread.
      *
-     * @param list the observable list of nodes that contains this panel; typically
-     *             a parent {@link javafx.scene.layout.Pane#getChildren() children} list
+        * Note: the caller should pass a non-null children list that contains
+        * this instance. Removal is scheduled on the JavaFX Application Thread
+        * to avoid concurrency issues; the method itself may be invoked from any
+        * thread.
+        *
+        * @param list the observable list of nodes that contains this panel; typically
+        *             a parent {@link javafx.scene.layout.Pane#getChildren() children} list
      */
     public void showScore(ObservableList<Node> list) {
         FadeTransition ft = new FadeTransition(Duration.millis(2000), this);

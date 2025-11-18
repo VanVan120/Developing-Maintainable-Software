@@ -49,6 +49,15 @@ public class BoardView {
         this.bgCanvas = bgCanvas;
     }
 
+    /**
+     * Initialize the visual board representation from a board matrix and an
+     * optional initial {@link ViewData} describing the active piece. This will
+     * create the grid cells, brick nodes and ghost nodes and schedule a layout
+     * pass on the JavaFX Application Thread.
+     *
+     * @param boardMatrix the board matrix (rows x cols) used to build the grid
+     * @param brick       optional snapshot of the active piece; may be {@code null}
+     */
     public void initGameView(int[][] boardMatrix, ViewData brick) {
         if (boardMatrix == null || gamePanel == null) return;
         this.currentBoardMatrix = boardMatrix;
@@ -254,6 +263,12 @@ public class BoardView {
     }
 
     public void refreshGameBackground(int[][] board) {
+        /**
+         * Update the visible grid fill colors from the provided board matrix.
+         * Performs a defensive null-check and updates only visible rows.
+         *
+         * @param board the current board matrix (rows x cols)
+         */
         this.currentBoardMatrix = board;
         if (board == null || displayMatrix == null) return;
         for (int i = 2; i < board.length; i++) {
@@ -295,6 +310,13 @@ public class BoardView {
     }
 
     public void refreshBrick(ViewData brick) {
+        /**
+         * Update the on-screen representation of the active piece using the
+         * supplied {@link ViewData} snapshot. Safe to call from the JavaFX
+         * thread; does nothing when the view isn't initialized.
+         *
+         * @param brick snapshot describing the active piece position and shape
+         */
         if (brick == null || brickPanel == null) return;
         doRefreshBrick(brick);
     }
@@ -349,6 +371,13 @@ public class BoardView {
     }
 
     public void updateGhost(ViewData brick, int[][] boardMatrix) {
+        /**
+         * Compute and display the ghost/landing position for the supplied
+         * {@link ViewData} on top of the given board matrix.
+         *
+         * @param brick       snapshot describing active piece and position
+         * @param boardMatrix the current board matrix used for collision checks
+         */
         if (brick == null || boardMatrix == null || ghostPanel == null || ghostRectangles == null) return;
         int startX = brick.getxPosition();
         int startY = brick.getyPosition();
@@ -364,6 +393,13 @@ public class BoardView {
     }
 
     public static int computeEffectiveBrickHeight(int[][] shape) {
+        /**
+         * Compute the effective height of a brick shape by ignoring trailing
+         * empty rows. Returns 0 for a null shape.
+         *
+         * @param shape the shape matrix
+         * @return effective height in rows
+         */
         if (shape == null) return 0;
         int effectiveBrickHeight = shape.length;
         for (int i = shape.length - 1; i >= 0; i--) {
@@ -377,6 +413,18 @@ public class BoardView {
     }
 
     public static int computeLandingY(int startX, int startY, int[][] shape, int[][] boardMatrix, int effectiveBrickHeight) {
+        /**
+         * Compute the landing Y position for a falling piece using ghost rules
+         * (cells above the board don't collide). The returned value is the row
+         * index where the top of the shape should be placed when landed.
+         *
+         * @param startX               horizontal start position
+         * @param startY               vertical start position
+         * @param shape                shape matrix
+         * @param boardMatrix          board matrix for collision check
+         * @param effectiveBrickHeight precomputed effective height of the shape
+         * @return landing row index for the top of the shape
+         */
         int landingY = startY;
         int maxY = boardMatrix.length - effectiveBrickHeight;
         for (int y = startY; y <= maxY; y++) {
@@ -438,17 +486,36 @@ public class BoardView {
     }
 
     // small utility used by callers that may need measured sizes
+    /** @return measured cell width in pixels (may be recomputed after layout). */
     public double getCellWidth() { return cellW; }
+
+    /** @return measured cell height in pixels (may be recomputed after layout). */
     public double getCellHeight() { return cellH; }
+
+    /** @return measured base X offset (scene pixels) of the grid origin. */
     public double getBaseOffsetX() { return baseOffsetX; }
+
+    /** @return measured base Y offset (scene pixels) of the grid origin. */
     public double getBaseOffsetY() { return baseOffsetY; }
 
     // number of columns in the board (visible grid width)
+    /**
+     * @return number of columns in the visible grid (defaults to 10 when unknown)
+     */
     public int getColumns() {
         try { return (displayMatrix != null && displayMatrix.length > 0) ? displayMatrix[0].length : 10; } catch (Exception ignored) { return 10; }
     }
 
     // safely return the fill Paint for a given board cell (row, col)
+    /**
+     * Safely obtain the paint used to fill a specific board cell. Returns
+     * {@link javafx.scene.paint.Color#TRANSPARENT} when the cell is not
+     * available or uninitialized.
+     *
+     * @param boardRow row index in the display matrix
+     * @param boardCol column index in the display matrix
+     * @return the Paint used to fill the cell
+     */
     public Paint getCellFill(int boardRow, int boardCol) {
         try {
             if (displayMatrix != null && boardRow >= 0 && boardRow < displayMatrix.length && boardCol >= 0 && boardCol < displayMatrix[0].length) {
@@ -463,6 +530,15 @@ public class BoardView {
      * Returns the scene coordinates of the top-left corner of the given board cell.
      * If an actual display Rectangle is available it's used for exact positioning,
      * otherwise falls back to converting the computed boardToPixel point via the gamePanel.
+     */
+    /**
+     * Returns the scene coordinates of the top-left corner of the given board cell.
+     * If an actual display Rectangle is available it's used for exact positioning,
+     * otherwise falls back to converting the computed boardToPixel point via the gamePanel.
+     *
+     * @param boardX column index
+     * @param boardY row index
+     * @return scene coordinates of the top-left corner of the cell
      */
     public javafx.geometry.Point2D boardCellScenePoint(int boardX, int boardY) {
         try {

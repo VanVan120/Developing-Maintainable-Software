@@ -28,6 +28,17 @@ public class ParticleHelper {
     private static volatile boolean PARTICLE_STYLES_LOADED = false;
 
     public static void flashRowAt(Pane particlePane, double leftXLocal, double topYLocal, double width, double height) {
+        /**
+         * Flash a rectangular row highlight at the specified local coordinates
+         * inside the given particle pane. The flash is created and animated on
+         * the JavaFX thread and removed after the animation completes.
+         *
+         * @param particlePane pane to place the flash into
+         * @param leftXLocal   local X coordinate for the top-left of the flash
+         * @param topYLocal    local Y coordinate for the top-left of the flash
+         * @param width        width of the flash rectangle in pixels
+         * @param height       height of the flash rectangle in pixels
+         */
         if (particlePane == null) return;
         ensureParticleStyles(particlePane);
         try {
@@ -54,6 +65,21 @@ public class ParticleHelper {
     }
 
     public static void spawnRowClearParticles(Pane particlePane, ClearRow clearRow, Rectangle[][] displayMatrix, BoardView bv, double baseOffsetX, double baseOffsetY, double cellW, double cellH, javafx.scene.Scene gameScene) {
+        /**
+         * Spawn decorative particles for each cleared cell described by
+         * {@code clearRow}. Particles are added to {@code particlePane} and
+         * removed when their animations complete.
+         *
+         * @param particlePane  pane to host particle nodes
+         * @param clearRow      the ClearRow result describing cleared rows
+         * @param displayMatrix the grid rectangles used for color lookup
+         * @param bv            optional BoardView used for precise positioning
+         * @param baseOffsetX   fallback X offset when BoardView is unavailable
+         * @param baseOffsetY   fallback Y offset when BoardView is unavailable
+         * @param cellW         cell width in pixels
+         * @param cellH         cell height in pixels
+         * @param gameScene     optional scene used to compute fall distances
+         */
         if (clearRow == null || particlePane == null || displayMatrix == null) return;
         ensureParticleStyles(particlePane);
         try {
@@ -168,6 +194,11 @@ public class ParticleHelper {
     }
 
     public static void flashRow(Pane particlePane, double baseOffsetX, double topY, double width, double height) {
+        /**
+         * Flash a solid white rectangle at the given coordinates inside
+         * {@code particlePane}. This is a simpler variant used when BoardView
+         * positioning is already available.
+         */
         if (particlePane == null) return;
         ensureParticleStyles(particlePane);
         try {
@@ -193,6 +224,17 @@ public class ParticleHelper {
     }
 
     public static void spawnParticlesAt(Pane particlePane, double centerX, double centerY, int[][] brickShape) {
+        /**
+         * Spawn a burst of short-lived circular particles centered around the
+         * given coordinates. Colors are sampled from {@link BoardView#mapCodeToPaint}
+         * when a {@code brickShape} is provided; otherwise a default CSS style
+         * is applied.
+         *
+         * @param particlePane pane to add particle nodes to
+         * @param centerX      center X coordinate in local coordinates
+         * @param centerY      center Y coordinate in local coordinates
+         * @param brickShape   optional shape matrix used to sample colors
+         */
         if (particlePane == null) return;
         ensureParticleStyles(particlePane);
         final int PARTICLE_COUNT = 18;
@@ -256,6 +298,20 @@ public class ParticleHelper {
      */
     public static void playLockEffect(Pane particlePane, ViewData start, ViewData end, boolean intense,
                                       Pane brickPanel, BoardView bv, double cellWpx, double cellHpx) {
+        /**
+         * Play the lock animation that visually moves small rounded rectangles
+         * from the falling piece area down into their landed positions. This
+         * is a best-effort visual effect and will not modify model state.
+         *
+         * @param particlePane pane to host particles
+         * @param start        starting ViewData snapshot (pre-lock)
+         * @param end          ending ViewData snapshot (post-lock)
+         * @param intense      when true use a shorter, more intense animation
+         * @param brickPanel   optional pane containing the piece nodes used for positioning
+         * @param bv           optional BoardView for precise cell scene points
+         * @param cellWpx      cell width in pixels
+         * @param cellHpx      cell height in pixels
+         */
         if (start == null || end == null || particlePane == null) return;
         ensureParticleStyles(particlePane);
         try {
