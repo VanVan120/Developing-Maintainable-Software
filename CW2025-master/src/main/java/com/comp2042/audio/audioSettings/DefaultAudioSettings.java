@@ -5,8 +5,12 @@ import javafx.beans.property.SimpleDoubleProperty;
 import java.util.prefs.Preferences;
 
 /**
- * Default implementation of {@link AudioSettingsService} which persists
- * values to the java.util.prefs.Preferences node.
+ * Default {@link AudioSettingsService} implementation that persists values
+ * to a {@link java.util.prefs.Preferences} node.
+ *
+ * <p>Volume properties are initialized from preferences (or fall back to
+ * sensible defaults). Changes to the properties are automatically written
+ * back to preferences.
  */
 public class DefaultAudioSettings implements AudioSettingsService {
     private final Preferences prefs;
@@ -22,6 +26,10 @@ public class DefaultAudioSettings implements AudioSettingsService {
     private final DoubleProperty music;
     private final DoubleProperty sfx;
 
+    /**
+     * Create a new instance backed by {@link Preferences} for the
+     * {@code DefaultAudioSettings} package.
+     */
     public DefaultAudioSettings() {
         this.prefs = Preferences.userNodeForPackage(DefaultAudioSettings.class);
         this.master = new SimpleDoubleProperty(load(KEY_MASTER, DEFAULT_MASTER));
@@ -33,6 +41,10 @@ public class DefaultAudioSettings implements AudioSettingsService {
         sfx.addListener((obs, o, n) -> prefs.putDouble(KEY_SFX, n.doubleValue()));
     }
 
+    /**
+     * Load a double value from preferences using the provided key, returning
+     * the supplied default when not present.
+     */
     private double load(String key, double def) {
         return prefs.getDouble(key, def);
     }

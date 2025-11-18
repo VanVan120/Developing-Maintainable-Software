@@ -8,14 +8,22 @@ import javax.sound.sampled.Clip;
 import java.net.URL;
 
 /**
- * Utility responsible for loading short sound effects. Tries JavaFX AudioClip
- * first (simpler API), and falls back to javax.sound.sampled.Clip when the
- * AudioClip cannot be created (or the platform doesn't support it).
+ * Loader utility for short sound effects.
+ *
+ * <p>The loader first tries to construct a JavaFX {@link AudioClip} from the
+ * resource URL (convenient for short sounds). If creating an {@code AudioClip}
+ * fails (for example on platforms where JavaFX media is not available) the
+ * loader falls back to {@link javax.sound.sampled.Clip} which works well for
+ * many WAV files.
  */
 public final class ClipLoader {
 
     private final Class<?> resourceOwner;
 
+    /**
+     * Result returned by {@link #load(String)}. Either {@code audioClip} or
+     * {@code fallbackClip} may be non-null depending on what could be created.
+     */
     public static final class AudioLoadResult {
         public final AudioClip audioClip;
         public final Clip fallbackClip;
@@ -26,22 +34,30 @@ public final class ClipLoader {
         }
     }
 
+    /**
+     * Create a loader that resolves resources using the supplied class as the
+     * resource owner. When {@code null} the loader class itself is used.
+     */
     public ClipLoader(Class<?> resourceOwner) {
         this.resourceOwner = resourceOwner == null ? getClass() : resourceOwner;
     }
 
     /**
-     * Attempts to load the given resource path as an AudioClip, falling back
-     * to a javax.sound.sampled.Clip for .wav resources if needed.
-     * Returns an AudioLoadResult containing either an AudioClip or a fallback Clip (or both null).
+     * Attempt to load the resource at {@code resourcePath} as an audio asset.
+     *
+     * <p>The method resolves the resource using the configured {@code
+     * resourceOwner}, tries to build a JavaFX {@link AudioClip} and, if that
+     * fails, attempts to open a {@link Clip} using {@link AudioSystem}.
+     *
+     * @param resourcePath classpath-like resource path (may start with '/')
+     * @return an {@link AudioLoadResult} containing either an {@link AudioClip}
+     *         or a {@link Clip} (or both {@code null} if loading failed)
      */
     public AudioLoadResult load(String resourcePath) {
         if (resourcePath == null) return new AudioLoadResult(null, null);
 
-        // Prefer Class.getResource (allows absolute paths starting with '/')
         URL url = resourceOwner.getResource(resourcePath);
 
-        // If not found, try the classloader (expects no leading '/').
         if (url == null) {
             String loaderPath = resourcePath.startsWith("/") ? resourcePath.substring(1) : resourcePath;
             ClassLoader cl = resourceOwner.getClassLoader();
@@ -50,22 +66,18 @@ public final class ClipLoader {
 
         if (url == null) return new AudioLoadResult(null, null);
 
-        // First try JavaFX AudioClip (convenient API for short sounds)
         try {
             AudioClip ac = new AudioClip(url.toExternalForm());
             return new AudioLoadResult(ac, null);
         } catch (Throwable ignored) {
-            // Fall through to javax.sound fallback below
         }
 
-        // Fallback: try loading via AudioSystem (works well for .wav on many platforms)
         try {
             AudioInputStream ais = AudioSystem.getAudioInputStream(url);
             Clip c = AudioSystem.getClip();
             c.open(ais);
             return new AudioLoadResult(null, c);
         } catch (Throwable ignored) {
-            // give up and return empty result
         }
 
         return new AudioLoadResult(null, null);

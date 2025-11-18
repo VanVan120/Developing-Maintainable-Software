@@ -11,6 +11,15 @@ import javax.sound.sampled.Clip;
 import java.awt.*;
 import java.net.URL;
 
+/**
+ * High-level sound manager used by the application to play short effects and
+ * music tracks.
+ *
+ * <p>The manager loads commonly used sounds via {@link ClipLoader}, creates
+ * music {@link MediaPlayer} instances via {@link MediaPlayerFactory} and
+ * responds to volume changes driven by
+ * {@link com.comp2042.audio.audioSettings.AudioSettings}.
+ */
 public class SoundManager {
     private final Class<?> resourceOwner;
 
@@ -34,6 +43,10 @@ public class SoundManager {
         this.clipLoader = new ClipLoader(this.resourceOwner);
     }
 
+    /**
+     * Initialize and preload short sound effects and attach volume listeners.
+     * This method should be called once before attempting to play sounds.
+     */
     public void init() {
         ClipLoader.AudioLoadResult r1 = clipLoader.load("/sounds/hover.wav");
         hoverClip = r1.audioClip;
@@ -87,6 +100,10 @@ public class SoundManager {
 
     // Audio loading moved to ClipLoader; helper methods removed to reduce duplication.
 
+    /**
+     * Apply the current audio settings to all loaded players and clips.
+     * This updates both sfx and music volumes to reflect current settings.
+     */
     private void applyVolumes() {
         double master = AudioSettings.getMasterVolume();
         double music = AudioSettings.getMusicVolume();
@@ -101,6 +118,10 @@ public class SoundManager {
         try { if (countdownMusicPlayer != null) countdownMusicPlayer.setVolume(m); } catch (Exception ignored) {}
     }
 
+    /**
+     * Play the configured hover sound effect (or fallback). Be tolerant of
+     * failures; a system beep is used as a last resort.
+     */
     public void playHoverSound() {
         try {
             if (hoverClip != null) { hoverClip.play(); return; }
@@ -109,6 +130,9 @@ public class SoundManager {
         Toolkit.getDefaultToolkit().beep();
     }
 
+    /**
+     * Play the configured click sound effect (or fallback).
+     */
     public void playClickSound() {
         try {
             if (clickClip != null) { clickClip.play(); return; }
@@ -117,6 +141,9 @@ public class SoundManager {
         Toolkit.getDefaultToolkit().beep();
     }
 
+    /**
+     * Play the hard-drop sound effect (or fallback) used by the game.
+     */
     public void playHardDropSound() {
         try {
             if (hardDropClip != null) { hardDropClip.play(); return; }
@@ -125,6 +152,10 @@ public class SoundManager {
         Toolkit.getDefaultToolkit().beep();
     }
 
+    /**
+     * Play a javax.sound {@link Clip} as a fallback mechanism for platforms
+     * where JavaFX {@link AudioClip} is unavailable.
+     */
     private void playFallback(Clip c) {
         try {
             if (c.isRunning()) c.stop();
@@ -207,22 +238,24 @@ public class SoundManager {
     // Media player creation/disposal moved to MediaPlayerFactory
 
     /**
-     * Compatibility delegate to MediaPlayerFactory.
+     * Compatibility delegate to {@link MediaPlayerFactory#createMediaPlayer}.
+     *
+     * @see MediaPlayerFactory#createMediaPlayer(String, boolean, Double)
      */
     public MediaPlayer createMediaPlayer(String resourcePath, boolean loop, Double volumeFactor) {
         return mediaFactory.createMediaPlayer(resourcePath, loop, volumeFactor);
     }
 
     /**
-     * Overload accepting primitive double for existing callers.
+     * Convenience overload accepting a primitive volume factor.
      */
     public MediaPlayer createMediaPlayer(String resourcePath, boolean loop, double volumeFactor) {
         return createMediaPlayer(resourcePath, loop, Double.valueOf(volumeFactor));
     }
 
     /**
-     * Delegate disposal to the factory (keeps old API intact while moving
-     * implementation into MediaPlayerFactory).
+     * Dispose a {@link MediaPlayer} previously created by this manager.
+     * Delegates disposal to {@link MediaPlayerFactory}.
      */
     public void disposeMediaPlayer(MediaPlayer mp) {
         mediaFactory.disposeMediaPlayer(mp);

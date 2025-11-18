@@ -10,21 +10,39 @@ import java.util.Map;
 import java.util.WeakHashMap;
 
 /**
- * Factory responsible for creating and disposing MediaPlayer instances while
- * managing volume listeners tied to AudioSettings. Extracted from SoundManager
- * to support single responsibility and easier testing.
+ * Factory responsible for creating and disposing {@link MediaPlayer}
+ * instances while attaching volume listeners that respond to
+ * {@link com.comp2042.audio.audioSettings.AudioSettings} changes.
+ *
+ * <p>Using a factory keeps {@link javafx.scene.media.MediaPlayer} lifecycle
+ * concerns isolated from {@link com.comp2042.audio.soundManager.SoundManager}.
  */
 public class MediaPlayerFactory {
     private final Class<?> resourceOwner;
     private final Map<MediaPlayer, javafx.beans.value.ChangeListener<Number>> mpVolumeListeners = new WeakHashMap<>();
 
+    /**
+     * Create a factory that resolves media resources relative to the provided
+     * {@code resourceOwner} class. When {@code null} the factory's class is
+     * used.
+     */
     public MediaPlayerFactory(Class<?> resourceOwner) {
         this.resourceOwner = resourceOwner == null ? getClass() : resourceOwner;
     }
 
     /**
-     * Create a MediaPlayer for the given resource path. Returns null when the
-     * resource cannot be resolved or player creation fails.
+     * Create a {@link MediaPlayer} for the given resource path.
+     *
+     * <p>The created player will not auto-play and will have a volume bound to
+     * the current audio settings. A change listener is attached so the player
+     * responds to future volume changes. If the resource cannot be resolved
+     * or player creation fails the method returns {@code null}.
+     *
+     * @param resourcePath classpath-like path to the media resource
+     * @param loop whether the player should loop indefinitely
+     * @param volumeFactor optional multiplier applied on top of master/music
+     *                     volumes (may be {@code null})
+     * @return a configured {@link MediaPlayer} or {@code null} if creation fails
      */
     public MediaPlayer createMediaPlayer(String resourcePath, boolean loop, Double volumeFactor) {
         try {
@@ -57,6 +75,12 @@ public class MediaPlayerFactory {
         }
     }
 
+    /**
+     * Dispose a single {@link MediaPlayer} previously created by this factory.
+     * Attached listeners are removed and the player is stopped/disposed.
+     *
+     * @param mp the player to dispose; method is tolerant of {@code null}
+     */
     public void disposeMediaPlayer(MediaPlayer mp) {
         if (mp == null) return;
         try {
@@ -73,7 +97,7 @@ public class MediaPlayerFactory {
     }
 
     /**
-     * Dispose all tracked MediaPlayers and remove attached listeners.
+     * Dispose all tracked {@link MediaPlayer} instances and detach listeners.
      */
     public void disposeAll() {
         try {
