@@ -13,6 +13,13 @@ import java.util.function.Consumer;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+/**
+ * Controller for adjusting input handling settings used by the game.
+ *
+ * <p>Exposes UI bindings for ARR/DAS/DCD/SDF and a hard-drop toggle. The
+ * controller synchronises sliders and text fields, validates user input and
+ * exposes getters so callers can persist the selected values.</p>
+ */
 public class HandlingController {
 
     // Defaults
@@ -45,6 +52,10 @@ public class HandlingController {
     private double sdf = DEFAULT_SDF;
     private boolean hardDropEnabled = DEFAULT_HARD;
 
+    /**
+     * Initialize UI bindings for sliders and text fields. This method is
+     * called by the JavaFX runtime after FXML inflation.
+     */
     @FXML
     public void initialize() {
         // Configure integer sliders (min, max, initial)
@@ -143,6 +154,17 @@ public class HandlingController {
         tf.focusedProperty().addListener((obs, oldV, newV) -> { if (!newV) { if (onEnter != null) onEnter.accept(tf.getText()); }});
     }
 
+    /**
+     * Populate the controller with existing handling values. This should be
+     * called by the parent UI to display persisted values before the user
+     * interacts with the controls.
+     *
+     * @param arrMs ARR in milliseconds
+     * @param dasMs DAS in milliseconds
+     * @param dcdMs DCD in milliseconds
+     * @param sdf soft-drop factor (double)
+     * @param hardEnabled whether hard-drop is enabled
+     */
     public void init(int arrMs, int dasMs, int dcdMs, double sdf, boolean hardEnabled) {
         this.arrMs = arrMs;
         this.dasMs = dasMs;
@@ -162,10 +184,12 @@ public class HandlingController {
         if (chkHardDrop != null) chkHardDrop.setSelected(this.hardDropEnabled);
     }
 
+    /** Reset the handling options back to the shipped defaults. */
     public void resetToDefaults() {
         init(DEFAULT_ARR, DEFAULT_DAS, DEFAULT_DCD, DEFAULT_SDF, DEFAULT_HARD);
     }
 
+    /** Hide the Reset/Save/Cancel action buttons and the info label. */
     public void hideActionButtons() {
         if (btnReset != null) { btnReset.setVisible(false); btnReset.setManaged(false); }
         if (btnSave != null) { btnSave.setVisible(false); btnSave.setManaged(false); }
@@ -173,14 +197,20 @@ public class HandlingController {
         if (lblInfo != null) { lblInfo.setVisible(false); lblInfo.setManaged(false); }
     }
 
+    /** Update the header text shown at the top of the pane. Passing {@code null} clears it. */
     public void setHeaderText(String t) {
         if (lblHeader != null) lblHeader.setText(t != null ? t : "");
     }
 
     // Getters used by parent to persist
+    /** Return the current ARR (autoshift repeat) value in milliseconds. */
     public int getArrMs() { return arrMs; }
+    /** Return the current DAS (delayed auto shift) value in milliseconds. */
     public int getDasMs() { return dasMs; }
+    /** Return the current DCD (delayed cancellable drop) value in milliseconds. */
     public int getDcdMs() { return dcdMs; }
+    /** Return the configured soft-drop factor. */
     public double getSdf() { return sdf; }
+    /** Return whether hard-drop is currently enabled. */
     public boolean isHardDropEnabled() { return hardDropEnabled; }
 }
