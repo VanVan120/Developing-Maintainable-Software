@@ -13,8 +13,11 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 /**
- * Encapsulates core game rules and board operations. This class is UI-agnostic so it can be
- * unit-tested without JavaFX.
+ * Encapsulates core game rules and board operations.
+ *
+ * <p>This class is UI-agnostic and can be unit-tested without JavaFX. It
+ * operates on the provided {@link com.comp2042.model.Board} instance and
+ * exposes pure-ish methods used by the UI adapter {@link GameController}.
  */
 public class GameEngine {
     private static final Logger LOGGER = Logger.getLogger(GameEngine.class.getName());
@@ -24,6 +27,18 @@ public class GameEngine {
         this.board = Objects.requireNonNull(board, "Board must not be null");
     }
 
+    /**
+     * Attempt to move the current falling brick down by one row.
+     *
+     * <p>If the brick cannot move down it is merged into the background, row
+     * clears are computed and the next brick is created. The returned
+     * {@link MoveDownResult} describes any cleared rows, the resulting view
+     * data and whether a spawn collision (game over) occurred.
+     *
+     * @param source event source (USER or SYSTEM) used to decide whether to
+     *               award a soft-drop point
+     * @return result object describing what happened during the move
+     */
     public MoveDownResult moveDown(EventSource source) {
         boolean canMove = board.moveBrickDown();
         ClearRow clearRow = null;
@@ -70,21 +85,35 @@ public class GameEngine {
         return new MoveDownResult(clearRow, board.getViewData(), board.getBoardMatrix(), forwardCount, gameOver);
     }
 
+    /**
+     * Move the current brick one cell to the left and return the updated view data.
+     */
     public ViewData moveLeft() {
         board.moveBrickLeft();
         return board.getViewData();
     }
 
+    /**
+     * Move the current brick one cell to the right and return the updated view data.
+     */
     public ViewData moveRight() {
         board.moveBrickRight();
         return board.getViewData();
     }
 
+    /**
+     * Rotate the current brick (left rotation) and return updated view data.
+     */
     public ViewData rotate() {
         board.rotateLeftBrick();
         return board.getViewData();
     }
 
+    /**
+     * Swap the current brick with the next brick (if supported by the board).
+     *
+     * @return {@code true} if the swap succeeded
+     */
     public boolean swap() {
         try {
             return board.swapCurrentWithNext();
@@ -94,10 +123,22 @@ public class GameEngine {
         }
     }
 
+    /**
+     * Reset the board and start a new game.
+     */
     public void newGame() {
         board.newGame();
     }
 
+    /**
+     * Add garbage rows to the bottom of the board. Existing rows are shifted
+     * upwards and the bottom rows are filled with garbage (value 8) except for
+     * the specified hole column.
+     *
+     * @param count number of garbage rows to add
+     * @param holeColumn column index to leave empty in garbage rows
+     * @return the board matrix after modification
+     */
     public int[][] addGarbageRows(int count, int holeColumn) {
         if (count <= 0) return board.getBoardMatrix();
         int[][] matrix = board.getBoardMatrix();
@@ -125,6 +166,12 @@ public class GameEngine {
         return matrix;
     }
 
+    /**
+     * Return a list of upcoming bricks from the board's generator for preview.
+     *
+     * @param count how many bricks to request
+     * @return list of upcoming bricks or an empty list on error
+     */
     public List<com.comp2042.logic.Brick> getUpcoming(int count) {
         try {
             return board.getUpcomingBricks(count);
@@ -134,18 +181,32 @@ public class GameEngine {
         }
     }
 
+    /**
+     * Expose the board's score property for binding by the UI.
+     */
     public javafx.beans.property.IntegerProperty getScoreProperty() {
         return board.getScore().scoreProperty();
     }
 
+    /**
+     * Return a defensive copy of the board matrix used for rendering.
+     */
     public int[][] getBoardMatrix() {
         return board.getBoardMatrix();
     }
 
+    /**
+     * Return current view data describing the falling piece and its position.
+     */
     public ViewData getViewData() {
         return board.getViewData();
     }
 
+    /**
+     * Create a new brick via the board and return whether the creation succeeded
+     * (note: some boards return {@code true} to signal that a spawn collision
+     * occurred and the game should end).
+     */
     public boolean createNewBrick() {
         try {
             return board.createNewBrick();

@@ -15,6 +15,15 @@ import java.util.function.Consumer;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+/**
+ * Adapter that connects the UI-level {@link com.comp2042.controller.guiControl.GuiController}
+ * with the core {@link GameEngine} logic.
+ *
+ * <p>This class implements {@link com.comp2042.input.InputEventListener} and translates
+ * UI events (move, rotate, drop, swap) into engine operations while keeping the
+ * view updated. It delegates rules/state changes to {@link GameEngine} and the
+ * underlying {@link com.comp2042.model.Board} for testability.
+ */
 public class GameController implements InputEventListener {
     private final GameEngine engine;
     private final GuiController viewGuiController;
@@ -46,10 +55,25 @@ public class GameController implements InputEventListener {
         safeRefreshUpcomingBricks();
     }
 
+    /**
+     * Provide a handler that will be called when rows are cleared as a result
+     * of a drop. The handler receives the number of forward (non-garbage)
+     * cleared rows.
+     *
+     * @param handler consumer receiving cleared-row count (may be {@code null})
+     */
     public void setClearRowHandler(java.util.function.Consumer<Integer> handler) {
         this.clearRowHandler = handler;
     }
 
+    /**
+     * Add garbage rows to the current board and refresh the visible board.
+     * This method is safe to call from external systems (network/AI) and will
+     * log and ignore unexpected exceptions.
+     *
+     * @param count number of garbage rows to add
+     * @param holeColumn index of the hole column in the garbage rows
+     */
     public void addGarbageRows(int count, int holeColumn) {
         try {
             int[][] matrix = engine.addGarbageRows(count, holeColumn);
@@ -63,6 +87,12 @@ public class GameController implements InputEventListener {
         return engine.getScoreProperty();
     }
 
+    /**
+     * Return the upcoming bricks from the engine for preview purposes.
+     *
+     * @param count number of upcoming bricks to retrieve
+     * @return list of upcoming bricks (never {@code null})
+     */
     public java.util.List<com.comp2042.logic.Brick> getUpcomingBricks(int count) {
         return engine.getUpcoming(count);
     }
