@@ -44,6 +44,12 @@ public class ControlsController {
     private java.util.function.BiPredicate<javafx.scene.input.KeyCode, javafx.scene.control.Button> keyAvailabilityChecker = null;
     private static final Logger LOGGER = Logger.getLogger(ControlsController.class.getName());
 
+    /**
+     * Initialize controller after FXML injection.
+     *
+     * <p>Wire up the view helper, populate button labels from {@link KeyBindings},
+     * and configure capture/hover handlers for interactive key assignment.
+     */
     @FXML
     public void initialize() {
         // initialize view helper (requires FXML-injected fields)
@@ -164,6 +170,16 @@ public class ControlsController {
         }
     }
 
+    /**
+     * Sets a checker used to validate key availability across contexts.
+     *
+     * <p>The checker is invoked when assigning a key to ensure the chosen key
+     * is allowed (for example, not already used by the other player).
+     *
+     * @param checker predicate receiving the candidate {@link KeyCode} and the
+     *                {@link Button} being configured, returning {@code true}
+     *                if the key may be assigned
+     */
     public void setKeyAvailabilityChecker(java.util.function.BiPredicate<KeyCode, Button> checker) {
         this.keyAvailabilityChecker = checker;
     }
@@ -265,6 +281,15 @@ public class ControlsController {
         return expected == existingAction;
     }
 
+    /**
+     * Initialize the current key bindings shown in the UI.
+     *
+     * @param left   key for left movement (may be {@code null} to leave unchanged)
+     * @param right  key for right movement (may be {@code null} to leave unchanged)
+     * @param rotate key for rotation (may be {@code null} to leave unchanged)
+     * @param down   key for soft drop (may be {@code null} to leave unchanged)
+     * @param hard   key for hard drop (may be {@code null} to leave unchanged)
+     */
     public void init(KeyCode left, KeyCode right, KeyCode rotate, KeyCode down, KeyCode hard) {
         if (left != null) { keyBindings.set(Action.LEFT, left); view.setButtonKey(btnLeftCurrent, left, true); }
         if (right != null) { keyBindings.set(Action.RIGHT, right); view.setButtonKey(btnRightCurrent, right, true); }
@@ -273,6 +298,16 @@ public class ControlsController {
         if (hard != null) { keyBindings.set(Action.HARD_DROP, hard); view.setButtonKey(btnHardCurrent, hard, true); }
     }
 
+    /**
+     * Initialize current key bindings and the switch key.
+     *
+     * @param left   key for left movement
+     * @param right  key for right movement
+     * @param rotate key for rotation
+     * @param down   key for soft drop
+     * @param hard   key for hard drop
+     * @param sw     key for piece switch
+     */
     public void init(KeyCode left, KeyCode right, KeyCode rotate, KeyCode down, KeyCode hard, KeyCode sw) {
         init(left, right, rotate, down, hard);
         if (sw != null) { keyBindings.set(Action.SWITCH, sw); view.setButtonKey(btnSwitchCurrent, sw, true); }

@@ -25,6 +25,15 @@ public class ControlsView {
     private Timeline warningTimeline = null;
     private static final Logger LOGGER = Logger.getLogger(ControlsView.class.getName());
 
+    /**
+     * Create a view helper bound to the provided UI controls.
+     *
+     * @param lblInfo   label used to show short inline messages and warnings
+     * @param lblHeader header label shown at the top of the controls pane
+     * @param btnReset  reset button instance (may be {@code null} in tests)
+     * @param btnSave   save button instance (may be {@code null} in tests)
+     * @param btnCancel cancel button instance (may be {@code null} in tests)
+     */
     public ControlsView(Label lblInfo, Label lblHeader, Button btnReset, Button btnSave, Button btnCancel) {
         this.lblInfo = lblInfo;
         this.lblHeader = lblHeader;
@@ -47,6 +56,14 @@ public class ControlsView {
         b.setOnMouseExited(e -> b.getStyleClass().remove("keybind-hover"));
     }
 
+    /**
+     * Show an inline warning message and a modal warning dialog as a fallback.
+     *
+     * <p>The inline warning is displayed in the info label for a short time and
+     * the visual style is toggled to make it noticeable.
+     *
+     * @param message the warning message to display
+     */
     public void showInlineWarning(String message) {
         if (lblInfo == null) return;
         setInfoText(message);
