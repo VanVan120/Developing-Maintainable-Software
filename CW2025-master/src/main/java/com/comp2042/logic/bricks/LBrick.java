@@ -1,11 +1,19 @@
 package com.comp2042.logic.bricks;
 
-import com.comp2042.MatrixOperations;
+import com.comp2042.logic.Brick;
+import com.comp2042.utils.MatrixOperations;
 
 import java.util.ArrayList;
 import java.util.List;
 
-final class LBrick implements Brick {
+/**
+ * L-shaped tetromino implementation.
+ *
+ * <p>Defines the rotation matrices for the L piece. Matrices are returned
+ * as deep copies from {@link #getShapeMatrix()} so callers may mutate the
+ * returned arrays without affecting shared state.
+ */
+public final class LBrick implements Brick {
 
     private final List<int[][]> brickMatrix = new ArrayList<>();
 

@@ -1,0 +1,74 @@
+/* Styles moved from ClassicBattle.java */
+
+.transparent-root {
+    -fx-background-color: transparent;
+}
+
+/* Next/preview labels */
+.nextBrickLabel {
+    -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.75), 6, 0.0, 0, 2);
+    -fx-font-weight: bold;
+    -fx-font-family: "Let's go Digital";
+    -fx-font-size: 26px;
+    -fx-fill: yellow; /* keep same color as previously set in code */
+}
+
+/* Central overlay texts */
+.match-timer-text {
+    -fx-font-size: 56px;
+    -fx-fill: yellow;
+    -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.85), 6, 0.0, 0, 2);
+}
+
+.match-score-text {
+    -fx-font-size: 36px;
+    -fx-fill: white;
+    -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.85), 6, 0.0, 0, 2);
+}
+
+/* Controls overlay */
+.controls-container {
+    -fx-padding: 18;
+}
+
+.controls-header {
+    -fx-font-size: 34px;
+    -fx-fill: #9fb0ff;
+    -fx-font-weight: 700;
+}
+
+.controls-topbar {
+    -fx-padding: 8 18 18 18;
+}
+
+.controls-center {
+    -fx-padding: 12;
+    -fx-background-color: transparent;
+}
+
+/* Winner overlays */
+.winner-overlay {
+    -fx-background-color: rgba(0,0,0,0.6);
+}
+
+.winner-overlay-strong {
+    -fx-background-color: rgba(0,0,0,0.88);
+}
+
+.winner-panel {
+    -fx-background-color: rgba(18,18,20,0.95);
+    -fx-padding: 26px;
+    -fx-background-radius: 8px;
+}
+
+.winner-title {
+    -fx-font-size: 64px;
+    -fx-font-weight: 700;
+    -fx-fill: white;
+}
+
+.mode-desc {
+    -fx-font-size: 18px;
+    -fx-fill: #d0d0d0;
+    -fx-text-alignment: center;
+}

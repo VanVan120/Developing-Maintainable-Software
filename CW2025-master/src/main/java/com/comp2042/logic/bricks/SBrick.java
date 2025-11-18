@@ -1,11 +1,20 @@
 package com.comp2042.logic.bricks;
 
-import com.comp2042.MatrixOperations;
+import com.comp2042.logic.Brick;
+import com.comp2042.utils.MatrixOperations;
 
 import java.util.ArrayList;
 import java.util.List;
 
-final class SBrick implements Brick {
+/**
+ * S-shaped tetromino implementation.
+ *
+ * <p>Provides the rotation variants for the S piece. Non-zero matrix
+ * entries indicate filled cells; consumers should treat returned matrices
+ * as read-only and rely on {@link #getShapeMatrix()} to supply defensive
+ * copies when mutation is needed.
+ */
+public final class SBrick implements Brick {
 
     private final List<int[][]> brickMatrix = new ArrayList<>();
 

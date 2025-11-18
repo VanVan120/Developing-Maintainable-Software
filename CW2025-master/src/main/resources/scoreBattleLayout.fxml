@@ -3,7 +3,7 @@
 <?import javafx.scene.control.*?>
 <?import javafx.scene.text.*?>
 <?import javafx.scene.shape.Rectangle?>
-<AnchorPane xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.comp2042.ScoreBattleController" styleClass="menu-root">
+<AnchorPane xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.comp2042.controller.scoreBattle.ScoreBattleController" styleClass="menu-root">
     <children>
         <HBox spacing="24" alignment="CENTER" AnchorPane.leftAnchor="12" AnchorPane.rightAnchor="12" AnchorPane.topAnchor="12" AnchorPane.bottomAnchor="12">
                 <!-- Left game placeholder -->
@@ -43,8 +43,5 @@
                 </children>
             </VBox>
         </HBox>
-
-        <!-- Back button to return to main menu -->
-        <Button fx:id="backBtn" text="Back" layoutX="12" layoutY="12" styleClass="menu-button" />
     </children>
 </AnchorPane>

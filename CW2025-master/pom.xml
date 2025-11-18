@@ -30,6 +30,11 @@
             <artifactId>javafx-media</artifactId>
             <version>21.0.6</version>
         </dependency>
+        <dependency>
+            <groupId>org.openjfx</groupId>
+            <artifactId>javafx-swing</artifactId>
+            <version>21.0.6</version>
+        </dependency>
 
         <dependency>
             <groupId>org.junit.jupiter</groupId>
@@ -57,6 +62,15 @@
                 </configuration>
             </plugin>
             <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <version>3.0.0-M7</version>
+                <configuration>
+                    <!-- Ensure JUnit Platform (JUnit 5) is used -->
+                    <useModulePath>false</useModulePath>
+                </configuration>
+            </plugin>
+            <plugin>
                 <groupId>org.openjfx</groupId>
                 <artifactId>javafx-maven-plugin</artifactId>
                 <version>0.0.8</version>
@@ -65,7 +79,7 @@
                         <!-- Default configuration for running with: mvn clean javafx:run -->
                         <id>default-cli</id>
                         <configuration>
-                            <mainClass>com.comp2042.Main</mainClass>
+                            <mainClass>com.comp2042.app.Main</mainClass>
                             <launcher>app</launcher>
                             <jlinkZipName>app</jlinkZipName>
                             <jlinkImageName>app</jlinkImageName>
@@ -75,6 +89,35 @@
                         </configuration>
                     </execution>
                 </executions>
+            </plugin>
+            <!-- Generate Javadoc and attach as a javadoc-jar during package so IDEs and build servers
+                 can consume generated API docs. We keep doclint disabled and failOnError=false so
+                 missing Javadoc doesn't break the build during iterative refactors. -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-javadoc-plugin</artifactId>
+                <version>3.5.0</version>
+                <executions>
+                    <execution>
+                        <id>attach-javadocs</id>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>jar</goal>
+                        </goals>
+                    </execution>
+                </executions>
+                <configuration>
+                    <source>23</source>
+                    <encoding>${project.build.sourceEncoding}</encoding>
+                    <docencoding>${project.build.sourceEncoding}</docencoding>
+                    <charset>${project.build.sourceEncoding}</charset>
+                    <!-- avoid failing the build due to missing/incomplete Javadoc while refactoring -->
+                    <failOnError>false</failOnError>
+                    <!-- turn off strict doclint to reduce noise for student projects -->
+                    <additionalJOptions>
+                        <additionalJOption>-Xdoclint:none</additionalJOption>
+                    </additionalJOptions>
+                </configuration>
             </plugin>
         </plugins>
     </build>

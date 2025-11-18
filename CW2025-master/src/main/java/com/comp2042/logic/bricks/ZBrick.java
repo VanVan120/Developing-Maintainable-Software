@@ -1,11 +1,19 @@
 package com.comp2042.logic.bricks;
 
-import com.comp2042.MatrixOperations;
+import com.comp2042.logic.Brick;
+import com.comp2042.utils.MatrixOperations;
 
 import java.util.ArrayList;
 import java.util.List;
 
-final class ZBrick implements Brick {
+/**
+ * Z-shaped tetromino implementation.
+ *
+ * <p>Provides the rotation matrices for the Z piece. Callers should not
+ * rely on the returned arrays being shared — use {@link #getShapeMatrix()}
+ * which returns deep copies suitable for modification.
+ */
+public final class ZBrick implements Brick {
 
     private final List<int[][]> brickMatrix = new ArrayList<>();
 
