@@ -183,6 +183,9 @@ public class CoopSecondPlayerView {
         return new javafx.geometry.Point2D(x, y);
     }
 
+    /**
+     * Set visibility of the second player panels.
+     */
     public void setVisible(boolean visible) {
         try { if (secondBrickPanel != null) secondBrickPanel.setVisible(visible); } catch (Exception ignored) {}
         try { if (secondGhostPanel != null) secondGhostPanel.setVisible(visible); } catch (Exception ignored) {}

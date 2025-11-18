@@ -19,6 +19,11 @@ public class CoopInputHandler {
         this.releasedHandler = e -> controller.onKeyReleased(e);
     }
 
+    /**
+     * Attach key event filters to the provided scene.
+     *
+     * @param s scene to attach handlers to (may be {@code null})
+     */
     public void attachToScene(Scene s) {
         if (s == null) return;
         try {
@@ -29,6 +34,9 @@ public class CoopInputHandler {
         } catch (Exception ignored) {}
     }
 
+    /**
+     * Detach previously attached event filters from the last scene.
+     */
     public void detach() {
         try {
             if (attachedScene != null) {

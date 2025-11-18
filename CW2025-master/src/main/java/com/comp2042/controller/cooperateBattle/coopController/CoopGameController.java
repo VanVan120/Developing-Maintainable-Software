@@ -11,6 +11,16 @@ import java.util.logging.Logger;
 import javafx.beans.property.BooleanProperty;
 import javafx.beans.property.SimpleBooleanProperty;
 
+/**
+ * Controller coordinating the cooperative two-player game mode.
+ *
+ * <p>This class maintains a shared board matrix and two {@link CoopPlayerState}
+ * instances (left and right). It exposes operations used by the UI layer to
+ * move/rotate players, trigger drops, swaps and advance the game by one tick.
+ * The class is intentionally lightweight and delegates per-player logic to
+ * {@link CoopPlayerState} and tick merging/clearing logic to
+ * {@link CoopTickHandler}.
+ */
 public class CoopGameController {
     private final int width;
     private final int height;
@@ -22,6 +32,12 @@ public class CoopGameController {
     private static final Logger LOGGER = Logger.getLogger(CoopGameController.class.getName());
     private final BooleanProperty isGameOver = new SimpleBooleanProperty(false);
 
+    /**
+     * Create a new controller for a board of the given dimensions.
+     *
+     * @param width board width in cells
+     * @param height board height in cells
+     */
     public CoopGameController(int width, int height) {
         this.width = width;
         this.height = height;
@@ -46,6 +62,9 @@ public class CoopGameController {
         return new ViewData(rightPlayer.getCurrentShape(), (int) rightPlayer.offset.getX(), (int) rightPlayer.offset.getY(), rightPlayer.getNextBrick().getShapeMatrix().get(0));
     }
 
+    /**
+     * Reset the board and player state and spawn the initial pieces for both players.
+     */
     public void createNewGame() {
         boardMatrix = new int[height][width];
         leftPlayer.score.reset();
@@ -56,6 +75,12 @@ public class CoopGameController {
         spawnRight();
     }
 
+    /**
+     * Spawn a new brick for the left player. Marks the game over property if the
+     * spawn immediately collides (indicating the board is filled).
+     *
+     * @return {@code true} if a collision occurred on spawn
+     */
     private boolean spawnLeft() {
         boolean coll = leftPlayer.spawn(width, boardMatrix, rightPlayer, -3);
         if (DEBUG) System.out.println("[COOP SPAWN] spawnLeft at " + leftPlayer.offset + " coll=" + coll);
@@ -65,6 +90,12 @@ public class CoopGameController {
         return coll;
         }
 
+    /**
+     * Spawn a new brick for the right player. Marks the game over property if the
+     * spawn immediately collides.
+     *
+     * @return {@code true} if a collision occurred on spawn
+     */
     private boolean spawnRight() {
         boolean coll = rightPlayer.spawn(width, boardMatrix, leftPlayer, 3);
         if (DEBUG) System.out.println("[COOP SPAWN] spawnRight at " + rightPlayer.offset + " coll=" + coll);
@@ -98,6 +129,14 @@ public class CoopGameController {
         return rightPlayer.tryRotate(boardMatrix, leftPlayer, "rotateRightPlayer");
     }
 
+    /**
+     * Advance the game state by one tick. This attempts to move pieces down for
+     * both players, merges landed pieces into the board, checks for cleared rows
+     * and adjusts scores. When a merge occurs the method will spawn new pieces
+     * for the affected players.
+     *
+     * @return a {@link CoopTickResult} describing what happened this tick
+     */
     public CoopTickResult tick() {
         CoopTickHandler.TickOutcome outcome = CoopTickHandler.processTick(boardMatrix, leftPlayer, rightPlayer, totalScore, DEBUG);
         // update board matrix from outcome
@@ -127,6 +166,14 @@ public class CoopGameController {
 
     
 
+    /**
+     * Handle an explicit soft-drop action for the left player.
+     * <p>If the piece can move down this will translate the piece and award one
+     * point to the shared score. If the piece cannot move down it is merged into
+     * the board, row clears are processed and a new piece is spawned.
+     *
+     * @return {@link DownData} describing the result of the drop (landing view and any clear)
+     */
     public DownData onLeftDown() {
         boolean can = canMoveDownLeft();
         if (can) { leftPlayer.offset.translate(0,1); totalScore.add(1); return new DownData(null, getViewDataLeft()); }
@@ -138,6 +185,12 @@ public class CoopGameController {
         return new DownData(cr, leftPlayer.getViewData());
     }
 
+    /**
+     * Handle an explicit soft-drop action for the right player. Behavior mirrors
+     * {@link #onLeftDown()} but for the right player.
+     *
+     * @return {@link DownData} describing the result of the drop
+     */
     public DownData onRightDown() {
         boolean can = canMoveDownRight();
         if (can) { rightPlayer.offset.translate(0,1); totalScore.add(1); return new DownData(null, getViewDataRight()); }
@@ -149,8 +202,18 @@ public class CoopGameController {
         return new DownData(cr, rightPlayer.getViewData());
     }
 
+    /**
+     * Property indicating whether the game is over (spawn collision detected).
+     */
     public BooleanProperty gameOverProperty() { return isGameOver; }
 
+    /**
+     * Swap the left player's current brick with their next brick (if available).
+     * If the swap would cause immediate collision the swap is undone and
+     * {@code false} is returned.
+     *
+     * @return {@code true} if the swap succeeded
+     */
     public boolean swapLeft() {
         Brick next = leftPlayer.getNextBrick();
         if (next == null) return false;
@@ -167,6 +230,13 @@ public class CoopGameController {
         return true;
     }
 
+    /**
+     * Swap the right player's current brick with their next brick (if available).
+     * If the swap would cause immediate collision the swap is undone and
+     * {@code false} is returned.
+     *
+     * @return {@code true} if the swap succeeded
+     */
     public boolean swapRight() {
         Brick next = rightPlayer.getNextBrick();
         if (next == null) return false;

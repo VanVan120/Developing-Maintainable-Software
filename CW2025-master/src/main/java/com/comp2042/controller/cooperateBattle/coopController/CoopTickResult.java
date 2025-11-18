@@ -30,6 +30,10 @@ public final class CoopTickResult {
 
     public ClearRow getClearRow() { return clearRow; }
 
+    /**
+     * {@inheritDoc}
+     */
+
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;

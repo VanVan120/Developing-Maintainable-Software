@@ -43,6 +43,12 @@ public class CoopKeyBindings {
 
     public CoopKeyBindings() {}
 
+    /**
+     * Load multiplayer key bindings from a preferences node. Missing entries
+     * will leave the current values unchanged.
+     *
+     * @param prefs preferences node to read from
+     */
     public void loadFromPreferences(java.util.prefs.Preferences prefs) {
         if (prefs == null) return;
         try {
@@ -65,6 +71,12 @@ public class CoopKeyBindings {
     }
 
     public void saveToPreferences(java.util.prefs.Preferences prefs) {
+        /**
+         * Persist the current multiplayer key bindings to the provided
+         * preferences node.
+         *
+         * @param prefs preferences node to write to
+         */
         if (prefs == null) return;
         try {
             prefs.put("mpLeft_left", leftMoveLeft != null ? leftMoveLeft.name() : "");

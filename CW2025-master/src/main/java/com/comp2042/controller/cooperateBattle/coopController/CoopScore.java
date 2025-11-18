@@ -12,13 +12,19 @@ import javafx.beans.property.IntegerProperty;
 import javafx.beans.property.SimpleIntegerProperty;
 
 public final class CoopScore {
-
+    /** Integer property holding the current score for the cooperative game. */
     private final IntegerProperty score = new SimpleIntegerProperty(0);
+    /** Integer property holding the persisted high score for cooperative mode. */
     private final IntegerProperty highScore = new SimpleIntegerProperty(0);
 
+    /** File used to persist the cooperative high score in the user's home directory. */
     private static final Path COOP_HIGHSCORE_PATH = Paths.get(System.getProperty("user.home"), ".tetris_highscore_coop");
     private static final Logger LOGGER = Logger.getLogger(CoopScore.class.getName());
 
+    /**
+     * Create a CoopScore instance and attempt to load the previously saved high score.
+     * If the high score file cannot be read the high score defaults to zero.
+     */
     public CoopScore() {
         loadHighScore();
     }
@@ -29,6 +35,12 @@ public final class CoopScore {
     public int getScore() { return score.get(); }
     public int getHighScore() { return highScore.get(); }
 
+    /**
+     * Increase the current score by the given amount and update/persist the high score
+     * if necessary.
+     *
+     * @param i number of points to add (ignored if zero)
+     */
     public void add(int i) {
         if (i == 0) return;
         score.set(score.get() + i);
@@ -38,10 +50,12 @@ public final class CoopScore {
         }
     }
 
+    /** Reset the current score to zero (does not clear high score). */
     public void reset() {
         score.set(0);
     }
 
+    /** Read the persisted high score from disk if available, otherwise default to zero. */
     private void loadHighScore() {
         try {
             Path p = COOP_HIGHSCORE_PATH;
@@ -63,6 +77,7 @@ public final class CoopScore {
         }
     }
 
+    /** Persist the current high score to disk using an atomic write when possible. */
     private void saveHighScore() {
         Path target = COOP_HIGHSCORE_PATH;
         try {

@@ -14,6 +14,11 @@ import java.util.logging.Logger;
 public class CoopTickHandler {
     private static final Logger LOGGER = Logger.getLogger(CoopTickHandler.class.getName());
 
+    /**
+     * Outcome returned by {@link #processTick(int[][], CoopPlayerState, CoopPlayerState, CoopScore, boolean)}.
+     * Contains whether either side merged this tick, optional landing views for each player,
+     * any cleared-row information and the updated board matrix.
+     */
     public static class TickOutcome {
         public final boolean merged;
         public final ViewData leftLandingView;
@@ -30,6 +35,21 @@ public class CoopTickHandler {
         }
     }
 
+    /**
+     * Process a single game tick for cooperative mode.
+     *
+     * <p>The method attempts to advance both players' pieces by one row, handles
+     * overlap resolution when both can move, merges landed pieces into the board
+     * and computes cleared rows and score bonuses. The returned {@link TickOutcome}
+     * describes the merged state and any landing/clear events that occurred.
+     *
+     * @param boardMatrix current board matrix (will not be mutated by caller)
+     * @param leftPlayer  left player's runtime state
+     * @param rightPlayer right player's runtime state
+     * @param totalScore  cooperative total score tracker
+     * @param debug       if {@code true} small debug messages are printed to stdout
+     * @return TickOutcome summarizing the results of the tick
+     */
     public static TickOutcome processTick(int[][] boardMatrix, CoopPlayerState leftPlayer, CoopPlayerState rightPlayer, CoopScore totalScore, boolean debug) {
         boolean leftCan = leftPlayer.canMoveDown(boardMatrix);
         boolean rightCan = rightPlayer.canMoveDown(boardMatrix);
@@ -99,6 +119,10 @@ public class CoopTickHandler {
         return new TickOutcome(false, null, null, null, newBoard);
     }
 
+    /**
+     * Check whether the next (one-row-lower) positions of both players will
+     * overlap. Used to disambiguate movement when both pieces can fall.
+     */
     private static boolean nextPositionsOverlap(CoopPlayerState leftPlayer, CoopPlayerState rightPlayer) {
         int[][] leftShape = leftPlayer.getCurrentShape();
         int[][] rightShape = rightPlayer.getCurrentShape();

@@ -27,6 +27,11 @@ public class CoopPreviewManager {
         this.nextContent = nextContent;
     }
 
+    /**
+     * Refresh both players' "next" previews using the current controller state.
+     * If a preview manager was created it delegates to the controller's preview
+     * building helpers; otherwise this method is a safe no-op.
+     */
     public void refreshPreviews() {
         try {
             if (coop == null) return;

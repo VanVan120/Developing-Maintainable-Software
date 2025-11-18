@@ -23,6 +23,15 @@ import javafx.util.Duration;
 
 public class CoopGuiController extends GuiController {
 
+    /**
+     * Controller class for the cooperative multiplayer GUI.
+     *
+     * <p>This controller composes the cooperative game controller and several
+     * helper classes (input handling, preview manager, music manager and a
+     * second-player view). It is responsible for wiring the UI to game state
+     * and reacting to input for both players.</p>
+     */
+
     private CoopGameController coop;
     private static final Logger LOGGER = Logger.getLogger(CoopGuiController.class.getName());
     private CoopKeyBindings keyBindings = new CoopKeyBindings();
@@ -59,6 +68,10 @@ public class CoopGuiController extends GuiController {
         keyBindings.setLeftKeys(left, right, rotate, down, hard, swap);
     }
 
+    /**
+     * Configure the key bindings to be used for the left player.
+     */
+
     javafx.scene.input.KeyCode getRightMoveLeftKey() { return keyBindings.getRightMoveLeft(); }
     javafx.scene.input.KeyCode getRightMoveRightKey() { return keyBindings.getRightMoveRight(); }
     javafx.scene.input.KeyCode getRightRotateKey() { return keyBindings.getRightRotate(); }
@@ -69,6 +82,10 @@ public class CoopGuiController extends GuiController {
     public void setRightKeys(javafx.scene.input.KeyCode left, javafx.scene.input.KeyCode right, javafx.scene.input.KeyCode rotate, javafx.scene.input.KeyCode down, javafx.scene.input.KeyCode hard, javafx.scene.input.KeyCode swap) {
         keyBindings.setRightKeys(left, right, rotate, down, hard, swap);
     }
+
+    /**
+     * Configure the key bindings to be used for the right player.
+     */
 
     private void safeRun(Runnable r, Level level, String msg) {
         if (r == null) return;
@@ -98,6 +115,13 @@ public class CoopGuiController extends GuiController {
         setupCountdownAndHandlers();
         bindTimeBoxLayout();
     }
+
+    /**
+     * Initialize cooperative mode using the provided controller. This sets up
+     * the visual previews, panels, timeline and input handlers.
+     *
+     * @param coopController the game controller for cooperative mode
+     */
 
     private void loadPreferences() {
         java.util.prefs.Preferences prefs = null;

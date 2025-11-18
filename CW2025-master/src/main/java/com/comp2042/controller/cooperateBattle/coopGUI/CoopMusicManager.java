@@ -15,6 +15,9 @@ public class CoopMusicManager {
 
     public CoopMusicManager() {}
 
+    /**
+     * Return the internal media player instance, or {@code null} if none was created.
+     */
     public javafx.scene.media.MediaPlayer getPlayer() { return player; }
 
     /**

@@ -16,12 +16,30 @@ import javafx.scene.layout.HBox;
  */
 public class CoopControlsOverlay {
     public static class KeySet {
+        /** Left movement key. */
         public javafx.scene.input.KeyCode left, right, rotate, down, hard, swap;
+
+        /**
+         * Construct a KeySet containing the six control keys used by the
+         * controls overlay.
+         */
         public KeySet(javafx.scene.input.KeyCode left, javafx.scene.input.KeyCode right, javafx.scene.input.KeyCode rotate, javafx.scene.input.KeyCode down, javafx.scene.input.KeyCode hard, javafx.scene.input.KeyCode swap) {
             this.left = left; this.right = right; this.rotate = rotate; this.down = down; this.hard = hard; this.swap = swap;
         }
     }
 
+    /**
+     * Display the cooperative controls overlay on the provided scene.
+     *
+     * @param scene the JavaFX scene to overlay
+     * @param leftCurrent current keyset for left player
+     * @param leftDefaults panel defaults for left player
+     * @param rightCurrent current keyset for right player
+     * @param rightDefaults panel defaults for right player
+     * @param onSave callback receiving the new left/right keysets when the user saves
+     * @param onCancel callback invoked when the user cancels
+     * @param onReset callback invoked when the user requests resetting to panel defaults
+     */
     public static void show(Scene scene, KeySet leftCurrent, KeySet leftDefaults, KeySet rightCurrent, KeySet rightDefaults, java.util.function.BiConsumer<KeySet,KeySet> onSave, Runnable onCancel, Runnable onReset) {
         javafx.application.Platform.runLater(() -> {
             try {
