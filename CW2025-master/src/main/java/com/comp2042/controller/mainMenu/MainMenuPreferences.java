@@ -3,6 +3,24 @@ package com.comp2042.controller.mainMenu;
 import java.util.prefs.Preferences;
 import javafx.scene.input.KeyCode;
 
+/**
+ * Helper that loads and saves main-menu related preferences using the
+ * {@link java.util.prefs.Preferences} API.
+ *
+ * <p>Responsibilities:
+ * - Read and write control key bindings (single-player and two-player keys).
+ * - Read and write handling settings (timings and gameplay toggles).
+ *
+ * <p>Notes:
+ * - All persistence is stored in a {@code Preferences} node scoped to
+ *   {@code MainMenuController.class}.
+ * - {@code load*} methods always return a non-null settings object; individual
+ *   key fields may be null if no binding or an invalid value is stored.
+ * - When saving key bindings, a null field is persisted as an empty string.
+ * - This class does not perform FX-thread marshaling because it only accesses
+ *   the user preferences store; callers should perform any required UI-thread
+ *   actions themselves.
+ */
 public class MainMenuPreferences {
 
     private final Preferences prefs;
@@ -11,6 +29,14 @@ public class MainMenuPreferences {
         this.prefs = Preferences.userNodeForPackage(MainMenuController.class);
     }
 
+    /**
+     * Load and return the persisted control key bindings.
+     *
+     * @return a freshly allocated {@link MainMenuControlSettings} populated from
+     *         preferences. The returned object is never null; individual
+     *         {@link javafx.scene.input.KeyCode} fields may be null if no
+     *         value was stored or the stored value could not be parsed.
+     */
     public MainMenuControlSettings loadControlSettings() {
         MainMenuControlSettings cs = new MainMenuControlSettings();
         String s;
@@ -38,6 +64,17 @@ public class MainMenuPreferences {
         return cs;
     }
 
+    /**
+     * Persist control key bindings from the provided settings object.
+     *
+     * <p>Null key fields are persisted as an empty string. This method has the
+     * side-effect of writing to the platform preferences store; callers should
+     * be prepared for platform-specific behavior and possible SecurityExceptions
+     * in restricted environments.
+     *
+     * @param cs the settings to persist; may be the same instance previously
+     *           returned by {@link #loadControlSettings()} but must not be null.
+     */
     public void saveControlSettings(MainMenuControlSettings cs) {
         prefs.put("spLeft", cs.spLeft != null ? cs.spLeft.name() : "");
         prefs.put("spRight", cs.spRight != null ? cs.spRight.name() : "");
@@ -61,6 +98,12 @@ public class MainMenuPreferences {
         prefs.put("mpRight_switch", cs.mpRight_switch != null ? cs.mpRight_switch.name() : "");
     }
 
+    /**
+     * Load persisted handling (timing and gameplay) settings.
+     *
+     * @return a newly created {@link MainMenuHandlingSettings} populated from
+     *         preferences. Returns default values when no preference exists.
+     */
     public MainMenuHandlingSettings loadHandlingSettings() {
         MainMenuHandlingSettings hs = new MainMenuHandlingSettings();
         hs.settingArrMs = prefs.getInt("settingArrMs", hs.settingArrMs);
@@ -71,6 +114,11 @@ public class MainMenuPreferences {
         return hs;
     }
 
+    /**
+     * Persist handling settings into the preferences store.
+     *
+     * @param hs the handling settings to persist; must not be null.
+     */
     public void saveHandlingSettings(MainMenuHandlingSettings hs) {
         prefs.putInt("settingArrMs", hs.settingArrMs);
         prefs.putInt("settingDasMs", hs.settingDasMs);
@@ -79,6 +127,14 @@ public class MainMenuPreferences {
         prefs.putBoolean("settingHardDropEnabled", hs.settingHardDropEnabled);
     }
 
+    /**
+     * Parse a {@link KeyCode} from its name in a null-safe way.
+     *
+     * @param name the name of the key (as returned by {@code KeyCode.name()});
+     *             may be null or empty.
+     * @return the corresponding {@link KeyCode} or {@code null} if the input is
+     *         null, empty, or does not match any known {@code KeyCode} constant.
+     */
     private KeyCode safeKeyCodeOf(String name) {
         if (name == null || name.isEmpty()) return null;
         try { return KeyCode.valueOf(name); } catch (IllegalArgumentException ex) { return null; }

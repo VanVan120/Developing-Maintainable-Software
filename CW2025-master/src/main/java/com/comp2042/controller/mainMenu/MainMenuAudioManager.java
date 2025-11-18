@@ -23,6 +23,20 @@ import javafx.scene.text.Text;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 
+/**
+ * Manages menu audio: background music and UI SFX for the main menu.
+ *
+ * <p>Responsibilities:
+ * - Load menu music and short audio clips (hover/click).
+ * - Expose simple play/stop controls and apply mixed volumes from
+ *   {@link com.comp2042.audio.audioSettings.AudioSettings}.
+ * - Provide an audio-settings overlay UI integration method.
+ *
+ * Notes:
+ * - The implementation prefers JavaFX {@link MediaPlayer}/{@link AudioClip}
+ *   and falls back to a system beep when clips are unavailable.
+ * - Most methods swallow exceptions to avoid breaking the UI thread.
+ */
 public class MainMenuAudioManager {
     private MediaPlayer menuMusicPlayer = null;
     private AudioClip hoverClip = null;
@@ -33,6 +47,11 @@ public class MainMenuAudioManager {
     private ChangeListener<Number> musicVolListener = null;
     private ChangeListener<Number> sfxVolListener = null;
 
+    /**
+     * Load menu music and SFX resources using the provided class loader.
+     *
+     * @param loader class loader used to locate bundled audio resources.
+     */
     public void loadAll(ClassLoader loader) {
         loadMenuMusic(loader);
         loadClips(loader);
@@ -75,6 +94,10 @@ public class MainMenuAudioManager {
         } catch (Exception ignored) {}
     }
 
+    /**
+     * Apply current volume settings from {@code AudioSettings} to loaded
+     * players/clips.
+     */
     public void applyVolumes() {
         try {
             double masterVol = AudioSettings.getMasterVolume();
@@ -97,6 +120,10 @@ public class MainMenuAudioManager {
         try { if (clickClip != null) clickClip.setVolume(vol); } catch (Exception ignored) {}
     }
 
+    /**
+     * Register listeners on {@code AudioSettings} so changes are reflected
+     * live in this manager.
+     */
     public void registerListeners() {
         try {
             masterVolListener = (obs, o, n) -> applyVolumes();
@@ -112,6 +139,9 @@ public class MainMenuAudioManager {
         } catch (Exception ignored) {}
     }
 
+    /**
+     * Remove listeners previously registered with {@code registerListeners}.
+     */
     public void unregisterListeners() {
         try { if (masterVolListener != null) AudioSettings.masterProperty().removeListener(masterVolListener); } catch (Exception ignored) {}
         try { if (musicVolListener != null) AudioSettings.musicProperty().removeListener(musicVolListener); } catch (Exception ignored) {}
@@ -119,6 +149,10 @@ public class MainMenuAudioManager {
         masterVolListener = null; musicVolListener = null; sfxVolListener = null;
     }
 
+    /**
+     * Play the hover sound. If an {@code AudioClip} is unavailable a
+     * platform beep may be used as a fallback.
+     */
     public void playHover() {
         try {
             if (hoverClip != null) hoverClip.play();
@@ -126,6 +160,10 @@ public class MainMenuAudioManager {
         } catch (Exception ex) { System.err.println("Menu hover play failed: " + ex); }
     }
 
+    /**
+     * Play the click sound. If an {@code AudioClip} is unavailable a
+     * platform beep may be used as a fallback.
+     */
     public void playClick() {
         try {
             if (clickClip != null) clickClip.play();
@@ -133,6 +171,10 @@ public class MainMenuAudioManager {
         } catch (Exception ex) { System.err.println("Menu click play failed: " + ex); }
     }
 
+    /**
+     * Stop and dispose the menu music player if present.
+     * After this call {@link #getMenuMusicPlayer()} will return {@code null}.
+     */
     public void stopAndDisposeMusic() {
         try {
             if (menuMusicPlayer != null) {
@@ -143,8 +185,16 @@ public class MainMenuAudioManager {
         } catch (Exception ignored) {}
     }
 
+    /**
+     * Return the currently-loaded {@link MediaPlayer} for menu music, or
+     * {@code null} when none is loaded.
+     */
     public MediaPlayer getMenuMusicPlayer() { return menuMusicPlayer; }
 
+    /**
+     * Release all audio resources (music player and clips) and unregister
+     * listeners. Safe to call multiple times.
+     */
     public void cleanup() {
         stopAndDisposeMusic();
         try { if (hoverClip != null) { try { hoverClip.stop(); } catch (Exception ignored) {} hoverClip = null; } } catch (Exception ignored) {}
@@ -153,9 +203,16 @@ public class MainMenuAudioManager {
     }
 
     /**
-     * Show audio settings overlay. Uses `AudioSettings` for initial values and
-     * persists them on Save. `closeOverlayCaller` and `transitionCaller` are
-     * used to integrate with existing animation helpers in the controller.
+     * Show an audio-settings overlay allowing the user to preview and persist
+     * master/music/sfx volume values. The provided callers are used to close
+     * the overlay with the same animation helpers used elsewhere in the UI.
+     *
+     * @param loaderClassLoader used to locate any resources
+     * @param rootStack root stack where the overlay will be added
+     * @param settingsOptions the settings pane to hide/restore
+     * @param closeOverlayCaller function that accepts (overlay, onFinished)
+     * @param transitionCaller function that accepts (overlay) to play the
+     *                         opening transition
      */
     public void showAudioSettings(ClassLoader loaderClassLoader,
                                   StackPane rootStack, StackPane settingsOptions,

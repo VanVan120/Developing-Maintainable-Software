@@ -26,6 +26,10 @@ import java.util.function.Consumer;
 public class MainMenuControlsHelper {
 
     public static class Result {
+        /**
+         * Container for chosen key bindings returned by the controls overlays.
+         * Fields may be {@code null} if the user left them unset.
+         */
         public KeyCode mpLeft_left;
         public KeyCode mpLeft_right;
         public KeyCode mpLeft_rotate;

@@ -7,10 +7,22 @@ import javafx.scene.media.MediaPlayer;
 import javafx.scene.media.MediaView;
 import java.net.URL;
 
+/**
+ * Helper responsible for loading and managing the preview video shown in
+ * the main menu. The helper hides the media area when no suitable resource
+ * is available or when initialization fails.
+ */
 public class MainMenuMediaHelper {
     private String menuMediaUrl;
 
     public void initMenuMedia(MediaView menuMediaView, StackPane mediaContainer) {
+        /**
+         * Initialize the menu preview media. Looks for several candidate files
+         * in resources and starts a muted looping player when found.
+         *
+         * @param menuMediaView the MediaView to attach a MediaPlayer to
+         * @param mediaContainer parent container used for sizing bindings
+         */
         if (menuMediaView == null || mediaContainer == null) return;
         // Allow tests to force 'no media' behaviour by setting this system property
         try {
@@ -62,6 +74,14 @@ public class MainMenuMediaHelper {
     }
 
     public void disableMenuMedia(StackPane mediaContainer, MediaView menuMediaView, String reason) {
+        /**
+         * Disable and clear menu preview media. This disposes any player and
+         * hides the media container.
+         *
+         * @param mediaContainer container to hide
+         * @param menuMediaView view to clear and detach player from
+         * @param reason diagnostic reason printed to stderr
+         */
         try { System.err.println("Menu media disabled: " + reason); } catch (Exception ignored) {}
         try {
             if (menuMediaView != null) {
@@ -77,6 +97,10 @@ public class MainMenuMediaHelper {
     }
 
     public String getMenuMediaUrl() {
+        /**
+         * Return the selected menu media URL (external form) or {@code null}
+         * if no media was found or initialization failed.
+         */
         return menuMediaUrl;
     }
 }

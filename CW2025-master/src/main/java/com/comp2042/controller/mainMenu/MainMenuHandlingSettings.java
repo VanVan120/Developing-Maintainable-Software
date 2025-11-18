@@ -14,8 +14,27 @@ import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 
 /**
- * Simple data holder for handling settings. Also provides a helper to show
- * the handling overlay UI and return modified settings via a callback.
+ * Data holder and UI helper for gameplay handling settings used by the
+ * main menu.
+ *
+ * <p>Fields represent commonly-tunable values (auto-repeat rate, DAS/DCD,
+ * speed drop factor, and whether hard-drop is enabled). Fields are public
+ * to allow simple copy/assign semantics when loading/saving preferences.
+ *
+ * <p>The {@code showHandlingControls} helper builds and displays an
+ * overlay that allows the user to edit these values. The helper adds the
+ * overlay to the provided {@code rootStack} and hides/restores the
+ * {@code settingsOptions} pane; it returns the chosen values through the
+ * {@code onSave} callback.
+ *
+ * <p>Threading & side-effects:
+ * - The method performs JavaFX UI operations and uses {@code
+ *   Platform.runLater} for scene-dependent bindings; callers should invoke
+ *   it from the FX thread or accept that the helper will schedule UI work.
+ * - The method writes to the scene graph (adds/removes nodes) and therefore
+ *   may throw runtime exceptions in restricted environments; it swallows
+ *   many exceptions to remain resilient but does print stack traces on
+ *   unexpected errors.
  */
 public class MainMenuHandlingSettings {
     public int settingArrMs = 50;
@@ -25,8 +44,23 @@ public class MainMenuHandlingSettings {
     public boolean settingHardDropEnabled = true;
 
     /**
-     * Show the handling overlay. On Save the provided `onSave` will be called
-     * with a MainMenuHandlingSettings instance containing the chosen values.
+     * Display the handling settings overlay and invoke {@code onSave} when the
+     * user presses Save.
+     *
+     * @param loaderClassLoader class loader used to locate FXML/resources
+     * @param arrMs initial auto-repeat rate (ms)
+     * @param dasMs initial DAS (ms)
+     * @param dcdMs initial DCD (ms)
+     * @param sdf initial soft-drop factor (multiplier)
+     * @param hardDropEnabled initial hard-drop enabled flag
+     * @param rootStack root {@link StackPane} where the overlay will be added
+     * @param settingsOptions the settings pane to hide while the overlay is shown
+     * @param onSave callback invoked with chosen settings when Save is pressed
+     *               (may be {@code null})
+     * @param closeOverlayCaller function used to close the overlay with an
+     *                          animation: {@code (overlay, onFinished)}
+     * @param transitionCaller function used to run the opening transition for
+     *                         the overlay: {@code (overlay)}
      */
     public void showHandlingControls(ClassLoader loaderClassLoader,
                                      int arrMs, int dasMs, int dcdMs, double sdf, boolean hardDropEnabled,

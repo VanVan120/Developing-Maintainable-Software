@@ -20,6 +20,19 @@ import javafx.scene.media.MediaPlayer;
 import javafx.scene.media.MediaView;
 import javafx.scene.layout.StackPane;
 
+/**
+ * Controller for the application's main menu UI.
+ *
+ * <p>This class wires the main menu FXML controls to application actions
+ * (start game, open overlays for controls/handling/audio, switch scenes).
+ * It delegates heavy-lifting to helper classes in this package and uses
+ * {@link MainMenuPreferences} to persist user settings.
+ *
+ * <p>Threading: UI mutations are performed on the JavaFX application
+ * thread; long-running or blocking work must not be added here. The
+ * controller tolerates missing resources and swallows many exceptions to
+ * preserve UI responsiveness.
+ */
 public class MainMenuController {
 
     @FXML private ImageView bgImage;
@@ -77,6 +90,14 @@ public class MainMenuController {
     private KeyCode mpRight_hard = null;
     private KeyCode mpRight_switch = null;
     
+    /**
+     * Initialize the main menu controller.
+     *
+     * <p>This method delegates initialization to {@link MainMenuInitializer}
+     * which loads resources, registers audio listeners and wires button
+     * behaviours. Callers (the FXML loader) invoke this automatically when
+     * the controller is created.
+     */
     public void initialize() {
         MainMenuInitializer.Result r = MainMenuInitializer.initialize(
                 this::loadHandlingSettings,
@@ -239,6 +260,13 @@ public class MainMenuController {
         try { audioManager.stopAndDisposeMusic(); } catch (Exception ignored) {}
     }
 
+    /**
+     * Release UI and media resources held by this controller.
+     *
+     * <p>This method is safe to call multiple times (idempotent). It stops
+     * and disposes media players, clears image references and removes event
+     * handlers from buttons to help GC when the scene is replaced.
+     */
     public void cleanup() {
         try { audioManager.cleanup(); } catch (Exception ignored) {}
         try {

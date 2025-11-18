@@ -41,6 +41,16 @@ public class MainMenuInitializer {
         public String menuMediaUrl;
     }
 
+    /**
+     * Initialize the main menu view and behaviour.
+     *
+     * <p>The method centralizes loading resources, wiring button behaviour,
+     * creating helpers (overlay, media, effects) and registering audio
+     * listeners. It returns a {@link Result} object containing helpers and
+     * metadata the caller should retain and apply to the controller.
+     *
+     * @return a {@link Result} instance with prepared helpers and menu state
+     */
     public static Result initialize(
             Runnable loadHandlingSettings,
             Runnable loadControlSettings,

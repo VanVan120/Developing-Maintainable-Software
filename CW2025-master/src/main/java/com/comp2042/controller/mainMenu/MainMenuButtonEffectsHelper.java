@@ -8,7 +8,20 @@ import javafx.scene.effect.DropShadow;
 import javafx.scene.input.MouseEvent;
 import javafx.util.Duration;
 
+/**
+ * Provides visual hover animations and sound wiring for menu buttons.
+ *
+ * <p>Small utility used by {@link MainMenuInitializer} to keep UI polish
+ * behaviour centrally defined.
+ */
 public class MainMenuButtonEffectsHelper {
+    /**
+     * Attach a subtle translation and drop-shadow animation to the given
+     * button when the mouse enters/exits.
+     *
+     * @param b the button to enhance; ignored if {@code null}
+     * @param expansion horizontal translate distance (px) applied on hover
+     */
     public void attachHoverEffects(Button b, double expansion) {
         if (b == null) return;
         Duration dur = Duration.millis(140);
@@ -57,6 +70,13 @@ public class MainMenuButtonEffectsHelper {
         });
     }
 
+    /**
+     * Wire mouse-enter/press/action events to the provided
+     * {@link MainMenuAudioManager} so hover and click sounds are played.
+     *
+     * @param btn target button (ignored if {@code null})
+     * @param audioManager audio manager used to play hover/click sounds
+     */
     public void attachButtonSoundHandlers(Button btn, MainMenuAudioManager audioManager) {
         if (btn == null) return;
         try {

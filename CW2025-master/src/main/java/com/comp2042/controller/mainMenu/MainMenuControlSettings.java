@@ -2,6 +2,12 @@ package com.comp2042.controller.mainMenu;
 
 import javafx.scene.input.KeyCode;
 
+/**
+ * Simple data holder for control key bindings used by the main menu.
+ *
+ * <p>Fields are publicly mutable for easy copy/assign semantics when loading
+ * and saving preferences. A {@code null} KeyCode indicates "no binding".
+ */
 public class MainMenuControlSettings {
     public KeyCode spLeft;
     public KeyCode spRight;
