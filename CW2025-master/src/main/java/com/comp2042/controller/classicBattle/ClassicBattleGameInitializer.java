@@ -20,6 +20,16 @@ import com.comp2042.controller.gameControl.GameController;
  */
 public final class ClassicBattleGameInitializer {
 
+    /**
+     * Initialize the two game panels used by ClassicBattle and wire their
+     * controllers, GUI instances and preview behaviour back to the owner.
+     *
+     * @param owner the owning {@link ClassicBattle} instance that will receive
+     *              references to the created GUI and controller objects
+     * @param leftSwap optional swap key for the left player (may be {@code null})
+     * @param rightSwap optional swap key for the right player (may be {@code null})
+     * @throws IOException when the game layout FXML cannot be loaded
+     */
     public void initialize(ClassicBattle owner, javafx.scene.input.KeyCode leftSwap, javafx.scene.input.KeyCode rightSwap) throws IOException {
         URL gameLayout = owner.getClass().getClassLoader().getResource("gameLayout.fxml");
         FXMLLoader leftLoader = new FXMLLoader(gameLayout);

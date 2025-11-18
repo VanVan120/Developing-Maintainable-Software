@@ -33,7 +33,14 @@ public final class ClassicBattleOverlayFactory {
     }
 
     /**
-     * Build the controls overlay. Returns a StackPane ready to add to a Pane root, or null on failure.
+     * Build the controls overlay and wire the controls panels for both
+     * players. The returned {@link StackPane} is ready to be attached to a
+     * scene root; {@code null} is returned on failure.
+     *
+     * @param scene the scene to use for sizing and style resolution
+     * @param leftGui left player's GUI controller
+     * @param rightGui right player's GUI controller
+     * @return an overlay {@link StackPane} or {@code null} on failure
      */
     public StackPane createControlsOverlay(Scene scene, GuiController leftGui, GuiController rightGui) {
         if (scene == null) return null;

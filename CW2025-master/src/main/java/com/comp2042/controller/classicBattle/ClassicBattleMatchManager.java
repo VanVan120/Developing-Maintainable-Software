@@ -37,6 +37,12 @@ public class ClassicBattleMatchManager {
         this.showWinnerOverlay = showWinnerOverlay;
     }
 
+    /**
+     * Register listeners on both GUI controllers to detect game-over events.
+     * When a game-over is observed the manager will coordinate stopping the
+     * preview, invoking audio hooks and showing the winner overlay via the
+     * provided {@code showWinnerOverlay} callback.
+     */
     public void registerListeners() {
         try {
             if (leftGui != null) {
@@ -72,6 +78,10 @@ public class ClassicBattleMatchManager {
         } catch (Exception ignored) {}
     }
 
+    /**
+     * Trigger a match restart by invoking the configured restart action and
+     * clearing the internal match-ended flag.
+     */
     public void restartMatch() {
         try {
             if (restartAction != null) restartAction.run();
@@ -85,4 +95,5 @@ public class ClassicBattleMatchManager {
     public void clearMatchEnded() {
         this.matchEnded = false;
     }
+
 }

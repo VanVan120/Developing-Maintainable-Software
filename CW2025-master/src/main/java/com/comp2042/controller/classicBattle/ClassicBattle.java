@@ -21,6 +21,14 @@ import com.comp2042.controller.guiControl.GuiController;
 import java.util.logging.Logger;
 import java.util.logging.Level;
 
+/**
+ * Controller for the Classic Battle multiplayer UI.
+ *
+ * <p>This controller wires two game panels for local multiplayer battle mode,
+ * coordinates preview and audio services, and manages overlays (controls,
+ * winner screens). Most methods are tolerant to missing resources and
+ * perform UI work on the JavaFX application thread when required.
+ */
 public class ClassicBattle implements Initializable {
 
     @FXML StackPane leftHolder;
@@ -47,6 +55,12 @@ public class ClassicBattle implements Initializable {
     private javafx.animation.Animation activePulse = null;
     private static final Logger LOGGER = Logger.getLogger(ClassicBattle.class.getName());
 
+    /**
+     * Run the given Runnable and log any exception at a fine level.
+     *
+     * @param r runnable to execute
+     * @param ctx short context message used for logging when exceptions occur
+     */
     private static void safeRun(Runnable r, String ctx) {
         try {
             r.run();
@@ -55,6 +69,10 @@ public class ClassicBattle implements Initializable {
         }
     }
 
+    /**
+     * Run the given Runnable on the JavaFX Application Thread, catching and
+     * logging exceptions via {@link #safeRun}.
+     */
     private void safeRunLater(Runnable r, String ctx) {
         javafx.application.Platform.runLater(() -> safeRun(r, ctx));
     }
@@ -62,7 +80,10 @@ public class ClassicBattle implements Initializable {
     private MediaPlayer stopAndDispose(MediaPlayer p) {
         return ClassicBattleAudioHelper.stopAndDispose(p);
     }
-
+    /**
+     * Ensure the classic-battle stylesheet is added to the scene if not
+     * already present.
+     */
     void ensureClassicStylesheet(Scene scene) {
         if (scene == null) return;
         try {
@@ -71,6 +92,11 @@ public class ClassicBattle implements Initializable {
         } catch (Exception ignored) {}
     }
 
+    /**
+     * Hide embedded UI elements (pause button, next-box frames) inside the
+     * loaded game layout to avoid duplicate controls when embedding the
+     * game panel inside Classic Battle.
+     */
     void hideEmbeddedUi(Parent root) {
         try {
             if (root == null) return;
@@ -85,6 +111,11 @@ public class ClassicBattle implements Initializable {
         }
     }
 
+    /**
+     * JavaFX {@link Initializable} callback. Performs lightweight setup such
+     * as wiring the back button handler and loading fonts/styles used by the
+     * Classic Battle UI.
+     */
     @Override
     public void initialize(URL location, ResourceBundle resources) {
         if (backBtn != null) {
@@ -115,6 +146,11 @@ public class ClassicBattle implements Initializable {
         } catch (Exception ignored) {}
     }
 
+    /**
+     * Restart the current match: stop audio/preview, reset controllers and
+     * GUI state and re-start the preview and countdowns. This method runs its
+     * work on the JavaFX Application Thread.
+     */
     public void restartMatch() {
         safeRunLater(() -> {
             try {
@@ -147,6 +183,13 @@ public class ClassicBattle implements Initializable {
         }, "restartMatch");
     }
 
+    /**
+     * Initialize both game panels with controllers, previews and audio.
+     *
+     * @param leftSwap  optional key binding used for the left player's swap action
+     * @param rightSwap optional key binding used for the right player's swap action
+     * @throws IOException when loading the game layout FXML fails
+     */
     public void initBothGames(javafx.scene.input.KeyCode leftSwap, javafx.scene.input.KeyCode rightSwap) throws IOException {
         new ClassicBattleGameInitializer().initialize(this, leftSwap, rightSwap);
         try {
@@ -231,6 +274,11 @@ public class ClassicBattle implements Initializable {
         } catch (Exception ignored) {}
     }
 
+    /**
+     * Handler invoked when the back button is pressed. Returns the user to
+     * the main menu and performs cleanup of ClassicBattle state (stopping
+     * preview and audio).
+     */
     private void onBack(ActionEvent ev) {
         try {
             URL loc = getClass().getClassLoader().getResource("mainMenu.fxml");

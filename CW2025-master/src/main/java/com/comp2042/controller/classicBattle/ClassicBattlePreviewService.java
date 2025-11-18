@@ -71,10 +71,17 @@ public class ClassicBattlePreviewService {
     }
 
     public void pause() {
+        /**
+         * Pause the preview update timeline.
+         */
         if (poller != null) poller.pause();
     }
 
     public void play() {
+        /**
+         * Resume preview updates. If the service was stopped it will be
+         * (re)started.
+         */
         if (poller != null) {
             try { poller.play(); } catch (Exception ignored) {}
         } else {
@@ -83,6 +90,9 @@ public class ClassicBattlePreviewService {
     }
 
     public void stop() {
+        /**
+         * Stop the preview service and release its timeline.
+         */
         if (poller != null) {
             try { poller.stop(); } catch (Exception ignored) {}
             poller = null;
