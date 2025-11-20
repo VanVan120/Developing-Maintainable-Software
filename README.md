@@ -84,7 +84,7 @@ mvnw.cmd javafx:run
 
 <div align="center">
 
-**🎉 11 Core Features Fully Functional! 🎉**
+**🎉 13 Core Features Fully Functional! 🎉**
 
 </div>
 
@@ -149,7 +149,31 @@ The following features are fully implemented and verified to be working:
 
 **🎨 Each Mode Features:** Dedicated controllers, unique previews, and specialized match logic.
 
-#### ⚙️ 4. Settings (Key Configuration, Handling, Sound)
+#### 🎯 4. Ghost Brick Preview
+
+> **👻 Visual Guide:** See exactly where your brick will land!
+
+**Ghost Brick System:**
+- 🔮 **Real-Time Preview:** Translucent ghost brick shows final landing position
+- 🎨 **Smart Rendering:** Ghost updates instantly as you move pieces horizontally
+- 🧮 **Collision Detection:** Uses advanced `intersectForGhost` algorithm to calculate drop position
+- 🎮 **Available Everywhere:** Works in all singleplayer and multiplayer modes
+
+**🏗️ Technical Implementation:** The `BoardView` class handles ghost rendering by calculating the lowest valid position using `MatrixOperations.intersectForGhost()`, ensuring accurate preview even with complex board states.
+
+#### 🎲 5. Fair Randomization (7-Bag Algorithm)
+
+> **🎰 True Randomness with Fairness:** No more endless waits for that I-piece!
+
+**7-Bag System:**
+- 🎒 **Bag-Based Distribution:** Each of the 7 brick types appears exactly once per bag
+- 🔀 **Shuffled Order:** Pieces are randomly shuffled within each bag for unpredictability
+- ✅ **Guaranteed Variety:** You'll never go more than 12 pieces without seeing any specific brick
+- 📊 **Statistical Balance:** Prevents frustrating droughts and ensures fair gameplay
+
+**🏗️ Professional Implementation:** The `RandomBrickGenerator` class maintains an internal shuffled bag buffer (configurable `BUFFER_SIZE`), providing stable preview via `getUpcomingBricks()` while ensuring statistically balanced piece distribution.
+
+#### ⚙️ 6. Settings (Key Configuration, Handling, Sound)
 
 <table>
 <tr>
@@ -166,7 +190,7 @@ The following features are fully implemented and verified to be working:
 
 **💾 Persistent Settings:** All preferences automatically saved for your next session.
 
-#### 🎵 5. Music & Sound Effects
+#### 🎵 7. Music & Sound Effects
 
 > **🎧 Immersive Audio:** Every action has a satisfying sound!
 
@@ -177,7 +201,7 @@ The following features are fully implemented and verified to be working:
 
 **🏗️ Professional Architecture:** Factory pattern implementation with real-time volume binding.
 
-#### ✨ 6. Animations & Visual Effects
+#### ✨ 8. Animations & Visual Effects
 
 <table>
 <tr>
@@ -194,7 +218,7 @@ The following features are fully implemented and verified to be working:
 
 **🎨 Visual Excellence:** Every action is accompanied by stunning visual feedback for maximum satisfaction!
 
-#### 🏁 7. Game Over Screens
+#### 🏁 9. Game Over Screens
 
 **Smart Game Over System:**
 - 📝 Mode-specific messages tailored to your gameplay
@@ -204,7 +228,7 @@ The following features are fully implemented and verified to be working:
 
 **🎯 Polish:** Each game mode features its own customized game over experience.
 
-#### ⏸️ 8. Pause Menu (In-Game Key Configuration)
+#### ⏸️ 10. Pause Menu (In-Game Key Configuration)
 
 > **⚡ Configure on the fly!** No need to return to main menu.
 
@@ -216,7 +240,7 @@ The following features are fully implemented and verified to be working:
 
 **🎯 Availability:** Fully functional in all singleplayer and multiplayer modes.
 
-#### 🎬 9. Main Menu Demo Video
+#### 🎬 11. Main Menu Demo Video
 
 **Interactive Preview System:**
 - 📺 Live gameplay demonstration in main menu
@@ -225,7 +249,7 @@ The following features are fully implemented and verified to be working:
 
 **🎥 Smart Implementation:** Automatic video playback with fallback handling for maximum compatibility.
 
-#### 🖼️ 10. Backgrounds
+#### 🖼️ 12. Backgrounds
 
 **Visual Theming:**
 - 🎨 **Custom Artwork:** Unique background for every mode
@@ -235,7 +259,7 @@ The following features are fully implemented and verified to be working:
 
 **🎯 Design Philosophy:** Form meets function with beautiful, readable backgrounds.
 
-#### 🛡️ 11. Error Handling (Input Validation)
+#### 🛡️ 13. Error Handling (Input Validation)
 
 > **🔒 Rock-Solid Validation:** Never worry about invalid configurations!
 
