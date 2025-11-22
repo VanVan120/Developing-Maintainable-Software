@@ -164,9 +164,26 @@ public final class ClassicBattleGameInitializer {
         owner.rightGui.startCountdown(3);
 
         try {
-            owner.leftGui.setControlKeys(javafx.scene.input.KeyCode.A, javafx.scene.input.KeyCode.D, javafx.scene.input.KeyCode.W, javafx.scene.input.KeyCode.S, javafx.scene.input.KeyCode.SHIFT);
+            java.util.prefs.Preferences prefs = java.util.prefs.Preferences.userNodeForPackage(com.comp2042.controller.mainMenu.MainMenuController.class);
+            
+            javafx.scene.input.KeyCode lLeft = null, lRight = null, lRotate = null, lDown = null, lHard = null;
+            try { String s = prefs.get("mpLeft_left", ""); if (!s.isEmpty()) lLeft = javafx.scene.input.KeyCode.valueOf(s); } catch (Exception ignored) {}
+            try { String s = prefs.get("mpLeft_right", ""); if (!s.isEmpty()) lRight = javafx.scene.input.KeyCode.valueOf(s); } catch (Exception ignored) {}
+            try { String s = prefs.get("mpLeft_rotate", ""); if (!s.isEmpty()) lRotate = javafx.scene.input.KeyCode.valueOf(s); } catch (Exception ignored) {}
+            try { String s = prefs.get("mpLeft_down", ""); if (!s.isEmpty()) lDown = javafx.scene.input.KeyCode.valueOf(s); } catch (Exception ignored) {}
+            try { String s = prefs.get("mpLeft_hard", ""); if (!s.isEmpty()) lHard = javafx.scene.input.KeyCode.valueOf(s); } catch (Exception ignored) {}
+
+            javafx.scene.input.KeyCode rLeft = null, rRight = null, rRotate = null, rDown = null, rHard = null;
+            try { String s = prefs.get("mpRight_left", ""); if (!s.isEmpty()) rLeft = javafx.scene.input.KeyCode.valueOf(s); } catch (Exception ignored) {}
+            try { String s = prefs.get("mpRight_right", ""); if (!s.isEmpty()) rRight = javafx.scene.input.KeyCode.valueOf(s); } catch (Exception ignored) {}
+            try { String s = prefs.get("mpRight_rotate", ""); if (!s.isEmpty()) rRotate = javafx.scene.input.KeyCode.valueOf(s); } catch (Exception ignored) {}
+            try { String s = prefs.get("mpRight_down", ""); if (!s.isEmpty()) rDown = javafx.scene.input.KeyCode.valueOf(s); } catch (Exception ignored) {}
+            try { String s = prefs.get("mpRight_hard", ""); if (!s.isEmpty()) rHard = javafx.scene.input.KeyCode.valueOf(s); } catch (Exception ignored) {}
+
+            owner.leftGui.setControlKeys(lLeft != null ? lLeft : javafx.scene.input.KeyCode.A, lRight != null ? lRight : javafx.scene.input.KeyCode.D, lRotate != null ? lRotate : javafx.scene.input.KeyCode.W, lDown != null ? lDown : javafx.scene.input.KeyCode.S, lHard != null ? lHard : javafx.scene.input.KeyCode.SHIFT);
             owner.leftGui.setSwapKey(leftSwap != null ? leftSwap : javafx.scene.input.KeyCode.Q);
-            owner.rightGui.setControlKeys(javafx.scene.input.KeyCode.NUMPAD4, javafx.scene.input.KeyCode.NUMPAD6, javafx.scene.input.KeyCode.NUMPAD8, javafx.scene.input.KeyCode.NUMPAD5, javafx.scene.input.KeyCode.SPACE);
+            
+            owner.rightGui.setControlKeys(rLeft != null ? rLeft : javafx.scene.input.KeyCode.LEFT, rRight != null ? rRight : javafx.scene.input.KeyCode.RIGHT, rRotate != null ? rRotate : javafx.scene.input.KeyCode.UP, rDown != null ? rDown : javafx.scene.input.KeyCode.DOWN, rHard != null ? rHard : javafx.scene.input.KeyCode.SPACE);
             owner.rightGui.setSwapKey(rightSwap != null ? rightSwap : javafx.scene.input.KeyCode.C);
         } catch (Exception ignored) {}
         try {

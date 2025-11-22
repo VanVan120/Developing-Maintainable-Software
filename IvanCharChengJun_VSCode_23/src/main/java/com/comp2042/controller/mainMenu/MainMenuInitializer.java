@@ -117,7 +117,7 @@ public class MainMenuInitializer {
         try { try { if (loadHandlingSettings != null) loadHandlingSettings.run(); } catch (Exception ignored) {} } catch (Exception ignored) {}
         try { try { if (loadControlSettings != null) loadControlSettings.run(); } catch (Exception ignored) {} } catch (Exception ignored) {}
         try {
-            URL bg = MainMenuInitializer.class.getClassLoader().getResource("GUI.gif");
+            URL bg = MainMenuInitializer.class.getResource("/GUI.gif");
             if (bg != null && bgImage != null) bgImage.setImage(new Image(bg.toExternalForm(), true));
         } catch (Exception ignored) {}
     }
@@ -311,14 +311,14 @@ public class MainMenuInitializer {
             scoreBattleBtn.setOnAction(ev -> {
                 try {
                     if (stopMenuMusic != null) stopMenuMusic.run();
-                    URL location = MainMenuInitializer.class.getClassLoader().getResource("scoreBattleLayout.fxml");
+                    URL location = MainMenuInitializer.class.getResource("/scoreBattleLayout.fxml");
                     if (location == null) return;
                     FXMLLoader fxmlLoader = new FXMLLoader(location);
                     Parent root = fxmlLoader.load();
                     com.comp2042.controller.scoreBattle.ScoreBattleController controller = fxmlLoader.getController();
                     Stage stage = (Stage) scoreBattleBtn.getScene().getWindow();
                     try {
-                        URL mpBg = MainMenuInitializer.class.getClassLoader().getResource("Multiplayer.gif");
+                        URL mpBg = MainMenuInitializer.class.getResource("/Multiplayer.gif");
                         if (mpBg != null) root.setStyle("-fx-background-image: url('" + mpBg.toExternalForm() + "'); -fx-background-size: cover; -fx-background-position: center center;");
                     } catch (Exception ignored) {}
                     double w = stage.getWidth(); double h = stage.getHeight(); boolean full = stage.isFullScreen(); boolean max = stage.isMaximized();
@@ -342,14 +342,14 @@ public class MainMenuInitializer {
             classicBattleBtn.setOnAction(ev -> {
                 try {
                     if (stopMenuMusic != null) stopMenuMusic.run();
-                    URL location = MainMenuInitializer.class.getClassLoader().getResource("classicBattleLayout.fxml");
+                    URL location = MainMenuInitializer.class.getResource("/classicBattleLayout.fxml");
                     if (location == null) return;
                     FXMLLoader fxmlLoader = new FXMLLoader(location);
                     Parent root = fxmlLoader.load();
                     com.comp2042.controller.classicBattle.ClassicBattle controller = fxmlLoader.getController();
                     Stage stage = (Stage) classicBattleBtn.getScene().getWindow();
                     try {
-                        URL mpBg = MainMenuInitializer.class.getClassLoader().getResource("Multiplayer.gif");
+                        URL mpBg = MainMenuInitializer.class.getResource("/Multiplayer.gif");
                         if (mpBg != null) root.setStyle("-fx-background-image: url('" + mpBg.toExternalForm() + "'); -fx-background-size: cover; -fx-background-position: center center;");
                     } catch (Exception ignored) {}
                     double w = stage.getWidth(); double h = stage.getHeight(); boolean full = stage.isFullScreen(); boolean max = stage.isMaximized();
@@ -373,7 +373,7 @@ public class MainMenuInitializer {
             cooperateBattleBtn.setOnAction(ev -> {
                 try {
                     if (stopMenuMusic != null) stopMenuMusic.run();
-                    URL location = MainMenuInitializer.class.getClassLoader().getResource("gameLayout.fxml");
+                    URL location = MainMenuInitializer.class.getResource("/gameLayout.fxml");
                     if (location == null) return;
                     FXMLLoader fxmlLoader = new FXMLLoader(location);
                     CoopGuiController coopGui = new CoopGuiController();
@@ -384,7 +384,7 @@ public class MainMenuInitializer {
                     Parent root = fxmlLoader.load();
                     Stage stage = (Stage) cooperateBattleBtn.getScene().getWindow();
                     double w = stage.getWidth(); double h = stage.getHeight(); boolean full = stage.isFullScreen(); boolean max = stage.isMaximized();
-                    try { URL mpBg = MainMenuInitializer.class.getClassLoader().getResource("Multiplayer.gif"); if (mpBg != null) root.setStyle("-fx-background-image: url('" + mpBg.toExternalForm() + "'); -fx-background-size: cover; -fx-background-position: center center;"); } catch (Exception ignored) {}
+                    try { URL mpBg = MainMenuInitializer.class.getResource("/Multiplayer.gif"); if (mpBg != null) root.setStyle("-fx-background-image: url('" + mpBg.toExternalForm() + "'); -fx-background-size: cover; -fx-background-position: center center;"); } catch (Exception ignored) {}
                     if (stage.getScene() != null) {
                         stage.getScene().setRoot(root);
                         stage.setMaximized(max);
@@ -411,13 +411,13 @@ public class MainMenuInitializer {
             normalBtn.setOnAction(ev -> {
                 try {
                     if (stopMenuMusic != null) stopMenuMusic.run();
-                    URL location = MainMenuInitializer.class.getClassLoader().getResource("gameLayout.fxml");
+                    URL location = MainMenuInitializer.class.getResource("/gameLayout.fxml");
                     FXMLLoader fxmlLoader = new FXMLLoader(location);
                     Parent root = fxmlLoader.load();
                     com.comp2042.controller.guiControl.GuiController controller = fxmlLoader.getController();
                     Stage stage = (Stage) normalBtn.getScene().getWindow();
                     double w = stage.getWidth(); double h = stage.getHeight(); boolean full = stage.isFullScreen(); boolean max = stage.isMaximized();
-                    try { URL normalBg = MainMenuInitializer.class.getClassLoader().getResource("Normal.gif"); if (normalBg != null) root.setStyle("-fx-background-image: url('" + normalBg.toExternalForm() + "'); -fx-background-size: cover; -fx-background-position: center center;"); } catch (Exception ignored) {}
+                    try { URL normalBg = MainMenuInitializer.class.getResource("/Normal.gif"); if (normalBg != null) root.setStyle("-fx-background-image: url('" + normalBg.toExternalForm() + "'); -fx-background-size: cover; -fx-background-position: center center;"); } catch (Exception ignored) {}
                     if (stage.getScene() != null) {
                         stage.getScene().setRoot(root);
                         stage.setMaximized(max);

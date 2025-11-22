@@ -194,10 +194,10 @@ public class ScoreBattleControlsOverlay {
         } catch (Exception ignored) {}
 
         try {
-            rightCC.init(rightGui.getCtrlMoveLeft() != null ? rightGui.getCtrlMoveLeft() : javafx.scene.input.KeyCode.NUMPAD4,
-                         rightGui.getCtrlMoveRight() != null ? rightGui.getCtrlMoveRight() : javafx.scene.input.KeyCode.NUMPAD6,
-                         rightGui.getCtrlRotate() != null ? rightGui.getCtrlRotate() : javafx.scene.input.KeyCode.NUMPAD8,
-                         rightGui.getCtrlSoftDrop() != null ? rightGui.getCtrlSoftDrop() : javafx.scene.input.KeyCode.NUMPAD5,
+            rightCC.init(rightGui.getCtrlMoveLeft() != null ? rightGui.getCtrlMoveLeft() : javafx.scene.input.KeyCode.LEFT,
+                         rightGui.getCtrlMoveRight() != null ? rightGui.getCtrlMoveRight() : javafx.scene.input.KeyCode.RIGHT,
+                         rightGui.getCtrlRotate() != null ? rightGui.getCtrlRotate() : javafx.scene.input.KeyCode.UP,
+                         rightGui.getCtrlSoftDrop() != null ? rightGui.getCtrlSoftDrop() : javafx.scene.input.KeyCode.DOWN,
                          rightGui.getCtrlHardDrop() != null ? rightGui.getCtrlHardDrop() : javafx.scene.input.KeyCode.SPACE,
                          rightGui.getCtrlSwap() != null ? rightGui.getCtrlSwap() : javafx.scene.input.KeyCode.C);
 

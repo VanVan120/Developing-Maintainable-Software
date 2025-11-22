@@ -334,7 +334,7 @@ public class MainMenuController {
         try {
             MainMenuPreferences mmp = new MainMenuPreferences();
             MainMenuHandlingSettings hs = mmp.loadHandlingSettings();
-            settingArrMs = hs.settingArrMs; settingDasMs = hs.settingDasMs; settingDcdMs = hs.settingDcdMs; settingSdf = hs.settingSdf; settingHardDropEnabled = hs.settingHardDropEnabled;
+            settingArrMs = hs.settingArrMs; settingDasMs = hs.settingDasMs; settingDcdMs = hs.settingDcdMs; settingSdf = hs.settingSdf; settingHardDropEnabled = true;
         } catch (Exception ex) {
             try { System.err.println("Failed to load handling settings: " + ex.getMessage()); } catch (Exception ignored) {}
         }

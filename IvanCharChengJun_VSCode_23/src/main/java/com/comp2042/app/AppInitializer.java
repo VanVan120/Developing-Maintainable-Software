@@ -50,7 +50,7 @@ public class AppInitializer {
      *                   perform thread switching)
      */
     public void initialize(Stage primaryStage) throws Exception {
-        final String MAIN_FXML = "mainMenu.fxml";
+        final String MAIN_FXML = "/mainMenu.fxml";
         final String MENU_CSS = "css/menu.css";
 
         Parent root = loadRoot(MAIN_FXML);

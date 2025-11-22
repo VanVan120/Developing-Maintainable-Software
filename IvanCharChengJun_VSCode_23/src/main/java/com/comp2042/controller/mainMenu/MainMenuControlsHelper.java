@@ -174,8 +174,9 @@ public class MainMenuControlsHelper {
             btnReset.setOnAction(ev -> {
                 try {
                     cc1.init(KeyCode.A, KeyCode.D, KeyCode.W, KeyCode.S, KeyCode.SHIFT, KeyCode.Q);
-                    try { cc1.setDefaultKeys(KeyCode.A, KeyCode.D, KeyCode.W, KeyCode.S, KeyCode.SHIFT, KeyCode.C); } catch (Exception ignored) {}
-                    cc2.init(null, null, null, null, null);
+                    try { cc1.setDefaultKeys(KeyCode.A, KeyCode.D, KeyCode.W, KeyCode.S, KeyCode.SHIFT, KeyCode.Q); } catch (Exception ignored) {}
+                    cc2.init(KeyCode.LEFT, KeyCode.RIGHT, KeyCode.UP, KeyCode.DOWN, KeyCode.SPACE, KeyCode.C);
+                    try { cc2.setDefaultKeys(KeyCode.LEFT, KeyCode.RIGHT, KeyCode.UP, KeyCode.DOWN, KeyCode.SPACE, KeyCode.C); } catch (Exception ignored) {}
                 } catch (Exception ignored) {}
             });
 

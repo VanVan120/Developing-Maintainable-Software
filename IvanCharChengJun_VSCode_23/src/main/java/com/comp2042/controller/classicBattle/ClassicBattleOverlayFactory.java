@@ -172,10 +172,10 @@ public final class ClassicBattleOverlayFactory {
         if (cc == null || gui == null) return;
         try {
             cc.init(
-                    gui.getCtrlMoveLeft() != null ? gui.getCtrlMoveLeft() : (isLeft ? javafx.scene.input.KeyCode.A : javafx.scene.input.KeyCode.NUMPAD4),
-                    gui.getCtrlMoveRight() != null ? gui.getCtrlMoveRight() : (isLeft ? javafx.scene.input.KeyCode.D : javafx.scene.input.KeyCode.NUMPAD6),
-                    gui.getCtrlRotate() != null ? gui.getCtrlRotate() : (isLeft ? javafx.scene.input.KeyCode.W : javafx.scene.input.KeyCode.NUMPAD8),
-                    gui.getCtrlSoftDrop() != null ? gui.getCtrlSoftDrop() : (isLeft ? javafx.scene.input.KeyCode.S : javafx.scene.input.KeyCode.NUMPAD5),
+                    gui.getCtrlMoveLeft() != null ? gui.getCtrlMoveLeft() : (isLeft ? javafx.scene.input.KeyCode.A : javafx.scene.input.KeyCode.LEFT),
+                    gui.getCtrlMoveRight() != null ? gui.getCtrlMoveRight() : (isLeft ? javafx.scene.input.KeyCode.D : javafx.scene.input.KeyCode.RIGHT),
+                    gui.getCtrlRotate() != null ? gui.getCtrlRotate() : (isLeft ? javafx.scene.input.KeyCode.W : javafx.scene.input.KeyCode.UP),
+                    gui.getCtrlSoftDrop() != null ? gui.getCtrlSoftDrop() : (isLeft ? javafx.scene.input.KeyCode.S : javafx.scene.input.KeyCode.DOWN),
                     gui.getCtrlHardDrop() != null ? gui.getCtrlHardDrop() : (isLeft ? javafx.scene.input.KeyCode.SHIFT : javafx.scene.input.KeyCode.SPACE),
                     gui.getCtrlSwap() != null ? gui.getCtrlSwap() : (isLeft ? javafx.scene.input.KeyCode.Q : javafx.scene.input.KeyCode.C)
             );
@@ -192,7 +192,7 @@ public final class ClassicBattleOverlayFactory {
             if (left) {
                 cc.setDefaultKeys(javafx.scene.input.KeyCode.A, javafx.scene.input.KeyCode.D, javafx.scene.input.KeyCode.W, javafx.scene.input.KeyCode.S, javafx.scene.input.KeyCode.SHIFT, javafx.scene.input.KeyCode.Q);
             } else {
-                cc.setDefaultKeys(javafx.scene.input.KeyCode.NUMPAD4, javafx.scene.input.KeyCode.NUMPAD6, javafx.scene.input.KeyCode.NUMPAD8, javafx.scene.input.KeyCode.NUMPAD5, javafx.scene.input.KeyCode.SPACE, javafx.scene.input.KeyCode.NUMPAD7);
+                cc.setDefaultKeys(javafx.scene.input.KeyCode.LEFT, javafx.scene.input.KeyCode.RIGHT, javafx.scene.input.KeyCode.UP, javafx.scene.input.KeyCode.DOWN, javafx.scene.input.KeyCode.SPACE, javafx.scene.input.KeyCode.C);
             }
         } catch (Exception ex) {
             LOGGER.log(Level.FINER, "setDefaultKeys failed", ex);

@@ -311,8 +311,8 @@ public final class ScoreBattleInitializer {
             leftGui.setControlKeys(lLeft != null ? lLeft : KeyCode.A, lRight != null ? lRight : KeyCode.D, lRotate != null ? lRotate : KeyCode.W, lDown != null ? lDown : KeyCode.S, lHard != null ? lHard : KeyCode.SHIFT);
             leftGui.setSwapKey(leftSwap != null ? leftSwap : KeyCode.Q);
 
-            rightGui.setControlKeys(rLeft != null ? rLeft : KeyCode.NUMPAD4, rRight != null ? rRight : KeyCode.NUMPAD6, rRotate != null ? rRotate : KeyCode.NUMPAD8, rDown != null ? rDown : KeyCode.NUMPAD5, rHard != null ? rHard : KeyCode.SPACE);
-            rightGui.setSwapKey(rightSwap != null ? rightSwap : KeyCode.C);
+                rightGui.setControlKeys(rLeft != null ? rLeft : KeyCode.LEFT, rRight != null ? rRight : KeyCode.RIGHT, rRotate != null ? rRotate : KeyCode.UP, rDown != null ? rDown : KeyCode.DOWN, rHard != null ? rHard : KeyCode.SPACE);
+                rightGui.setSwapKey(rightSwap != null ? rightSwap : KeyCode.C);
         } catch (Exception ignored) {}
 
         // Start countdowns on both embedded GUIs so they show the 3-2-1 effect and

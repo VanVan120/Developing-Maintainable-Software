@@ -189,11 +189,11 @@ public class GuiController implements Initializable {
 
     // Configure initial key mappings on the ControlsController
     void configureControlsController(ControlsController cc) {
-        KeyCode left = ctrlMoveLeft != null ? ctrlMoveLeft : KeyCode.A;
-        KeyCode right = ctrlMoveRight != null ? ctrlMoveRight : KeyCode.D;
-        KeyCode rotate = ctrlRotate != null ? ctrlRotate : KeyCode.W;
-        KeyCode down = ctrlSoftDrop != null ? ctrlSoftDrop : KeyCode.S;
-        KeyCode hard = ctrlHardDrop != null ? ctrlHardDrop : KeyCode.SHIFT;
+        KeyCode left = ctrlMoveLeft != null ? ctrlMoveLeft : KeyCode.LEFT;
+        KeyCode right = ctrlMoveRight != null ? ctrlMoveRight : KeyCode.RIGHT;
+        KeyCode rotate = ctrlRotate != null ? ctrlRotate : KeyCode.UP;
+        KeyCode down = ctrlSoftDrop != null ? ctrlSoftDrop : KeyCode.DOWN;
+        KeyCode hard = ctrlHardDrop != null ? ctrlHardDrop : KeyCode.SPACE;
         KeyCode sw = ctrlSwap != null ? ctrlSwap : KeyCode.C;
         cc.init(left, right, rotate, down, hard, sw);
         try {
@@ -202,14 +202,14 @@ public class GuiController implements Initializable {
                     cc.setDefaultKeys(KeyCode.A, KeyCode.D, KeyCode.W, KeyCode.S, KeyCode.SHIFT, KeyCode.Q);
                     cc.setHeaderText("Left Player Controls");
                 } else if ("right".equalsIgnoreCase(multiplayerPlayerId)) {
-                    cc.setDefaultKeys(KeyCode.NUMPAD4, KeyCode.NUMPAD6, KeyCode.NUMPAD8, KeyCode.NUMPAD5, KeyCode.SPACE, KeyCode.C);
+                    cc.setDefaultKeys(KeyCode.LEFT, KeyCode.RIGHT, KeyCode.UP, KeyCode.DOWN, KeyCode.SPACE, KeyCode.C);
                     cc.setHeaderText("Right Player Controls");
                 } else {
-                    cc.setDefaultKeys(KeyCode.A, KeyCode.D, KeyCode.W, KeyCode.S, KeyCode.SHIFT, KeyCode.C);
+                    cc.setDefaultKeys(KeyCode.LEFT, KeyCode.RIGHT, KeyCode.UP, KeyCode.DOWN, KeyCode.SPACE, KeyCode.C);
                     cc.setHeaderText("In-Game Controls");
                 }
             } else {
-                cc.setDefaultKeys(KeyCode.A, KeyCode.D, KeyCode.W, KeyCode.S, KeyCode.SHIFT, KeyCode.C);
+                cc.setDefaultKeys(KeyCode.LEFT, KeyCode.RIGHT, KeyCode.UP, KeyCode.DOWN, KeyCode.SPACE, KeyCode.C);
                 cc.setHeaderText("In-Game Controls");
             }
         } catch (Exception ignored) {}
