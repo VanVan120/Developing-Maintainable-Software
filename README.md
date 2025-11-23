@@ -23,12 +23,12 @@
 
 | Section | Description |
 |---------|-------------|
-| 🚀 [**Compilation Instructions**](#compilation-instructions) | Quick setup guide to get you started |
-| ✨ [**Features Status**](#features-status) | Complete feature breakdown and implementation status |
-| 🆕 [**New Java Classes**](#new-java-classes) | Comprehensive list of all new classes introduced |
-| 🔧 [**Modified Java Classes**](#modified-java-classes) | Documentation of refactored components |
-| ⚠️ [**Known Issues**](#known-issues) | Transparency about current limitations |
-| 🛠️ [**Unexpected Problems**](#unexpected-problems) | Deep dive into challenges and solutions |
+| 🚀 [**Compilation Instructions**](#-compilation-instructions) | Quick setup guide to get you started |
+| ✨ [**Features Status**](#-features-status) | Complete feature breakdown and implementation status |
+| 🆕 [**New Java Classes**](#-new-java-classes) | Comprehensive list of all new classes introduced |
+| 🔧 [**Modified Java Classes**](#-modified-java-classes) | Documentation of refactored components |
+| ⚠️ [**Known Issues**](#-known-issues) | Transparency about current limitations |
+| 🛠️ [**Unexpected Problems**](#-unexpected-problems) | Deep dive into challenges and solutions |
 
 ---
 
