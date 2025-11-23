@@ -27,8 +27,8 @@
 | ✨ [**Features Status**](#-features-status) | Complete feature breakdown and implementation status |
 | 🆕 [**New Java Classes**](#-new-java-classes) | Comprehensive list of all new classes introduced |
 | 🔧 [**Modified Java Classes**](#-modified-java-classes) | Documentation of refactored components |
-| ⚠️ [**Known Issues**](#-known-limitation) | Transparency about current limitations |
-| 🛠️ [**Unexpected Problems**](#-unexpected-problems) | Deep dive into challenges and solutions |
+| ⚠️ [**Known Issues**](#known-issues) | Transparency about current limitations |
+| 🛠️ [**Unexpected Problems**](#unexpected-problems) | Deep dive into challenges and solutions |
 
 ---
 
@@ -279,6 +279,8 @@ The following features are fully implemented and verified to be working:
 **✅ Comprehensive Protection:** Every input is validated to ensure a smooth, error-free experience.
 
 ---
+
+<div id="known-issues"></div>
 
 ### ⚠️ Implemented but Not Working Properly
 
@@ -625,6 +627,8 @@ The following classes were modified from the original provided codebase:
 | `NotificationPanel` | `src/main/java/com/comp2042/view/NotificationPanel.java` | Small transient notification BorderPane used to show score/bonus messages; uses translate+fade animations, schedules removal via Platform.runLater for UI-thread safety and logs animation/play/remove failures to avoid uncaught exceptions |
 
 ---
+
+<div id="unexpected-problems"></div>
 
 ## 🛠️ Unexpected Problems
 
