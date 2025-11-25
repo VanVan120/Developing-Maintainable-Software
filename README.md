@@ -61,10 +61,10 @@ The recommended method to run the application is using the Maven Wrapper on Wind
 
 ```cmd
 # 🧹 Clean and test
-mvnw.cmd clean test
+./mvnw.cmd clean test
 
 # 🎮 Launch the game!
-mvnw.cmd javafx:run
+./mvnw.cmd javafx:run
 ```
 
 **📝 Commands Breakdown:**
