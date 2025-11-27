@@ -94,7 +94,7 @@ The following features are fully implemented and verified to be working:
 
 <table>
 <tr>
-<td width="50%">
+<td width="50%" valign="top">
 
 **Features:**
 - 🎯 Singleplayer mode selection
@@ -102,7 +102,7 @@ The following features are fully implemented and verified to be working:
 - ⚙️ Settings configuration
 
 </td>
-<td width="50%">
+<td width="50%" valign="top">
 
 **Highlights:**
 - Smooth overlay transitions
